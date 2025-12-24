@@ -5,6 +5,9 @@
 /.pnp
 .pnp.js
 
+# Environment Variables (CRITICAL: DO NOT COMMIT CREDENTIALS)
+.env
+
 # testing
 /coverage
 

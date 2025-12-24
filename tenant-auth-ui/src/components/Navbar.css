@@ -1,0 +1,255 @@
+/* src/components/Navbar.css */
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 30px;
+  background-color: #1a202c; /* Dark theme */
+  color: white;
+  height: 64px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.nav-logo {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #63b3ed;
+  cursor: pointer;
+}
+
+.nav-links {
+  display: flex;
+  gap: 25px;
+}
+
+.nav-links a {
+  color: #cbd5e0;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+.nav-links a:hover {
+  color: white;
+}
+
+.profile-zone {
+  position: relative;
+}
+
+.avatar {
+  width: 38px;
+  height: 38px;
+  background-color: #4299e1;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-weight: bold;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: border 0.2s;
+}
+
+.avatar:hover {
+  border-color: #63b3ed;
+}
+
+.dropdown {
+  position: absolute;
+  top: 50px;
+  right: 0;
+  background: white;
+  color: #2d3748;
+  width: 240px;
+  border-radius: 8px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  padding: 15px;
+  border: 1px solid #e2e8f0;
+  z-index: 1000;
+}
+
+.dropdown p {
+  margin: 5px 0;
+  font-size: 0.9rem;
+}
+
+.tid-label {
+  font-family: monospace;
+  background: #edf2f7;
+  padding: 4px 8px;
+  border-radius: 4px;
+  display: block;
+  margin-top: 10px !important;
+  color: #4a5568;
+}
+
+.dropdown hr {
+  margin: 12px 0;
+  border: 0;
+  border-top: 1px solid #e2e8f0;
+}
+
+.dropdown button {
+  width: 100%;
+  padding: 8px;
+  background: #fed7d7;
+  color: #c53030;
+  border: none;
+  border-radius: 4px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.dropdown button:hover {
+  background: #feb2b2;
+}
+
+/* Container for the switcher area */
+.switcher-section {
+  max-height: 150px;
+  overflow-y: auto; /* Scroll if user has many tenants */
+  margin-top: 5px;
+}
+
+.switcher-label {
+  font-size: 10px;
+  font-weight: bold;
+  color: #a0aec0;
+  margin: 8px 15px 4px;
+  text-transform: uppercase;
+}
+
+/* Individual Tenant Row */
+.tenant-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 15px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.2s;
+  color: #4a5568;
+}
+
+.tenant-item:hover {
+  background-color: #f7fafc;
+}
+
+/* Active State (Current Tenant) */
+.tenant-item.active {
+  background-color: #ebf8ff;
+  color: #2b6cb0;
+  font-weight: 600;
+  cursor: default;
+}
+
+.tenant-info {
+  display: flex;
+  align-items: center;
+}
+
+/* Status Dot */
+.tenant-item .dot {
+  width: 6px;
+  height: 6px;
+  background-color: #cbd5e0;
+  border-radius: 50%;
+  margin-right: 8px;
+}
+
+.tenant-item.active .dot {
+  background-color: #4299e1;
+}
+
+/* Admin Badge */
+.admin-badge {
+  font-size: 10px;
+  background-color: #edf2f7;
+  color: #718096;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid #e2e8f0;
+}
+
+/* Dropdown refinements */
+.dropdown {
+  position: absolute;
+  right: 0;
+  top: 60px;
+  background: white;
+  min-width: 240px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  padding: 10px 0;
+  z-index: 1000;
+  border: 1px solid #edf2f7;
+}
+
+.switcher-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #718096;
+  text-transform: uppercase;
+  padding: 8px 16px 4px;
+  letter-spacing: 0.05em;
+}
+
+/* Scroll container if user has 5+ tenants */
+.switcher-scroll-container {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.tenant-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tenant-item:hover {
+  background-color: #f7fafc;
+}
+
+.tenant-item.active {
+  background-color: #ebf8ff;
+  pointer-events: none; /* Can't click active one */
+}
+
+.tenant-info {
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+  color: #4a5568;
+}
+
+.tenant-item.active .tenant-info {
+  color: #2b6cb0;
+  font-weight: 600;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #cbd5e0;
+  margin-right: 10px;
+}
+
+.tenant-item.active .status-dot {
+  background-color: #4299e1;
+}
+
+.admin-badge {
+  font-size: 10px;
+  background: #edf2f7;
+  color: #4a5568;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+}
