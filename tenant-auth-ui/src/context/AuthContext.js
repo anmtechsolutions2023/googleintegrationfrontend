@@ -1,6 +1,14 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import Cookies from 'js-cookie'
+import logger from '../utils/logger'
 import api from '../api/api'
+import {
+  login as authLogin,
+  logout as authLogout,
+  switchTenant as authSwitch,
+} from '../services/authService'
+import { toast } from 'react-toastify'
+import MESSAGES from '../constants/messages'
 
 const AuthContext = createContext(null)
 
@@ -23,34 +31,32 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (googleToken) => {
     try {
-      const res = await api.post('/api/auth/google', { id_token: googleToken })
+      const res = await authLogin(googleToken)
       const { token } = res.data
       Cookies.set('app_token', token, { expires: 1 / 24, secure: false }) // 1 Hour
       const payload = JSON.parse(window.atob(token.split('.')[1]))
       setUser(payload)
       return true
     } catch (err) {
-      // return false
       throw err
     }
   }
 
-  // const logout = () => {
-  //   Cookies.remove('app_token')
-  //   setUser(null)
-  // }
-
   const logout = async () => {
-    // 4. call backend logout endpoint
-    await api.post('/api/logout') // Tell backend to log logout
+    // 1. Attempt backend logout (don't block cleanup if it fails)
+    try {
+      await authLogout()
+    } catch (err) {
+      logger.warn('Backend logout failed:', err)
+    }
 
-    // 1. Clear the cookie
+    // 2. Clear the cookie
     Cookies.remove('app_token')
 
-    // 2. Clear the React state
+    // 3. Clear the React state
     setUser(null)
 
-    // 3. Clear Axios Headers
+    // 4. Clear Axios Headers
     delete api.defaults.headers.common['Authorization']
 
     // // 4. Force Redirect (This fixes the Audit Page issue)
@@ -58,9 +64,9 @@ export const AuthProvider = ({ children }) => {
   }
 
   const switchTenant = async (tenantId) => {
-    console.log('Switching to tenant:', tenantId)
+    logger.debug('Switching to tenant:', tenantId)
     try {
-      const res = await api.post('/api/switch-tenant', { tenantId })
+      const res = await authSwitch(tenantId)
       const { token } = res.data
 
       // Update Cookie
@@ -75,8 +81,8 @@ export const AuthProvider = ({ children }) => {
       // Optional: Redirect to dashboard to refresh all page data for the new tenant
       window.location.href = '/dashboard'
     } catch (err) {
-      console.log('Error switching tenant:', err)
-      toast.error(err.response?.data?.message || 'Failed to switch tenant')
+      logger.error('Error switching tenant:', err)
+      toast.error(err.response?.data?.message || MESSAGES.error.switchTenant)
     }
   }
 

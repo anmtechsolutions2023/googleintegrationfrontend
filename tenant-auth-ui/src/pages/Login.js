@@ -3,6 +3,7 @@ import { GoogleLogin } from '@react-oauth/google'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { toast } from 'react-toastify'
+import MESSAGES from '../constants/messages'
 
 const Login = () => {
   const { login } = useAuth()
@@ -18,7 +19,7 @@ const Login = () => {
       const result = await login(res.credential)
 
       if (result) {
-        toast.success('🚀 Welcome back!')
+        toast.success(MESSAGES.success.welcome)
         navigate(from, { replace: true })
       }
     } catch (error) {
@@ -31,15 +32,15 @@ const Login = () => {
         //   autoClose: 5000,
         //   theme: 'colored',
         // })
-        toast.error(`Auth Error: User does not exist!!!`, {
+        toast.error(MESSAGES.error.userNotExist, {
           position: 'top-center',
           autoClose: 5000,
           theme: 'colored',
         })
       } else if (error.response?.status === 403) {
-        toast.error('User not found in any tenant system.')
+        toast.error(MESSAGES.error.userNotFoundTenant)
       } else {
-        toast.error('An unexpected error occurred.')
+        toast.error(MESSAGES.error.generic)
       }
     }
   }
@@ -74,7 +75,7 @@ const Login = () => {
         <div style={{ display: 'flex', justifyContent: 'center' }}>
           <GoogleLogin
             onSuccess={onSuccess}
-            onError={() => toast.error('Google Sign-In Failed')}
+            onError={() => toast.error(MESSAGES.error.googleSignInFailed)}
             useOneTap={false} // Prevents unexpected popups
           />
         </div>

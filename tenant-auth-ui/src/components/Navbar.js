@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { toast } from 'react-toastify'
+import MESSAGES from '../constants/messages'
 import './Navbar.css'
 
 const Navbar = () => {
@@ -17,7 +18,7 @@ const Navbar = () => {
 
   const handleLogout = () => {
     logout()
-    toast.info('Logged out successfully')
+    toast.info(MESSAGES.success.loggedOut)
     navigate('/login')
   }
 
@@ -31,7 +32,7 @@ const Navbar = () => {
       // Most apps redirect to dashboard on switch to refresh all component data
       navigate('/dashboard')
     } catch (err) {
-      toast.error('Failed to switch tenant')
+      toast.error(MESSAGES.error.switchTenant)
     }
   }
 

@@ -1,15 +1,15 @@
 import React, { useEffect, useState } from 'react'
-import api from '../api/api'
+import { getAdminSettings } from '../services/dataService'
+import logger from '../utils/logger'
 
 const AdminPage = () => {
   const [logs, setLogs] = useState([])
 
   useEffect(() => {
     // This call is protected by backend middleware too!
-    api
-      .get('/api/data/admin/settings')
+    getAdminSettings()
       .then((res) => setLogs(res.data.resource))
-      .catch((err) => console.error('API Error:', err))
+      .catch((err) => logger.error('API Error (admin settings):', err))
   }, [])
 
   return (

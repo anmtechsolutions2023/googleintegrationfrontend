@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react'
-import api from '../api/api'
+import { getAuditLogs } from '../services/dataService'
 import { toast } from 'react-toastify'
+import MESSAGES from '../constants/messages'
+import logger from '../utils/logger'
 
 const AuditLogs = () => {
   const [logs, setLogs] = useState([])
@@ -18,12 +20,13 @@ const AuditLogs = () => {
 
   const fetchLogs = async () => {
     try {
-      const res = await api.get('api/audit/logs')
+      const res = await getAuditLogs()
       setLogs(res.data.logs)
       setFilteredLogs(res.data.logs)
       setLoading(false)
     } catch (err) {
-      toast.error('Failed to load audit logs')
+      logger.error('Failed to load audit logs', err)
+      toast.error(MESSAGES.error.generic)
       setLoading(false)
     }
   }
@@ -57,7 +60,7 @@ const AuditLogs = () => {
   }, [searchTerm, statusFilter, sortOrder, logs])
 
   if (loading)
-    return <div style={{ padding: '20px' }}>Loading Audit Trail...</div>
+    return <div style={{ padding: '20px' }}>{MESSAGES.info.loading}</div>
 
   return (
     <div style={{ padding: '30px' }}>

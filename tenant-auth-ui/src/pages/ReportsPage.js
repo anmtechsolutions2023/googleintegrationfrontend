@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react'
-import api from '../api/api'
+import { getReports } from '../services/dataService'
+import logger from '../utils/logger'
 
 const ReportsPage = () => {
   const [data, setData] = useState([])
 
   useEffect(() => {
     // This call uses the Axios interceptor automatically
-    api
-      .get('/api/data/reports')
+    getReports()
       .then((res) => setData(res.data))
-      .catch((err) => console.error('Could not fetch reports'))
+      .catch((err) => logger.error('Could not fetch reports', err))
   }, [])
 
   return (
