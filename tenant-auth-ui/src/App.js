@@ -5,6 +5,7 @@ import { ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 
 import { AuthProvider, useAuth } from './context/AuthContext'
+import { SCOPES } from './constants/scopes'
 import { ProtectedRoute, ScopeGuard } from './components/Guards'
 import Navbar from './components/Navbar'
 import LoadingSpinner from './components/LoadingSpinner'
@@ -36,7 +37,7 @@ const AppRoutes = () => {
           path="/admin"
           element={
             <ProtectedRoute>
-              <ScopeGuard requiredScopes={['TENANT:ADMIN']}>
+              <ScopeGuard requiredScopes={[SCOPES.TENANT_ADMIN]}>
                 <AdminPage />
               </ScopeGuard>
             </ProtectedRoute>

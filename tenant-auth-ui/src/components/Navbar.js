@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { SCOPES } from '../constants/scopes'
 import { toast } from 'react-toastify'
 import MESSAGES from '../constants/messages'
 import './Navbar.css'
@@ -13,7 +14,10 @@ const Navbar = () => {
   if (!user) return null
 
   const hasScope = (requiredScopes) => {
-    return requiredScopes.some((scope) => user.scopes?.includes(scope))
+    const scopes = user?.scopes || []
+    // Super admin sees everything
+    if (scopes.includes(SCOPES.TENANT_SUPER_ADMIN)) return true
+    return requiredScopes.some((scope) => scopes.includes(scope))
   }
 
   const handleLogout = () => {
@@ -45,11 +49,13 @@ const Navbar = () => {
       <div className="nav-links">
         <Link to="/dashboard">Home</Link>
 
-        {hasScope(['reports:READ', 'reports:WRITE', 'TENANT:ADMIN']) && (
-          <Link to="/reports">Reports</Link>
-        )}
+        {hasScope([
+          SCOPES.REPORTS_READ,
+          SCOPES.REPORTS_WRITE,
+          SCOPES.TENANT_ADMIN,
+        ]) && <Link to="/reports">Reports</Link>}
 
-        {hasScope(['TENANT:ADMIN']) && <Link to="/admin">Admin</Link>}
+        {hasScope([SCOPES.TENANT_ADMIN]) && <Link to="/admin">Admin</Link>}
 
         <Link to="/audit">Audit Logs</Link>
       </div>

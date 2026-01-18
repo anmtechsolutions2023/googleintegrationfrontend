@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { getAdminSettings } from '../services/dataService'
 import logger from '../utils/logger'
+import { SCOPES } from '../constants/scopes'
 
 const AdminPage = () => {
   const [logs, setLogs] = useState([])
@@ -19,8 +20,8 @@ const AdminPage = () => {
         style={{ background: '#f9f9f9', padding: '20px', borderRadius: '8px' }}
       >
         <p>
-          This data is only visible to users with <strong>TENANT:ADMIN</strong>{' '}
-          scope.
+          This data is only visible to users with{' '}
+          <strong>{SCOPES.TENANT_ADMIN}</strong> scope.
         </p>
         <pre>{JSON.stringify(logs, null, 2)}</pre>
       </div>
