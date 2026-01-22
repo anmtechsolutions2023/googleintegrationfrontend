@@ -1,3 +1,5 @@
+import { ERROR_CODES } from './httpCodes';
+
 const MESSAGES = {
   success: {
     save: 'Saved successfully.',
@@ -7,6 +9,18 @@ const MESSAGES = {
     update: 'Updated successfully.',
   },
   error: {
+    [ERROR_CODES.NETWORK_ERROR]: 'Network error. Please check your connection.',
+    [ERROR_CODES.AUTH_EXPIRED]: 'Session expired. Please login again.',
+    [ERROR_CODES.PERMISSION_DENIED]:
+      'You do not have permission to perform this action.',
+    [ERROR_CODES.USER_NOT_EXIST]: 'Auth Error: User does not exist.',
+    [ERROR_CODES.GOOGLE_SIGNIN_FAILED]: 'Google Sign-In Failed',
+    [ERROR_CODES.USER_NOT_FOUND_TENANT]: 'User not found in any tenant system.',
+    [ERROR_CODES.SWITCH_TENANT_FAILED]: 'Failed to switch tenant.',
+    [ERROR_CODES.GENERIC_ERROR]:
+      'Something went wrong. Please try again later.',
+
+    // Legacy message keys (kept for backward compatibility)
     network: 'Network error. Please check your connection.',
     authExpired: 'Session expired. Please login again.',
     permissionDenied: 'You do not have permission to perform this action.',
@@ -24,6 +38,6 @@ const MESSAGES = {
     loading: 'Loading...',
     noData: 'No data available.',
   },
-}
+};
 
-export default MESSAGES
+export default MESSAGES;

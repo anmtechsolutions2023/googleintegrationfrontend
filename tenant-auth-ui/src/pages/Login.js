@@ -1,32 +1,35 @@
-import React from 'react'
-import { GoogleLogin } from '@react-oauth/google'
-import { useNavigate, useLocation } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
-import { toast } from 'react-toastify'
-import MESSAGES from '../constants/messages'
+import React from 'react';
+import { GoogleLogin } from '@react-oauth/google';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { toast } from 'react-toastify';
+import { MESSAGES, HTTP_STATUS } from '../constants';
 
 const Login = () => {
-  const { login } = useAuth()
-  const navigate = useNavigate()
-  const location = useLocation()
+  const { login } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   // Redirect back to intended page, or dashboard
-  const from = location.state?.from?.pathname || '/dashboard'
+  const from = location.state?.from?.pathname || '/dashboard';
 
   const onSuccess = async (res) => {
     try {
       // res.credential is the JWT from Google
-      const result = await login(res.credential)
+      const result = await login(res.credential);
 
       if (result) {
-        toast.success(MESSAGES.success.welcome)
-        navigate(from, { replace: true })
+        toast.success(MESSAGES.success.welcome);
+        navigate(from, { replace: true });
       }
     } catch (error) {
-      const backendData = error.response?.data
+      const backendData = error.response?.data;
 
       // Check for the specific message you shared: 'Database operation failed...'
-      if (backendData?.status === 401 || error.response?.status === 401) {
+      if (
+        backendData?.status === HTTP_STATUS.UNAUTHORIZED ||
+        error.response?.status === HTTP_STATUS.UNAUTHORIZED
+      ) {
         // toast.error(`Auth Error: ${backendData?.message || 'Login failed'}`, {
         //   position: 'top-center',
         //   autoClose: 5000,
@@ -36,14 +39,14 @@ const Login = () => {
           position: 'top-center',
           autoClose: 5000,
           theme: 'colored',
-        })
-      } else if (error.response?.status === 403) {
-        toast.error(MESSAGES.error.userNotFoundTenant)
+        });
+      } else if (error.response?.status === HTTP_STATUS.FORBIDDEN) {
+        toast.error(MESSAGES.error.userNotFoundTenant);
       } else {
-        toast.error(MESSAGES.error.generic)
+        toast.error(MESSAGES.error.generic);
       }
     }
-  }
+  };
 
   return (
     <div
@@ -81,7 +84,7 @@ const Login = () => {
         </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default Login
+export default Login;

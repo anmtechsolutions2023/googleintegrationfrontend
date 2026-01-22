@@ -11,7 +11,6 @@ export const AUTH = {
   REDIRECT_URI:
     process.env.REACT_APP_REDIRECT_URI ||
     window.location.origin + '/auth/callback',
-  CLIENT_ID: process.env.REACT_APP_OAUTH_CLIENT_ID || '',
 }
 
 export const ENDPOINTS = {
