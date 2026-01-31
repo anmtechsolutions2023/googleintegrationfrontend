@@ -11,6 +11,11 @@ import { THIRD_PARTY } from './config/config';
 import { ProtectedRoute, ScopeGuard } from './components/Guards';
 import Navbar from './components/Navbar';
 import LoadingSpinner from './components/LoadingSpinner';
+import {
+  MasterDataLayout,
+  MasterDataIndex,
+  GenericCrudPage,
+} from './components/MasterData';
 
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -70,6 +75,20 @@ const AppRoutes = () => {
         />
         {/* Open access route - No guards applied */}
         <Route path={ROUTES.AUDIT} element={<AuditLogs />} />
+
+        {/* Master Data Module - Nested Routes */}
+        <Route
+          path={ROUTES.MASTER}
+          element={
+            <ProtectedRoute>
+              <MasterDataLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<MasterDataIndex />} />
+          <Route path=":moduleKey" element={<GenericCrudPage />} />
+        </Route>
+
         {/* 404 catch-all route */}
         <Route path="*" element={<NotFound />} />
       </Routes>

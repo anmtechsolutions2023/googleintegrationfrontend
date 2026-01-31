@@ -43,6 +43,8 @@ const Navbar = () => {
       <div className="nav-links">
         <Link to={ROUTES.DASHBOARD}>{STRINGS.nav.home}</Link>
 
+        <Link to={ROUTES.MASTER}>{STRINGS.nav.masterData}</Link>
+
         {hasScope(user, [
           SCOPES.REPORTS_READ,
           SCOPES.REPORTS_WRITE,

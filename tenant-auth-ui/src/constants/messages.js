@@ -13,6 +13,11 @@ const MESSAGES = {
     update: 'Updated successfully.',
     created: 'Created successfully.',
     tenantSwitch: 'Tenant switched successfully.',
+    // CRUD operations
+    CREATE: 'Record created successfully.',
+    UPDATE: 'Record updated successfully.',
+    DELETE: 'Record deleted successfully.',
+    FETCH: 'Data loaded successfully.',
     // Add more success messages as needed
   },
 
@@ -34,6 +39,13 @@ const MESSAGES = {
     saveFailed: 'Failed to save. Please try again.',
     deleteFailed: 'Failed to delete. Please try again.',
     uploadFailed: 'Failed to upload file. Please try again.',
+
+    // CRUD operations
+    FETCH_FAILED: 'Failed to load data. Please try again.',
+    SAVE_FAILED: 'Failed to save record. Please try again.',
+    DELETE_FAILED: 'Failed to delete record. Please try again.',
+    CREATE_FAILED: 'Failed to create record. Please try again.',
+    UPDATE_FAILED: 'Failed to update record. Please try again.',
 
     // Validation errors
     invalidEmail: 'Please enter a valid email address.',

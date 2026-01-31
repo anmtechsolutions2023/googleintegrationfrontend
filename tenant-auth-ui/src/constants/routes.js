@@ -25,11 +25,9 @@ export const ROUTES = {
   AUDIT: '/audit',
   AUDIT_DETAIL: '/audit/:id',
 
-  // Future expansion - add new route groups here
-  // Example:
-  // BILLING: '/billing',
-  // BILLING_INVOICES: '/billing/invoices',
-  // INTEGRATIONS: '/integrations',
+  // Master Data Module
+  MASTER: '/master',
+  MASTER_MODULE: '/master/:moduleKey',
 };
 
 // Route groups for navigation menus
@@ -38,6 +36,7 @@ export const NAV_ROUTES = {
   REPORTS: [ROUTES.REPORTS],
   ADMIN: [ROUTES.ADMIN, ROUTES.ADMIN_SETTINGS, ROUTES.ADMIN_USERS],
   AUDIT: [ROUTES.AUDIT],
+  MASTER: [ROUTES.MASTER],
 };
 
 // Routes that don't require authentication

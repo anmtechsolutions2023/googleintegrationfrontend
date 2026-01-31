@@ -19,6 +19,7 @@ const STRINGS = {
     admin: 'Admin',
     settings: 'Settings',
     profile: 'Profile',
+    masterData: 'Master Data',
     // Add more nav items as needed
   },
 
@@ -31,7 +32,7 @@ const STRINGS = {
     submit: 'Submit',
     delete: 'Delete',
     edit: 'Edit',
-    refresh: '🔄 Refresh',
+    refresh: 'Refresh',
     goToDashboard: 'Go to Dashboard',
     back: 'Back',
     next: 'Next',
@@ -39,6 +40,11 @@ const STRINGS = {
     close: 'Close',
     confirm: 'Confirm',
     retry: 'Retry',
+    search: 'Search',
+    add: 'Add',
+    create: 'Create',
+    update: 'Update',
+    view: 'View',
   },
 
   // Common labels
@@ -133,6 +139,12 @@ const STRINGS = {
       title: 'Page Not Found',
       message: 'The page you are looking for does not exist.',
       backButton: 'Go to Dashboard',
+    },
+
+    masterData: {
+      title: 'Master Data',
+      description:
+        'Manage core configuration data, inventory, transactions, payments, and more.',
     },
   },
 

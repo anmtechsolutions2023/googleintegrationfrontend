@@ -38,7 +38,7 @@ export const APP_CONFIG = {
   // Pagination Defaults (for future list pages)
   PAGINATION: {
     DEFAULT_PAGE: 1,
-    DEFAULT_LIMIT: 20,
+    DEFAULT_LIMIT: 10,
     MAX_LIMIT: 100,
   },
 

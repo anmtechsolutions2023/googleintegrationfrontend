@@ -53,11 +53,57 @@ export const ENDPOINTS = {
     SWITCH: '/api/tenants/switch',
   },
 
-  // Future expansion - add new endpoint groups here
-  // BILLING: {
-  //   INVOICES: '/api/billing/invoices',
-  //   PAYMENTS: '/api/billing/payments',
-  // },
+  // Master Data CRUD Endpoints
+  // All module endpoints follow RESTful conventions: GET/POST/PUT/DELETE
+  MASTER: {
+    // Tax & Units
+    TAX_TYPES: '/api/tax-types',
+    UOM: '/api/uom',
+    UOM_FACTORS: '/api/uom-factors',
+    TAX_GROUPS: '/api/tax-groups',
+    TAX_GROUP_MAPPERS: '/api/tax-group-mappers',
+
+    // Categories
+    CATEGORIES: '/api/categories',
+
+    // Organization
+    ORGANIZATIONS: '/api/organizations',
+    BRANCH_DETAILS: '/api/branch-details',
+    BRANCH_USER_GROUPS: '/api/branch-user-groups',
+
+    // Account & Transaction Types
+    ACCOUNT_TYPES: '/api/account-types',
+    ACCOUNT_TYPE_BASES: '/api/account-type-bases',
+    TRANSACTION_TYPES: '/api/transaction-types',
+    TRANSACTION_CONFIGS: '/api/transaction-configs',
+    TRANSACTION_STATUSES: '/api/transaction-statuses',
+
+    // Conversions
+    BASE_CONVERSIONS: '/api/base-conversions',
+    CONVERSION_MAPPERS: '/api/conversion-mappers',
+
+    // Transaction & Inventory
+    TRANSACTION_LOGS: '/api/transaction-logs',
+    TRANSACTION_ITEMS: '/api/transaction-items',
+    BATCH_DETAILS: '/api/batch-details',
+    ITEM_DETAILS: '/api/item-details',
+    COST_INFO: '/api/cost-info',
+
+    // Contacts & Addresses
+    CONTACT_ADDRESS_TYPES: '/api/contact-address-types',
+    CONTACT_DETAILS: '/api/contact-details',
+    ADDRESS_DETAILS: '/api/address-details',
+    LOCATION_DETAILS: '/api/location-details',
+    MAP_PROVIDERS: '/api/map-providers',
+    LOCATION_MAPPERS: '/api/location-mappers',
+
+    // Payments
+    PAYMENT_RECEIVED_TYPES: '/api/payment-received-types',
+    PAYMENT_MODES: '/api/payment-modes',
+    PAYMENT_TRANSACTIONS: '/api/payment-transactions',
+    PAYMENT_DETAILS: '/api/payment-details',
+    PAYMENT_BREAKUPS: '/api/payment-breakups',
+  },
 };
 
 // Third-party service configurations
