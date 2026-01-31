@@ -3,7 +3,14 @@ import { GoogleLogin } from '@react-oauth/google';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'react-toastify';
-import { MESSAGES, HTTP_STATUS } from '../constants';
+import {
+  MESSAGES,
+  HTTP_STATUS,
+  STRINGS,
+  APP_CONFIG,
+  ERROR_CODES,
+} from '../constants';
+import { ROUTES } from '../constants/routes';
 
 const Login = () => {
   const { login } = useAuth();
@@ -11,7 +18,7 @@ const Login = () => {
   const location = useLocation();
 
   // Redirect back to intended page, or dashboard
-  const from = location.state?.from?.pathname || '/dashboard';
+  const from = location.state?.from?.pathname || ROUTES.DASHBOARD;
 
   const onSuccess = async (res) => {
     try {
@@ -25,25 +32,19 @@ const Login = () => {
     } catch (error) {
       const backendData = error.response?.data;
 
-      // Check for the specific message you shared: 'Database operation failed...'
       if (
         backendData?.status === HTTP_STATUS.UNAUTHORIZED ||
         error.response?.status === HTTP_STATUS.UNAUTHORIZED
       ) {
-        // toast.error(`Auth Error: ${backendData?.message || 'Login failed'}`, {
-        //   position: 'top-center',
-        //   autoClose: 5000,
-        //   theme: 'colored',
-        // })
-        toast.error(MESSAGES.error.userNotExist, {
-          position: 'top-center',
-          autoClose: 5000,
-          theme: 'colored',
+        toast.error(MESSAGES.error[ERROR_CODES.USER_NOT_EXIST], {
+          position: APP_CONFIG.TOAST.ERROR_POSITION,
+          autoClose: APP_CONFIG.TOAST.ERROR_DURATION_MS,
+          theme: APP_CONFIG.TOAST.THEME,
         });
       } else if (error.response?.status === HTTP_STATUS.FORBIDDEN) {
-        toast.error(MESSAGES.error.userNotFoundTenant);
+        toast.error(MESSAGES.error[ERROR_CODES.USER_NOT_FOUND_TENANT]);
       } else {
-        toast.error(MESSAGES.error.generic);
+        toast.error(MESSAGES.error[ERROR_CODES.GENERIC_ERROR]);
       }
     }
   };
@@ -69,17 +70,19 @@ const Login = () => {
         }}
       >
         <h2 style={{ color: '#2c3e50', marginBottom: '10px' }}>
-          Corporate Login
+          {STRINGS.pages.login.title}
         </h2>
         <p style={{ color: '#7f8c8d', marginBottom: '30px' }}>
-          Sign in to manage your tenant resources.
+          {STRINGS.pages.login.subtitle}
         </p>
 
         <div style={{ display: 'flex', justifyContent: 'center' }}>
           <GoogleLogin
             onSuccess={onSuccess}
-            onError={() => toast.error(MESSAGES.error.googleSignInFailed)}
-            useOneTap={false} // Prevents unexpected popups
+            onError={() =>
+              toast.error(MESSAGES.error[ERROR_CODES.GOOGLE_SIGNIN_FAILED])
+            }
+            useOneTap={false}
           />
         </div>
       </div>

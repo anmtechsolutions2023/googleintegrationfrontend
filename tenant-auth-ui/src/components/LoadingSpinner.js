@@ -1,4 +1,5 @@
-import React from 'react'
+import React from 'react';
+import { STRINGS } from '../constants';
 
 const LoadingSpinner = () => (
   <div
@@ -11,7 +12,7 @@ const LoadingSpinner = () => (
     }}
   >
     <div className="spinner"></div>
-    <p>Loading your session...</p>
+    <p>{STRINGS.components.loadingSpinner.message}</p>
     <style>{`
       .spinner {
         border: 4px solid #f3f3f3;
@@ -24,6 +25,6 @@ const LoadingSpinner = () => (
       @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     `}</style>
   </div>
-)
+);
 
-export default LoadingSpinner
+export default LoadingSpinner;

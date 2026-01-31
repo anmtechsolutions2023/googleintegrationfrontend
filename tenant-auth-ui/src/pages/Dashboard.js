@@ -1,8 +1,9 @@
-import React from 'react'
-import { useAuth } from '../context/AuthContext'
+import React from 'react';
+import { useAuth } from '../context/AuthContext';
+import { STRINGS } from '../constants';
 
 const Dashboard = () => {
-  const { user } = useAuth()
+  const { user } = useAuth();
 
   // Define styles as an object to keep JSX clean
   const styles = {
@@ -27,22 +28,26 @@ const Dashboard = () => {
       fontSize: '12px',
       color: '#01579b',
     },
-  }
+  };
 
   return (
     <div style={styles.container}>
-      <h1>Dashboard</h1>
+      <h1>{STRINGS.pages.dashboard.title}</h1>
       <div style={styles.card}>
-        <h3>Welcome, {user?.name || 'User'}!</h3>
+        <h3>
+          {STRINGS.pages.dashboard.welcome}{' '}
+          {user?.name || STRINGS.pages.dashboard.defaultUserName}!
+        </h3>
         <p>
-          <strong>Email:</strong> {user?.email}
+          <strong>{STRINGS.labels.email}</strong> {user?.email}
         </p>
         <p>
-          <strong>Active Tenant ID:</strong> <code>{user?.tid}</code>
+          <strong>{STRINGS.labels.activeTenantId}</strong>{' '}
+          <code>{user?.tid}</code>
         </p>
 
         <p>
-          <strong>Your Assigned Scopes:</strong>
+          <strong>{STRINGS.labels.assignedScopes}</strong>
         </p>
         {user?.scopes && user.scopes.length > 0 ? (
           <ul style={styles.list}>
@@ -54,12 +59,12 @@ const Dashboard = () => {
           </ul>
         ) : (
           <p style={{ color: '#999', fontSize: '14px' }}>
-            No scopes assigned to this user.
+            {STRINGS.emptyStates.noScopes}
           </p>
         )}
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default Dashboard
+export default Dashboard;

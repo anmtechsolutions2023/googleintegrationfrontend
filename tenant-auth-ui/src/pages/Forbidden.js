@@ -1,8 +1,11 @@
-import React from 'react'
-import { useNavigate } from 'react-router-dom'
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { STRINGS } from '../constants';
+import { ROUTES } from '../constants/routes';
 
 const Forbidden = () => {
-  const navigate = useNavigate()
+  const navigate = useNavigate();
+
   return (
     <div
       style={{
@@ -11,11 +14,13 @@ const Forbidden = () => {
         fontFamily: 'sans-serif',
       }}
     >
-      <h1 style={{ fontSize: '72px', color: '#e74c3c' }}>403</h1>
-      <h2>Access Denied</h2>
-      <p>You do not have the required permissions for this feature.</p>
+      <h1 style={{ fontSize: '72px', color: '#e74c3c' }}>
+        {STRINGS.pages.forbidden.errorCode}
+      </h1>
+      <h2>{STRINGS.pages.forbidden.title}</h2>
+      <p>{STRINGS.pages.forbidden.message}</p>
       <button
-        onClick={() => navigate('/dashboard')}
+        onClick={() => navigate(ROUTES.DASHBOARD)}
         style={{
           padding: '10px 20px',
           cursor: 'pointer',
@@ -25,10 +30,10 @@ const Forbidden = () => {
           borderRadius: '4px',
         }}
       >
-        Go to Dashboard
+        {STRINGS.buttons.goToDashboard}
       </button>
     </div>
-  )
-}
+  );
+};
 
-export default Forbidden
+export default Forbidden;

@@ -1,39 +1,39 @@
-import React, { useEffect, useState } from 'react'
-import { getAuditLogs } from '../services/dataService'
-import { toast } from 'react-toastify'
-import MESSAGES from '../constants/messages'
-import logger from '../utils/logger'
+import React, { useEffect, useState } from 'react';
+import { getAuditLogs } from '../services/dataService';
+import { toast } from 'react-toastify';
+import { MESSAGES, STRINGS, ERROR_CODES } from '../constants';
+import logger from '../utils/logger';
 
 const AuditLogs = () => {
-  const [logs, setLogs] = useState([])
-  const [filteredLogs, setFilteredLogs] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [logs, setLogs] = useState([]);
+  const [filteredLogs, setFilteredLogs] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   // Filters State
-  const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState('ALL')
-  const [sortOrder, setSortOrder] = useState('DESC') // Newest first
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [sortOrder, setSortOrder] = useState('DESC'); // Newest first
 
   useEffect(() => {
-    fetchLogs()
-  }, [])
+    fetchLogs();
+  }, []);
 
   const fetchLogs = async () => {
     try {
-      const res = await getAuditLogs()
-      setLogs(res.data.logs)
-      setFilteredLogs(res.data.logs)
-      setLoading(false)
+      const res = await getAuditLogs();
+      setLogs(res.data.logs);
+      setFilteredLogs(res.data.logs);
+      setLoading(false);
     } catch (err) {
-      logger.error('Failed to load audit logs', err)
-      toast.error(MESSAGES.error.generic)
-      setLoading(false)
+      logger.error('Failed to load audit logs', err);
+      toast.error(MESSAGES.error[ERROR_CODES.GENERIC_ERROR]);
+      setLoading(false);
     }
-  }
+  };
 
   // Handle Filtering and Sorting logic
   useEffect(() => {
-    let updatedLogs = [...logs]
+    let updatedLogs = [...logs];
 
     // Search Filter (Email or Action)
     if (searchTerm) {
@@ -41,30 +41,30 @@ const AuditLogs = () => {
         (log) =>
           log.user_email.toLowerCase().includes(searchTerm.toLowerCase()) ||
           log.action.toLowerCase().includes(searchTerm.toLowerCase())
-      )
+      );
     }
 
     // Status Filter
     if (statusFilter !== 'ALL') {
-      updatedLogs = updatedLogs.filter((log) => log.status === statusFilter)
+      updatedLogs = updatedLogs.filter((log) => log.status === statusFilter);
     }
 
     // Sorting (by Timestamp)
     updatedLogs.sort((a, b) => {
-      const dateA = new Date(a.timestamp)
-      const dateB = new Date(b.timestamp)
-      return sortOrder === 'ASC' ? dateA - dateB : dateB - dateA
-    })
+      const dateA = new Date(a.timestamp);
+      const dateB = new Date(b.timestamp);
+      return sortOrder === 'ASC' ? dateA - dateB : dateB - dateA;
+    });
 
-    setFilteredLogs(updatedLogs)
-  }, [searchTerm, statusFilter, sortOrder, logs])
+    setFilteredLogs(updatedLogs);
+  }, [searchTerm, statusFilter, sortOrder, logs]);
 
   if (loading)
-    return <div style={{ padding: '20px' }}>{MESSAGES.info.loading}</div>
+    return <div style={{ padding: '20px' }}>{MESSAGES.info.loading}</div>;
 
   return (
     <div style={{ padding: '30px' }}>
-      <h2 style={{ marginBottom: '20px' }}>Security Audit Logs</h2>
+      <h2 style={{ marginBottom: '20px' }}>{STRINGS.pages.auditLogs.title}</h2>
 
       {/* Filter Bar */}
       <div
@@ -78,7 +78,7 @@ const AuditLogs = () => {
       >
         <input
           type="text"
-          placeholder="Search by email or action..."
+          placeholder={STRINGS.placeholders.searchByEmailOrAction}
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           style={{
@@ -98,9 +98,9 @@ const AuditLogs = () => {
             border: '1px solid #ccc',
           }}
         >
-          <option value="ALL">All Statuses</option>
-          <option value="SUCCESS">Success</option>
-          <option value="DENIED">Denied</option>
+          <option value="ALL">{STRINGS.filters.allStatuses}</option>
+          <option value="SUCCESS">{STRINGS.filters.success}</option>
+          <option value="DENIED">{STRINGS.filters.denied}</option>
         </select>
 
         <select
@@ -112,8 +112,8 @@ const AuditLogs = () => {
             border: '1px solid #ccc',
           }}
         >
-          <option value="DESC">Newest First</option>
-          <option value="ASC">Oldest First</option>
+          <option value="DESC">{STRINGS.filters.newestFirst}</option>
+          <option value="ASC">{STRINGS.filters.oldestFirst}</option>
         </select>
 
         <button
@@ -126,7 +126,7 @@ const AuditLogs = () => {
             borderRadius: '5px',
           }}
         >
-          🔄 Refresh
+          {STRINGS.buttons.refresh}
         </button>
       </div>
 
@@ -154,10 +154,10 @@ const AuditLogs = () => {
               }}
             >
               <th style={tableHeaderStyle}>ID</th>
-              <th style={tableHeaderStyle}>User Email</th>
-              <th style={tableHeaderStyle}>Action</th>
-              <th style={tableHeaderStyle}>Status</th>
-              <th style={tableHeaderStyle}>Timestamp</th>
+              <th style={tableHeaderStyle}>{STRINGS.tableHeaders.email}</th>
+              <th style={tableHeaderStyle}>{STRINGS.tableHeaders.action}</th>
+              <th style={tableHeaderStyle}>{STRINGS.tableHeaders.status}</th>
+              <th style={tableHeaderStyle}>{STRINGS.tableHeaders.timestamp}</th>
             </tr>
           </thead>
           <tbody>
@@ -180,17 +180,17 @@ const AuditLogs = () => {
         </table>
         {filteredLogs.length === 0 && (
           <p style={{ textAlign: 'center', padding: '20px' }}>
-            No logs found matching criteria.
+            {STRINGS.emptyStates.noResults}
           </p>
         )}
       </div>
     </div>
-  )
-}
+  );
+};
 
 // Styles
-const tableHeaderStyle = { padding: '15px', fontWeight: 'bold' }
-const tableCellStyle = { padding: '12px 15px', fontSize: '14px' }
+const tableHeaderStyle = { padding: '15px', fontWeight: 'bold' };
+const tableCellStyle = { padding: '12px 15px', fontSize: '14px' };
 const statusBadgeStyle = (status) => ({
   padding: '4px 8px',
   borderRadius: '4px',
@@ -198,6 +198,6 @@ const statusBadgeStyle = (status) => ({
   fontWeight: 'bold',
   backgroundColor: status === 'SUCCESS' ? '#d4edda' : '#f8d7da',
   color: status === 'SUCCESS' ? '#155724' : '#721c24',
-})
+});
 
-export default AuditLogs
+export default AuditLogs;

@@ -1,63 +1,59 @@
-import React, { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
-import { SCOPES } from '../constants/scopes'
-import { toast } from 'react-toastify'
-import MESSAGES from '../constants/messages'
-import './Navbar.css'
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { SCOPES, MESSAGES, STRINGS, APP_CONFIG } from '../constants';
+import { ROUTES } from '../constants/routes';
+import { hasScope } from '../utils/permissions';
+import { toast } from 'react-toastify';
+import './Navbar.css';
 
 const Navbar = () => {
-  const { user, logout, switchTenant } = useAuth()
-  const [isOpen, setIsOpen] = useState(false)
-  const navigate = useNavigate()
+  const { user, logout, switchTenant } = useAuth();
+  const [isOpen, setIsOpen] = useState(false);
+  const navigate = useNavigate();
 
-  if (!user) return null
-
-  const hasScope = (requiredScopes) => {
-    const scopes = user?.scopes || []
-    // Super admin sees everything
-    if (scopes.includes(SCOPES.TENANT_SUPER_ADMIN)) return true
-    return requiredScopes.some((scope) => scopes.includes(scope))
-  }
+  if (!user) return null;
 
   const handleLogout = () => {
-    logout()
-    toast.info(MESSAGES.success.loggedOut)
-    navigate('/login')
-  }
+    logout();
+    toast.info(MESSAGES.success.loggedOut);
+    navigate(ROUTES.LOGIN);
+  };
 
   const handleSwitch = async (tenantId) => {
     // Prevent switching to the one currently active
-    if (user.tid === tenantId) return
+    if (user.tid === tenantId) return;
 
     try {
-      await switchTenant(tenantId)
-      setIsOpen(false)
+      await switchTenant(tenantId);
+      setIsOpen(false);
       // Most apps redirect to dashboard on switch to refresh all component data
-      navigate('/dashboard')
+      navigate(ROUTES.DASHBOARD);
     } catch (err) {
-      toast.error(MESSAGES.error.switchTenant)
+      toast.error(MESSAGES.error.SWITCH_TENANT_FAILED);
     }
-  }
+  };
 
   return (
     <nav className="navbar">
-      <div className="nav-logo" onClick={() => navigate('/dashboard')}>
-        🏢 TenantPortal
+      <div className="nav-logo" onClick={() => navigate(ROUTES.DASHBOARD)}>
+        {STRINGS.app.logo} {STRINGS.app.name}
       </div>
 
       <div className="nav-links">
-        <Link to="/dashboard">Home</Link>
+        <Link to={ROUTES.DASHBOARD}>{STRINGS.nav.home}</Link>
 
-        {hasScope([
+        {hasScope(user, [
           SCOPES.REPORTS_READ,
           SCOPES.REPORTS_WRITE,
           SCOPES.TENANT_ADMIN,
-        ]) && <Link to="/reports">Reports</Link>}
+        ]) && <Link to={ROUTES.REPORTS}>{STRINGS.nav.reports}</Link>}
 
-        {hasScope([SCOPES.TENANT_ADMIN]) && <Link to="/admin">Admin</Link>}
+        {hasScope(user, [SCOPES.TENANT_ADMIN]) && (
+          <Link to={ROUTES.ADMIN}>{STRINGS.nav.admin}</Link>
+        )}
 
-        <Link to="/audit">Audit Logs</Link>
+        <Link to={ROUTES.AUDIT}>{STRINGS.nav.auditLogs}</Link>
       </div>
 
       <div className="profile-zone">
@@ -73,7 +69,8 @@ const Navbar = () => {
               </p>
               <p className="user-email">{user.email}</p>
               <p className="tid-label">
-                Active ID: {user.tid?.substring(0, 8)}...
+                {STRINGS.labels.activeId}{' '}
+                {user.tid?.substring(0, APP_CONFIG.UI.TRUNCATE_ID_LENGTH)}...
               </p>
             </div>
 
@@ -81,7 +78,7 @@ const Navbar = () => {
             {user.associatedTenants && user.associatedTenants.length > 1 && (
               <>
                 <hr />
-                <p className="switcher-label">Switch Tenant</p>
+                <p className="switcher-label">{STRINGS.labels.switchTenant}</p>
                 <div className="switcher-scroll-container">
                   {user.associatedTenants.map((t) => (
                     <div
@@ -93,9 +90,19 @@ const Navbar = () => {
                     >
                       <div className="tenant-info">
                         <span className="status-dot"></span>
-                        <span>{t.tenantId.substring(0, 8)}...</span>
+                        <span>
+                          {t.tenantId.substring(
+                            0,
+                            APP_CONFIG.UI.TRUNCATE_ID_LENGTH
+                          )}
+                          ...
+                        </span>
                       </div>
-                      {t.isAdmin && <span className="admin-badge">Admin</span>}
+                      {t.isAdmin && (
+                        <span className="admin-badge">
+                          {STRINGS.roles.admin}
+                        </span>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -104,7 +111,7 @@ const Navbar = () => {
 
             <hr />
             <button className="logout-btn" onClick={handleLogout}>
-              Logout
+              {STRINGS.buttons.logout}
             </button>
           </div>
         )}
@@ -113,7 +120,7 @@ const Navbar = () => {
         <div className="dropdown-overlay" onClick={() => setIsOpen(false)} />
       )}
     </nav>
-  )
-}
+  );
+};
 
-export default Navbar
+export default Navbar;

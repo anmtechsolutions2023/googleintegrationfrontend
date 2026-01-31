@@ -1,90 +1,94 @@
-import React, { createContext, useContext, useState, useEffect } from 'react'
-import Cookies from 'js-cookie'
-import logger from '../utils/logger'
-import api from '../api/api'
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import Cookies from 'js-cookie';
+import logger from '../utils/logger';
+import { decodeToken, getUserFromToken } from '../utils/tokenUtils';
+import api from '../api/api';
 import {
   login as authLogin,
   logout as authLogout,
   switchTenant as authSwitch,
-} from '../services/authService'
-import { toast } from 'react-toastify'
-import MESSAGES from '../constants/messages'
+} from '../services/authService';
+import { toast } from 'react-toastify';
+import { MESSAGES, APP_CONFIG } from '../constants';
+import { ROUTES } from '../constants/routes';
 
-const AuthContext = createContext(null)
+const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = Cookies.get('app_token')
+    const token = Cookies.get(APP_CONFIG.COOKIE_NAME);
     if (token) {
-      try {
-        const payload = JSON.parse(window.atob(token.split('.')[1]))
-        setUser(payload)
-      } catch (e) {
-        Cookies.remove('app_token')
+      const payload = decodeToken(token);
+      if (payload) {
+        setUser(payload);
+      } else {
+        Cookies.remove(APP_CONFIG.COOKIE_NAME);
       }
     }
-    setLoading(false)
-  }, [])
+    setLoading(false);
+  }, []);
 
   const login = async (googleToken) => {
     try {
-      const res = await authLogin(googleToken)
-      const { token } = res.data
-      Cookies.set('app_token', token, { expires: 1 / 24, secure: false }) // 1 Hour
-      const payload = JSON.parse(window.atob(token.split('.')[1]))
-      setUser(payload)
-      return true
+      const res = await authLogin(googleToken);
+      const { token } = res.data;
+      Cookies.set(APP_CONFIG.COOKIE_NAME, token, {
+        expires: APP_CONFIG.COOKIE_EXPIRY_HOURS / 24,
+        secure: false,
+      });
+      const payload = decodeToken(token);
+      setUser(payload);
+      return true;
     } catch (err) {
-      throw err
+      throw err;
     }
-  }
+  };
 
   const logout = async () => {
     // 1. Attempt backend logout (don't block cleanup if it fails)
     try {
-      await authLogout()
+      await authLogout();
     } catch (err) {
-      logger.warn('Backend logout failed:', err)
+      logger.warn('Backend logout failed:', err);
     }
 
     // 2. Clear the cookie
-    Cookies.remove('app_token')
+    Cookies.remove(APP_CONFIG.COOKIE_NAME);
 
     // 3. Clear the React state
-    setUser(null)
+    setUser(null);
 
     // 4. Clear Axios Headers
-    delete api.defaults.headers.common['Authorization']
-
-    // // 4. Force Redirect (This fixes the Audit Page issue)
-    // window.location.href = '/login'
-  }
+    delete api.defaults.headers.common['Authorization'];
+  };
 
   const switchTenant = async (tenantId) => {
-    logger.debug('Switching to tenant:', tenantId)
+    logger.debug('Switching to tenant:', tenantId);
     try {
-      const res = await authSwitch(tenantId)
-      const { token } = res.data
+      const res = await authSwitch(tenantId);
+      const { token } = res.data;
 
       // Update Cookie
-      Cookies.set('app_token', token, { expires: 1 / 24 })
+      Cookies.set(APP_CONFIG.COOKIE_NAME, token, {
+        expires: APP_CONFIG.COOKIE_EXPIRY_HOURS / 24,
+      });
 
       // Update State (decoding the new JWT)
-      const payload = JSON.parse(window.atob(token.split('.')[1]))
-      setUser(payload)
+      const payload = decodeToken(token);
+      setUser(payload);
 
-      // toast.success(`Switched to Tenant: ${tenantId.substring(0, 8)}...`)
-
-      // Optional: Redirect to dashboard to refresh all page data for the new tenant
-      window.location.href = '/dashboard'
+      // Redirect to dashboard to refresh all page data for the new tenant
+      window.location.href = ROUTES.DASHBOARD;
     } catch (err) {
-      logger.error('Error switching tenant:', err)
-      toast.error(err.response?.data?.message || MESSAGES.error.switchTenant)
+      logger.error('Error switching tenant:', err);
+      toast.error(
+        err.response?.data?.message || MESSAGES.error.SWITCH_TENANT_FAILED
+      );
     }
-  }
+  };
 
   return (
     <AuthContext.Provider
@@ -92,7 +96,7 @@ export const AuthProvider = ({ children }) => {
     >
       {children}
     </AuthContext.Provider>
-  )
-}
+  );
+};
 
-export const useAuth = () => useContext(AuthContext)
+export const useAuth = () => useContext(AuthContext);

@@ -1,28 +1,21 @@
-import { Navigate, useLocation } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
-import Forbidden from '../pages/Forbidden'
-import { SCOPES } from '../constants/scopes'
+import { Navigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import Forbidden from '../pages/Forbidden';
+import { hasScope } from '../utils/permissions';
+import { ROUTES } from '../constants/routes';
 
 export const ProtectedRoute = ({ children }) => {
-  const { user } = useAuth()
-  const location = useLocation()
+  const { user } = useAuth();
+  const location = useLocation();
   return user ? (
     children
   ) : (
-    <Navigate to="/login" state={{ from: location }} replace />
-  )
-}
+    <Navigate to={ROUTES.LOGIN} state={{ from: location }} replace />
+  );
+};
 
 export const ScopeGuard = ({ requiredScopes, children }) => {
-  const { user } = useAuth()
-  const hasRequiredScope = (userObj, reqScopes) => {
-    const scopes = userObj?.scopes || []
-    // Super admin has access to everything
-    if (scopes.includes(SCOPES.TENANT_SUPER_ADMIN)) return true
-    if (!reqScopes || reqScopes.length === 0) return true
-    return reqScopes.some((s) => scopes.includes(s))
-  }
-
-  const hasAccess = hasRequiredScope(user, requiredScopes)
-  return hasAccess ? children : <Forbidden />
-}
+  const { user } = useAuth();
+  const hasAccess = hasScope(user, requiredScopes);
+  return hasAccess ? children : <Forbidden />;
+};

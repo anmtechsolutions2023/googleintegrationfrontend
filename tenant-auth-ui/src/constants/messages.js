@@ -1,5 +1,9 @@
 import { ERROR_CODES } from './httpCodes';
 
+// Centralized messages for toasts, alerts, and notifications
+// Organized by type: success, error, warning, info
+// Error messages are keyed by ERROR_CODES for consistency
+
 const MESSAGES = {
   success: {
     save: 'Saved successfully.',
@@ -7,8 +11,13 @@ const MESSAGES = {
     loggedOut: 'Logged out successfully.',
     delete: 'Deleted successfully.',
     update: 'Updated successfully.',
+    created: 'Created successfully.',
+    tenantSwitch: 'Tenant switched successfully.',
+    // Add more success messages as needed
   },
+
   error: {
+    // Error messages keyed by ERROR_CODES - single source of truth
     [ERROR_CODES.NETWORK_ERROR]: 'Network error. Please check your connection.',
     [ERROR_CODES.AUTH_EXPIRED]: 'Session expired. Please login again.',
     [ERROR_CODES.PERMISSION_DENIED]:
@@ -20,24 +29,46 @@ const MESSAGES = {
     [ERROR_CODES.GENERIC_ERROR]:
       'Something went wrong. Please try again later.',
 
-    // Legacy message keys (kept for backward compatibility)
-    network: 'Network error. Please check your connection.',
-    authExpired: 'Session expired. Please login again.',
-    permissionDenied: 'You do not have permission to perform this action.',
-    userNotExist: 'Auth Error: User does not exist.',
-    googleSignInFailed: 'Google Sign-In Failed',
-    userNotFoundTenant: 'User not found in any tenant system.',
-    switchTenant: 'Failed to switch tenant.',
-    generic: 'Something went wrong. Please try again later.',
+    // API-specific error messages
+    fetchFailed: 'Failed to fetch data. Please try again.',
+    saveFailed: 'Failed to save. Please try again.',
+    deleteFailed: 'Failed to delete. Please try again.',
+    uploadFailed: 'Failed to upload file. Please try again.',
+
+    // Validation errors
+    invalidEmail: 'Please enter a valid email address.',
+    requiredField: 'This field is required.',
+
+    // Add more error messages as needed
   },
+
   warning: {
     unsavedChanges: 'You have unsaved changes. Continue without saving?',
     deprecated: 'This feature is deprecated and may be removed in the future.',
+    sessionExpiring: 'Your session will expire soon. Please save your work.',
+    // Add more warning messages as needed
   },
+
   info: {
     loading: 'Loading...',
     noData: 'No data available.',
+    noChanges: 'No changes detected.',
+    processing: 'Processing your request...',
+    // Add more info messages as needed
   },
+
+  // Confirmation dialogs
+  confirm: {
+    delete: 'Are you sure you want to delete this item?',
+    logout: 'Are you sure you want to logout?',
+    discard: 'Are you sure you want to discard your changes?',
+    // Add more confirmation messages as needed
+  },
+};
+
+// Helper function to get error message by code
+export const getErrorMessage = (code) => {
+  return MESSAGES.error[code] || MESSAGES.error[ERROR_CODES.GENERIC_ERROR];
 };
 
 export default MESSAGES;

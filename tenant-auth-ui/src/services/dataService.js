@@ -1,14 +1,17 @@
-import api from '../api/api'
-import { ENDPOINTS } from '../config/config'
+import api from '../api/api';
+import { ENDPOINTS } from '../config/config';
 
-export const getAdminSettings = () => api.get(ENDPOINTS.ADMIN_SETTINGS)
+// Admin Services
+export const getAdminSettings = () => api.get(ENDPOINTS.ADMIN.SETTINGS);
 
-export const getReports = () => api.get(ENDPOINTS.REPORTS)
+// Reports Services
+export const getReports = () => api.get(ENDPOINTS.REPORTS.LIST);
 
-export const getAuditLogs = () => api.get(ENDPOINTS.AUDIT_LOGS)
+// Audit Services
+export const getAuditLogs = () => api.get(ENDPOINTS.AUDIT.LOGS);
 
 export default {
   getAdminSettings,
   getReports,
   getAuditLogs,
-}
+};
