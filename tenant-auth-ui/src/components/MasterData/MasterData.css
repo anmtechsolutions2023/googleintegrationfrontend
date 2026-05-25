@@ -244,7 +244,10 @@
   background: #fff;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  overflow: hidden;
+  /* allow horizontal scrolling when table width exceeds container */
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
 .data-table {
@@ -346,6 +349,21 @@
   font-size: 14px;
 }
 
+/* Keep the actions column visible: make the last column sticky to the right */
+.data-table th:last-child,
+.data-table td:last-child {
+  position: -webkit-sticky;
+  position: sticky;
+  right: 0;
+  background: #fff;
+  z-index: 3;
+  min-width: 120px;
+}
+
+.data-table thead th:last-child {
+  z-index: 4;
+}
+
 /* Pagination */
 .pagination {
   display: flex;
@@ -399,10 +417,13 @@
   inset: 0;
   background: rgba(0, 0, 0, 0.5);
   display: flex;
-  align-items: center;
+  /* align to top so very tall modals can scroll inside the overlay */
+  align-items: flex-start;
   justify-content: center;
   z-index: 1100;
-  padding: 20px;
+  padding: 40px 20px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .modal {
@@ -410,10 +431,12 @@
   border-radius: 12px;
   width: 100%;
   max-width: 600px;
-  max-height: 90vh;
+  /* leave some vertical space from the edges */
+  max-height: calc(100vh - 80px);
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  margin: 20px 0;
   animation: modalSlideIn 0.2s ease;
 }
 
@@ -462,6 +485,11 @@
   flex: 1;
 }
 
+/* Ensure flex children can shrink so the modal-body scrolls properly */
+.modal-body {
+  min-height: 0;
+}
+
 .modal-footer {
   display: flex;
   justify-content: flex-end;
@@ -469,6 +497,29 @@
   padding: 16px 24px;
   border-top: 1px solid #e1e5eb;
   background: #f8f9fa;
+}
+
+/* Keep footer visible (not collapsed) */
+.modal-footer {
+  flex-shrink: 0;
+}
+
+/* Ensure modal sizing uses border-box so padding doesn't push past max-height */
+.modal {
+  box-sizing: border-box;
+}
+
+/* Limit modal body height so internal scrolling appears and footer remains visible */
+.modal-body {
+  max-height: calc(100vh - 220px);
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Make footer stick to bottom of modal so buttons are always reachable */
+.modal-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
 }
 
 /* Form Styles */

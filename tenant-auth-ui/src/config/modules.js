@@ -8,7 +8,7 @@ export const MODULE_CATEGORIES = {
   PAYMENTS: 'Payments',
   CONTACTS: 'Contacts & Addresses',
   ORGANIZATION: 'Organization',
-};
+}
 
 // Module definitions with all metadata
 export const MODULES = {
@@ -19,6 +19,7 @@ export const MODULES = {
     endpoint: '/api/taxtypes',
     icon: '💰',
     category: MODULE_CATEGORIES.MASTER_DATA,
+    displayField: 'UnitName',
     fields: [
       { name: 'Name', type: 'text', required: true, maxLength: 100 },
       {
@@ -49,10 +50,11 @@ export const MODULES = {
     endpoint: '/api/uom',
     icon: '📏',
     category: MODULE_CATEGORIES.MASTER_DATA,
+    displayField: 'Factor',
     fields: [
       {
         name: 'UnitName',
-        label: 'Unit Name',
+        label: 'Name',
         type: 'text',
         required: true,
         maxLength: 100,
@@ -204,6 +206,7 @@ export const MODULES = {
     endpoint: '/api/organizations',
     icon: '🏛️',
     category: MODULE_CATEGORIES.ORGANIZATION,
+    displayField: 'Name',
     fields: [
       { name: 'Name', type: 'text', required: true, maxLength: 200 },
       { name: 'Active', type: 'boolean', default: true },
@@ -226,7 +229,13 @@ export const MODULES = {
     icon: '🏢',
     category: MODULE_CATEGORIES.ORGANIZATION,
     fields: [
-      { name: 'Name', type: 'text', required: true, maxLength: 100 },
+      {
+        name: 'BranchName',
+        label: 'Branch Name',
+        type: 'text',
+        required: true,
+        maxLength: 100,
+      },
       {
         name: 'AddressDetailId',
         label: 'Address',
@@ -240,23 +249,37 @@ export const MODULES = {
         reference: 'contactDetails',
       },
       {
-        name: 'OrganizationId',
+        name: 'OrganizationDetailId',
         label: 'Organization',
         type: 'select',
         reference: 'organizations',
       },
+      {
+        name: 'TransactionTypeConfigId',
+        label: 'Transaction Type Config',
+        type: 'select',
+        required: true,
+        reference: 'transactionTypeConfigs',
+      },
+      { name: 'TINNo', label: 'TIN No', type: 'text', maxLength: 50 },
+      { name: 'GSTIN', label: 'GSTIN', type: 'text', maxLength: 50 },
+      { name: 'PAN', label: 'PAN', type: 'text', maxLength: 50 },
+      { name: 'CF1', label: 'CF1', type: 'text', maxLength: 50 },
+      { name: 'CF2', label: 'CF2', type: 'text', maxLength: 50 },
+      { name: 'CF3', label: 'CF3', type: 'text', maxLength: 50 },
+      { name: 'CF4', label: 'CF4', type: 'text', maxLength: 50 },
       { name: 'Active', type: 'boolean', default: true },
     ],
     tableColumns: [
-      'Name',
-      'OrganizationId',
+      'BranchName',
+      'OrganizationDetailId',
       'Active',
       'CreatedBy',
       'UpdatedBy',
       'CreatedOn',
       'UpdatedOn',
     ],
-    searchFields: ['Name'],
+    searchFields: ['BranchName'],
   },
 
   branchUserGroupMappers: {
@@ -294,26 +317,26 @@ export const MODULES = {
   },
 
   // ============== ACCOUNTING ==============
-  accountTypes: {
-    key: 'accountTypes',
-    name: 'Account Types',
-    endpoint: '/api/accounttypes',
-    icon: '📒',
-    category: MODULE_CATEGORIES.MASTER_DATA,
-    fields: [
-      { name: 'Name', type: 'text', required: true, maxLength: 100 },
-      { name: 'Active', type: 'boolean', default: true },
-    ],
-    tableColumns: [
-      'Name',
-      'Active',
-      'CreatedBy',
-      'UpdatedBy',
-      'CreatedOn',
-      'UpdatedOn',
-    ],
-    searchFields: ['Name'],
-  },
+  // accountTypes: {
+  //   key: 'accountTypes',
+  //   name: 'Account Types',
+  //   endpoint: '/api/accounttypes',
+  //   icon: '📒',
+  //   category: MODULE_CATEGORIES.MASTER_DATA,
+  //   fields: [
+  //     { name: 'Name', type: 'text', required: true, maxLength: 100 },
+  //     { name: 'Active', type: 'boolean', default: true },
+  //   ],
+  //   tableColumns: [
+  //     'Name',
+  //     'Active',
+  //     'CreatedBy',
+  //     'UpdatedBy',
+  //     'CreatedOn',
+  //     'UpdatedOn',
+  //   ],
+  //   searchFields: ['Name'],
+  // },
 
   accountTypeBases: {
     key: 'accountTypeBases',
@@ -343,6 +366,7 @@ export const MODULES = {
     endpoint: '/api/transactiontypes',
     icon: '📋',
     category: MODULE_CATEGORIES.TRANSACTIONS,
+    displayField: 'ItemDetailId',
     fields: [
       { name: 'Name', type: 'text', required: true, maxLength: 100 },
       { name: 'Description', type: 'textarea', maxLength: 255 },
@@ -614,29 +638,62 @@ export const MODULES = {
     endpoint: '/api/batchdetails',
     icon: '📦',
     category: MODULE_CATEGORIES.INVENTORY,
+    displayField: 'BatchNo',
     fields: [
       {
-        name: 'BatchNumber',
-        label: 'Batch Number',
+        name: 'BatchNo',
+        label: 'Batch No',
         type: 'text',
         required: true,
         maxLength: 100,
       },
-      { name: 'ManufacturedDate', label: 'Manufactured Date', type: 'date' },
-      { name: 'ExpiryDate', label: 'Expiry Date', type: 'date' },
+      { name: 'Barcode', label: 'Barcode', type: 'text', maxLength: 100 },
+      { name: 'MfgDate', label: 'Manufactured Date', type: 'date' },
+      { name: 'Expdate', label: 'Expiry Date', type: 'date' },
+      { name: 'PurchaseDate', label: 'Purchase Date', type: 'date' },
+      {
+        name: 'IsNonReturnable',
+        label: 'Non Returnable',
+        type: 'boolean',
+        default: false,
+      },
+      {
+        name: 'CostInfoId',
+        label: 'Cost Info',
+        type: 'select',
+        reference: 'costInfos',
+      },
+      { name: 'UOMId', label: 'UOM', type: 'select', reference: 'uom' },
+      {
+        name: 'MapProviderLocationMapperId',
+        label: 'Location Mapper',
+        type: 'select',
+        reference: 'mapProviderLocationMappers',
+      },
+      {
+        name: 'BranchDetailId',
+        label: 'Branch',
+        type: 'select',
+        reference: 'branchDetails',
+      },
+      { name: 'Quantity', label: 'Quantity', type: 'number', step: 0.0001 },
       { name: 'Active', type: 'boolean', default: true },
     ],
     tableColumns: [
-      'BatchNumber',
-      'ManufacturedDate',
-      'ExpiryDate',
+      'BatchNo',
+      'Barcode',
+      'MfgDate',
+      'Expdate',
+      'PurchaseDate',
+      'Quantity',
+      'IsNonReturnable',
       'Active',
       'CreatedBy',
       'UpdatedBy',
       'CreatedOn',
       'UpdatedOn',
     ],
-    searchFields: ['BatchNumber'],
+    searchFields: ['BatchNo', 'Barcode'],
   },
 
   itemDetails: {
@@ -645,6 +702,7 @@ export const MODULES = {
     endpoint: '/api/itemdetails',
     icon: '🏷️',
     category: MODULE_CATEGORIES.INVENTORY,
+    displayField: 'Name',
     fields: [
       { name: 'Name', type: 'text', required: true, maxLength: 255 },
       { name: 'Code', type: 'text', maxLength: 50 },
@@ -1109,24 +1167,24 @@ export const MODULES = {
     ],
     searchFields: ['ReferenceNo', 'Remarks'],
   },
-};
+}
 
 // Get modules by category
 export const getModulesByCategory = () => {
-  const grouped = {};
+  const grouped = {}
   Object.values(MODULES).forEach((module) => {
     if (!grouped[module.category]) {
-      grouped[module.category] = [];
+      grouped[module.category] = []
     }
-    grouped[module.category].push(module);
-  });
-  return grouped;
-};
+    grouped[module.category].push(module)
+  })
+  return grouped
+}
 
 // Get module by key
-export const getModule = (key) => MODULES[key];
+export const getModule = (key) => MODULES[key]
 
 // Get all module keys
-export const getModuleKeys = () => Object.keys(MODULES);
+export const getModuleKeys = () => Object.keys(MODULES)
 
-export default MODULES;
+export default MODULES

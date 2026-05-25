@@ -1,8 +1,8 @@
-import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { MODULES, MODULE_CATEGORIES } from '../../config/modules';
-import { STRINGS } from '../../constants';
-import './MasterData.css';
+import React from 'react'
+import { Link, useLocation } from 'react-router-dom'
+import { MODULES, MODULE_CATEGORIES } from '../../config/modules'
+import { STRINGS } from '../../constants'
+import './MasterData.css'
 
 /**
  * Sidebar Component
@@ -13,20 +13,20 @@ import './MasterData.css';
  * @param {Function} props.onClose - Function to close sidebar (mobile)
  */
 const Sidebar = ({ isOpen, onClose }) => {
-  const location = useLocation();
+  const location = useLocation()
 
   // Group modules by category
   const groupedModules = Object.entries(MODULES).reduce(
     (acc, [key, module]) => {
-      const category = module.category;
+      const category = module.category
       if (!acc[category]) {
-        acc[category] = [];
+        acc[category] = []
       }
-      acc[category].push({ key, ...module });
-      return acc;
+      acc[category].push({ key, ...module })
+      return acc
     },
-    {}
-  );
+    {},
+  )
 
   // Get category display info
   const getCategoryInfo = (categoryKey) => {
@@ -55,14 +55,14 @@ const Sidebar = ({ isOpen, onClose }) => {
         title: 'Organization',
         icon: '🏢',
       },
-    };
-    return categoryMap[categoryKey] || { title: categoryKey, icon: '📁' };
-  };
+    }
+    return categoryMap[categoryKey] || { title: categoryKey, icon: '📁' }
+  }
 
   // Check if module route is active
   const isActive = (moduleKey) => {
-    return location.pathname === `/master/${moduleKey}`;
-  };
+    return location.pathname === `/master/${moduleKey}`
+  }
 
   return (
     <>
@@ -81,10 +81,10 @@ const Sidebar = ({ isOpen, onClose }) => {
         </div>
 
         {Object.entries(MODULE_CATEGORIES).map(([, categoryValue]) => {
-          const modules = groupedModules[categoryValue];
-          if (!modules || modules.length === 0) return null;
+          const modules = groupedModules[categoryValue]
+          if (!modules || modules.length === 0) return null
 
-          const categoryInfo = getCategoryInfo(categoryValue);
+          const categoryInfo = getCategoryInfo(categoryValue)
 
           return (
             <div key={categoryValue} className="sidebar-category">
@@ -98,7 +98,23 @@ const Sidebar = ({ isOpen, onClose }) => {
                   className={`sidebar-item ${
                     isActive(module.key) ? 'active' : ''
                   }`}
-                  onClick={onClose}
+                  onClick={() => {
+                    if (onClose) onClose()
+                    const container = document.querySelector('.master-content')
+                    if (container) {
+                      try {
+                        container.scrollTo({ top: 0, behavior: 'auto' })
+                      } catch (e) {
+                        container.scrollTop = 0
+                      }
+                    } else {
+                      try {
+                        window.scrollTo({ top: 0, behavior: 'auto' })
+                      } catch (e) {
+                        window.scrollTop = 0
+                      }
+                    }
+                  }}
                 >
                   <span className="sidebar-item-icon">{module.icon}</span>
                   <span className="sidebar-item-text">
@@ -107,11 +123,11 @@ const Sidebar = ({ isOpen, onClose }) => {
                 </Link>
               ))}
             </div>
-          );
+          )
         })}
       </aside>
     </>
-  );
-};
+  )
+}
 
-export default Sidebar;
+export default Sidebar

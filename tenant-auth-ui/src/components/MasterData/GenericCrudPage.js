@@ -1,16 +1,16 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { toast } from 'react-toastify';
-import { MODULES } from '../../config/modules';
-import crudService from '../../services/crudService';
-import { MESSAGES, STRINGS, APP_CONFIG } from '../../constants';
-import DataTable from './DataTable';
-import FormModal from './FormModal';
-import ConfirmDialog from './ConfirmDialog';
-import './MasterData.css';
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
+import { toast } from 'react-toastify'
+import { MODULES } from '../../config/modules'
+import crudService from '../../services/crudService'
+import { MESSAGES, STRINGS, APP_CONFIG } from '../../constants'
+import DataTable from './DataTable'
+import FormModal from './FormModal'
+import ConfirmDialog from './ConfirmDialog'
+import './MasterData.css'
 
 // Centralized pagination config
-const { DEFAULT_PAGE, DEFAULT_LIMIT } = APP_CONFIG.PAGINATION;
+const { DEFAULT_PAGE, DEFAULT_LIMIT } = APP_CONFIG.PAGINATION
 
 /**
  * GenericCrudPage Component
@@ -18,163 +18,309 @@ const { DEFAULT_PAGE, DEFAULT_LIMIT } = APP_CONFIG.PAGINATION;
  * Based on the moduleKey from URL params
  */
 const GenericCrudPage = () => {
-  const { moduleKey } = useParams();
-  const navigate = useNavigate();
+  const { moduleKey } = useParams()
+  const navigate = useNavigate()
 
   // Get module configuration
-  const module = useMemo(() => MODULES[moduleKey], [moduleKey]);
+  const module = useMemo(() => MODULES[moduleKey], [moduleKey])
 
   // State
-  const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+  const [data, setData] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' })
   const [pagination, setPagination] = useState({
     page: DEFAULT_PAGE,
     pageSize: DEFAULT_LIMIT,
     total: 0,
-  });
+  })
 
   // Modal states
-  const [formModalOpen, setFormModalOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState(null);
-  const [formLoading, setFormLoading] = useState(false);
+  const [formModalOpen, setFormModalOpen] = useState(false)
+  const [editingItem, setEditingItem] = useState(null)
+  const [formLoading, setFormLoading] = useState(false)
 
   // Delete confirmation states
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [deletingItem, setDeletingItem] = useState(null);
-  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [deletingItem, setDeletingItem] = useState(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
 
   // Reference data for dropdowns
-  const [referenceData, setReferenceData] = useState({});
+  const [referenceData, setReferenceData] = useState({})
 
   // Extract reference modules from fields (fields that have type='select' with 'reference')
   const referenceModules = useMemo(() => {
-    if (!module?.fields) return [];
-    const refs = new Set();
+    if (!module?.fields) return []
+    const refs = new Set()
     module.fields.forEach((field) => {
       if (field.type === 'select' && field.reference) {
-        refs.add(field.reference);
+        refs.add(field.reference)
       }
-    });
-    return Array.from(refs);
-  }, [module]);
+    })
+    return Array.from(refs)
+  }, [module])
 
   // Redirect if module not found
   useEffect(() => {
     if (!module) {
-      navigate('/master', { replace: true });
+      navigate('/master', { replace: true })
     }
-  }, [module, navigate]);
+  }, [module, navigate])
+
+  // When module changes (via sidebar navigation), ensure the main content scrolls to top
+  useEffect(() => {
+    const container = document.querySelector('.master-content')
+    if (container) {
+      try {
+        container.scrollTo({ top: 0, behavior: 'smooth' })
+      } catch (e) {
+        container.scrollTop = 0
+      }
+    }
+  }, [moduleKey])
 
   // Fetch data - uses API pagination, search is done locally
   const fetchData = useCallback(async () => {
-    if (!module) return;
+    if (!module) return
 
-    setLoading(true);
+    setLoading(true)
     try {
       const response = await crudService.getAll(moduleKey, {
         page: pagination.page,
         limit: pagination.pageSize,
-      });
+      })
 
       // Actual API response format:
       // { success: true, data: {pagination info}, message: [array of records], pagination: "message string" }
       // Note: The API has swapped field names - 'message' contains data, 'data' contains pagination
-      let items = [];
-      let totalRecords = 0;
+      let items = []
+      let totalRecords = 0
 
       if (response.success !== undefined) {
         // Check if 'message' contains the data array (actual API format)
         if (Array.isArray(response.message)) {
-          items = response.message;
-          totalRecords = response.data?.total || items.length;
+          items = response.message
+          totalRecords = response.data?.total || items.length
         }
         // Standard format where 'data' is the array
         else if (Array.isArray(response.data)) {
-          items = response.data;
-          totalRecords = response.pagination?.total || items.length;
+          items = response.data
+          totalRecords = response.pagination?.total || items.length
         }
       } else if (Array.isArray(response.data)) {
-        items = response.data;
+        items = response.data
         totalRecords =
-          response.total || response.pagination?.total || items.length;
+          response.total || response.pagination?.total || items.length
       } else if (response.data?.items) {
-        items = response.data.items;
-        totalRecords = response.data.total || items.length;
+        items = response.data.items
+        totalRecords = response.data.total || items.length
       } else if (Array.isArray(response)) {
-        items = response;
-        totalRecords = items.length;
+        items = response
+        totalRecords = items.length
       }
 
-      setData(items);
+      setData(items)
+      // Normalize known field name differences for modules
+      try {
+        if (moduleKey === 'branchDetails' && Array.isArray(items)) {
+          const normalized = items.map((it) => ({
+            ...it,
+            BranchName: it.BranchName || it.Name || it.Branch || '',
+            OrganizationDetailId:
+              it.OrganizationDetailId ||
+              it.OrganizationId ||
+              it.Organization ||
+              null,
+          }))
+          setData(normalized)
+        } else if (moduleKey === 'batchDetails' && Array.isArray(items)) {
+          const normalized = items.map((it) => ({
+            ...it,
+            BatchNo: it.BatchNo || it.BatchNumber || it.Batch || '',
+            Barcode: it.Barcode || it.barcode || '',
+            MfgDate: parseDateToInput(
+              it.MfgDate || it.ManufacturedDate || it.ManufactureDate || '',
+            ),
+            Expdate: parseDateToInput(
+              it.Expdate || it.ExpiryDate || it.ExpireDate || '',
+            ),
+            PurchaseDate: parseDateToInput(
+              it.PurchaseDate || it.Purchase_Date || '',
+            ),
+          }))
+          setData(normalized)
+        } else {
+          setData(items)
+        }
+      } catch (e) {
+        setData(items)
+      }
       setPagination((prev) => ({
         ...prev,
         total: totalRecords,
-      }));
+      }))
     } catch (error) {
-      console.error('Error fetching data:', error);
-      toast.error(MESSAGES.error.FETCH_FAILED || 'Failed to load data');
-      setData([]);
+      console.error('Error fetching data:', error)
+      toast.error(MESSAGES.error.FETCH_FAILED || 'Failed to load data')
+      setData([])
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  }, [moduleKey, module, pagination.page, pagination.pageSize]);
+  }, [moduleKey, module, pagination.page, pagination.pageSize])
+
+  // Helper: convert various API date formats to YYYY-MM-DD for HTML date inputs
+  const parseDateToInput = (v) => {
+    if (!v && v !== 0) return ''
+    if (typeof v === 'string') {
+      const s = v.trim()
+      // If already ISO-like YYYY-MM-DD
+      const isoMatch = s.match(/^(\d{4})-(\d{2})-(\d{2})/)
+      if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`
+      // If DD-MM-YYYY -> convert
+      const dmyMatch = s.match(/^(\d{2})-(\d{2})-(\d{4})$/)
+      if (dmyMatch) return `${dmyMatch[3]}-${dmyMatch[2]}-${dmyMatch[1]}`
+      // Try parsing with Date
+      const parsed = new Date(s)
+      if (!isNaN(parsed)) {
+        const yyyy = parsed.getFullYear()
+        const mm = String(parsed.getMonth() + 1).padStart(2, '0')
+        const dd = String(parsed.getDate()).padStart(2, '0')
+        return `${yyyy}-${mm}-${dd}`
+      }
+      return ''
+    }
+    try {
+      const d = new Date(v)
+      if (isNaN(d)) return ''
+      const yyyy = d.getFullYear()
+      const mm = String(d.getMonth() + 1).padStart(2, '0')
+      const dd = String(d.getDate()).padStart(2, '0')
+      return `${yyyy}-${mm}-${dd}`
+    } catch (e) {
+      return ''
+    }
+  }
+
+  // Helper: convert YYYY-MM-DD (or Date) to API expected DD-MM-YYYY
+  const formatDateToApi = (v) => {
+    if (!v && v !== 0) return ''
+    if (typeof v === 'string') {
+      const s = v.trim()
+      // If already DD-MM-YYYY
+      if (/^\d{2}-\d{2}-\d{4}$/.test(s)) return s
+      // If ISO-like YYYY-MM-DD
+      const isoMatch = s.match(/^(\d{4})-(\d{2})-(\d{2})/)
+      if (isoMatch) return `${isoMatch[3]}-${isoMatch[2]}-${isoMatch[1]}`
+      // Try parse
+      const parsed = new Date(s)
+      if (!isNaN(parsed)) {
+        const yyyy = parsed.getFullYear()
+        const mm = String(parsed.getMonth() + 1).padStart(2, '0')
+        const dd = String(parsed.getDate()).padStart(2, '0')
+        return `${dd}-${mm}-${yyyy}`
+      }
+      return s
+    }
+    try {
+      const d = new Date(v)
+      if (isNaN(d)) return ''
+      const yyyy = d.getFullYear()
+      const mm = String(d.getMonth() + 1).padStart(2, '0')
+      const dd = String(d.getDate()).padStart(2, '0')
+      return `${dd}-${mm}-${yyyy}`
+    } catch (e) {
+      return ''
+    }
+  }
 
   // Fetch reference data for dropdowns
   const fetchReferenceData = useCallback(async () => {
-    if (referenceModules.length === 0) return;
+    if (referenceModules.length === 0) return
 
     try {
-      const refData = {};
+      const refData = {}
       await Promise.all(
         referenceModules.map(async (refModuleKey) => {
           try {
-            const response = await crudService.getReferenceData(refModuleKey);
+            const response = await crudService.getReferenceData(refModuleKey)
             // Handle different response structures
-            let items = [];
+            let items = []
             if (Array.isArray(response)) {
-              items = response;
+              items = response
+            } else if (Array.isArray(response?.message)) {
+              items = response.message
             } else if (Array.isArray(response?.data)) {
-              items = response.data;
+              items = response.data
             } else if (response?.items) {
-              items = response.items;
+              items = response.items
             } else if (response?.data?.items) {
-              items = response.data.items;
+              items = response.data.items
             }
-            refData[refModuleKey] = items;
+            refData[refModuleKey] = items
           } catch (err) {
             console.warn(
               `Failed to load reference data for ${refModuleKey}:`,
-              err
-            );
-            refData[refModuleKey] = [];
+              err,
+            )
+            refData[refModuleKey] = []
           }
-        })
-      );
-      setReferenceData(refData);
+        }),
+      )
+      // If costInfos were loaded, compute a display label of Amount-TaxGroup-TaxIncluded
+      if (refData.costInfos && refData.costInfos.length) {
+        try {
+          const taxResp = await crudService.getReferenceData('taxGroups')
+          let taxItems = []
+          if (Array.isArray(taxResp)) taxItems = taxResp
+          else if (Array.isArray(taxResp?.data)) taxItems = taxResp.data
+
+          const taxMap = {}
+          taxItems.forEach((t) => {
+            const id = t.id || t.Id
+            taxMap[id] =
+              t.Name || t.name || t.TaxGroupName || t.Title || t.title
+          })
+
+          refData.costInfos = refData.costInfos.map((ci) => {
+            const taxName = taxMap[ci.TaxGroupId] || ci.TaxGroupId || ''
+            const amount = ci.Amount !== undefined ? ci.Amount : ''
+            const label = `${amount}-${taxName}`
+            // ensure existing UI that prefers opt.Name or opt.name picks up the label
+            return { ...ci, DisplayLabel: label, Name: label, name: label }
+          })
+
+          // Prefer the computed display label when resolving costInfos
+          if (MODULES.costInfos) MODULES.costInfos.displayField = 'DisplayLabel'
+        } catch (e) {
+          console.warn(
+            'Failed to load tax groups for costInfos display label',
+            e,
+          )
+        }
+      }
+      setReferenceData(refData)
     } catch (error) {
-      console.error('Error fetching reference data:', error);
+      console.error('Error fetching reference data:', error)
     }
-  }, [referenceModules]);
+  }, [referenceModules])
 
   // Initial data load
   useEffect(() => {
     if (module) {
-      fetchData();
-      fetchReferenceData();
+      fetchData()
+      fetchReferenceData()
     }
-  }, [module, fetchData, fetchReferenceData]);
+  }, [module, fetchData, fetchReferenceData])
 
   // Handle search - local filtering only, no API call
   const handleSearch = (e) => {
-    setSearchQuery(e.target.value);
-  };
+    setSearchQuery(e.target.value)
+  }
 
   // Handle page change - triggers API call
   const handlePageChange = (newPage) => {
-    setPagination((prev) => ({ ...prev, page: newPage }));
-  };
+    setPagination((prev) => ({ ...prev, page: newPage }))
+  }
 
   // Handle column sorting - local sorting
   const handleSort = (columnKey) => {
@@ -182,26 +328,26 @@ const GenericCrudPage = () => {
       key: columnKey,
       direction:
         prev.key === columnKey && prev.direction === 'asc' ? 'desc' : 'asc',
-    }));
-  };
+    }))
+  }
 
   // Open create modal
   const handleCreate = () => {
-    setEditingItem(null);
-    setFormModalOpen(true);
-  };
+    setEditingItem(null)
+    setFormModalOpen(true)
+  }
 
   // Open edit modal
   const handleEdit = (item) => {
-    setEditingItem(item);
-    setFormModalOpen(true);
-  };
+    setEditingItem(item)
+    setFormModalOpen(true)
+  }
 
   // Close form modal
   const handleFormClose = () => {
-    setFormModalOpen(false);
-    setEditingItem(null);
-  };
+    setFormModalOpen(false)
+    setEditingItem(null)
+  }
 
   // System fields that should never be sent to the API
   const SYSTEM_FIELDS = [
@@ -225,154 +371,186 @@ const GenericCrudPage = () => {
     'deletedAt',
     'DeletedBy',
     'deletedBy',
-  ];
+  ]
 
   // Helper to strip system fields from form data
   const stripSystemFields = (data) => {
-    const cleaned = {};
+    const cleaned = {}
     Object.keys(data).forEach((key) => {
       if (!SYSTEM_FIELDS.includes(key)) {
-        cleaned[key] = data[key];
+        cleaned[key] = data[key]
       }
-    });
-    return cleaned;
-  };
+    })
+    return cleaned
+  }
 
   // Submit form (create/update)
   const handleFormSubmit = async (formData) => {
-    setFormLoading(true);
+    setFormLoading(true)
     try {
       // Strip all system fields from the payload
-      const cleanedData = stripSystemFields(formData);
+      const cleanedData = stripSystemFields(formData)
+
+      // Only include fields that are declared in the module definition
+      const allowedFields = module?.fields?.map((f) => f.name) || []
+      const payload = {}
+      Object.keys(cleanedData).forEach((k) => {
+        if (allowedFields.includes(k)) payload[k] = cleanedData[k]
+      })
 
       if (editingItem) {
         // Handle both 'id' and 'Id' casing from API
-        const itemId = editingItem.id || editingItem.Id;
-        await crudService.update(moduleKey, itemId, cleanedData);
+        const itemId = editingItem.id || editingItem.Id
+        // Convert date fields to API expected format for batchDetails
+        if (moduleKey === 'batchDetails') {
+          const dateFields = module.fields
+            .filter((f) => f.type === 'date')
+            .map((f) => f.name)
+          dateFields.forEach((df) => {
+            if (payload[df]) payload[df] = formatDateToApi(payload[df])
+          })
+        }
+        await crudService.update(moduleKey, itemId, payload)
         toast.success(
           MESSAGES.success.UPDATE ||
-            `${module.label || module.name} updated successfully`
-        );
+            `${module.label || module.name} updated successfully`,
+        )
       } else {
-        await crudService.create(moduleKey, cleanedData);
+        // Convert date fields to API expected format for batchDetails
+        if (moduleKey === 'batchDetails') {
+          const dateFields = module.fields
+            .filter((f) => f.type === 'date')
+            .map((f) => f.name)
+          dateFields.forEach((df) => {
+            if (payload[df]) payload[df] = formatDateToApi(payload[df])
+          })
+        }
+        await crudService.create(moduleKey, payload)
         toast.success(
           MESSAGES.success.CREATE ||
-            `${module.label || module.name} created successfully`
-        );
+            `${module.label || module.name} created successfully`,
+        )
       }
-      handleFormClose();
-      fetchData();
+      handleFormClose()
+      fetchData()
     } catch (error) {
-      console.error('Error saving:', error);
+      console.error('Error saving:', error)
       const errorMessage =
         error.response?.data?.message ||
         MESSAGES.error.SAVE_FAILED ||
-        'Failed to save';
-      toast.error(errorMessage);
+        'Failed to save'
+      toast.error(errorMessage)
     } finally {
-      setFormLoading(false);
+      setFormLoading(false)
     }
-  };
+  }
 
   // Open delete confirmation
   const handleDelete = (item) => {
-    setDeletingItem(item);
-    setDeleteDialogOpen(true);
-  };
+    setDeletingItem(item)
+    setDeleteDialogOpen(true)
+  }
 
   // Confirm delete
   const handleDeleteConfirm = async () => {
-    if (!deletingItem) return;
+    if (!deletingItem) return
 
-    setDeleteLoading(true);
+    setDeleteLoading(true)
     try {
       // Handle both 'id' and 'Id' casing from API
-      const itemId = deletingItem.id || deletingItem.Id;
-      await crudService.remove(moduleKey, itemId);
+      const itemId = deletingItem.id || deletingItem.Id
+      await crudService.remove(moduleKey, itemId)
       toast.success(
         MESSAGES.success.DELETE ||
-          `${module.label || module.name} deleted successfully`
-      );
-      setDeleteDialogOpen(false);
-      setDeletingItem(null);
-      fetchData();
+          `${module.label || module.name} deleted successfully`,
+      )
+      setDeleteDialogOpen(false)
+      setDeletingItem(null)
+      fetchData()
     } catch (error) {
-      console.error('Error deleting:', error);
+      console.error('Error deleting:', error)
       const errorMessage =
         error.response?.data?.message ||
         MESSAGES.error.DELETE_FAILED ||
-        'Failed to delete';
-      toast.error(errorMessage);
+        'Failed to delete'
+      toast.error(errorMessage)
     } finally {
-      setDeleteLoading(false);
+      setDeleteLoading(false)
     }
-  };
+  }
 
   // Close delete dialog
   const handleDeleteClose = () => {
-    setDeleteDialogOpen(false);
-    setDeletingItem(null);
-  };
+    setDeleteDialogOpen(false)
+    setDeletingItem(null)
+  }
 
   // Filter and sort data locally (client-side)
   const filteredAndSortedData = useMemo(() => {
-    let result = [...data];
+    let result = [...data]
 
     // Apply local search filter
     if (searchQuery && module?.searchFields) {
-      const query = searchQuery.toLowerCase();
+      const query = searchQuery.toLowerCase()
       result = result.filter((item) => {
         // Search in defined search fields
         const matchesSearchFields = module.searchFields.some((field) => {
-          const value = item[field];
-          return value && String(value).toLowerCase().includes(query);
-        });
+          const value = item[field]
+          return value && String(value).toLowerCase().includes(query)
+        })
         // Also search in all string columns for better UX
         const matchesAnyColumn = module.tableColumns?.some((col) => {
-          const key = typeof col === 'string' ? col : col.key;
-          const value = item[key];
-          return value && String(value).toLowerCase().includes(query);
-        });
-        return matchesSearchFields || matchesAnyColumn;
-      });
+          const key = typeof col === 'string' ? col : col.key
+          const value = item[key]
+          return value && String(value).toLowerCase().includes(query)
+        })
+        return matchesSearchFields || matchesAnyColumn
+      })
     }
 
     // Apply sorting
     if (sortConfig.key) {
       result.sort((a, b) => {
-        const aVal = a[sortConfig.key];
-        const bVal = b[sortConfig.key];
+        const aVal = a[sortConfig.key]
+        const bVal = b[sortConfig.key]
 
         // Handle null/undefined
-        if (aVal == null && bVal == null) return 0;
-        if (aVal == null) return sortConfig.direction === 'asc' ? 1 : -1;
-        if (bVal == null) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aVal == null && bVal == null) return 0
+        if (aVal == null) return sortConfig.direction === 'asc' ? 1 : -1
+        if (bVal == null) return sortConfig.direction === 'asc' ? -1 : 1
 
         // Compare values
-        let comparison = 0;
+        let comparison = 0
         if (typeof aVal === 'number' && typeof bVal === 'number') {
-          comparison = aVal - bVal;
+          comparison = aVal - bVal
         } else if (typeof aVal === 'boolean' && typeof bVal === 'boolean') {
-          comparison = aVal === bVal ? 0 : aVal ? -1 : 1;
+          comparison = aVal === bVal ? 0 : aVal ? -1 : 1
         } else {
           comparison = String(aVal).localeCompare(String(bVal), undefined, {
             numeric: true,
-          });
+          })
         }
 
-        return sortConfig.direction === 'asc' ? comparison : -comparison;
-      });
+        return sortConfig.direction === 'asc' ? comparison : -comparison
+      })
     }
 
-    return result;
-  }, [data, searchQuery, module, sortConfig]);
+    return result
+  }, [data, searchQuery, module, sortConfig])
 
   // Get display name from reference data
   const getReferenceName = useCallback(
     (refModuleKey, id) => {
-      const refs = referenceData[refModuleKey] || [];
-      const ref = refs.find((r) => (r.id || r.Id) === id);
-      if (!ref) return id;
+      const refs = referenceData[refModuleKey] || []
+      const ref = refs.find((r) => (r.id || r.Id) === id)
+      if (!ref) return id
+
+      // Prefer module-specific displayField if configured
+      const displayField = MODULES[refModuleKey]?.displayField
+      if (displayField && ref[displayField] !== undefined) {
+        return ref[displayField]
+      }
+
       return (
         ref.name ||
         ref.Name ||
@@ -386,37 +564,76 @@ const GenericCrudPage = () => {
         ref.BatchNumber ||
         ref.TransactionNo ||
         id
-      );
+      )
     },
-    [referenceData]
-  );
+    [referenceData],
+  )
 
   // Build table columns with reference resolution
   const columns = useMemo(() => {
-    if (!module?.tableColumns) return [];
-
+    if (!module?.tableColumns) return []
     return module.tableColumns.map((col) => {
       // Handle string column names (simple case)
       if (typeof col === 'string') {
+        // try to find field definition to resolve references
+        const fieldDef = module.fields?.find((f) => f.name === col)
+        if (fieldDef && fieldDef.reference) {
+          const refModuleKey = fieldDef.reference
+          return {
+            key: col,
+            label: fieldDef.label || col,
+            render: (value, row) => {
+              const id = value?.id || value?.Id || value
+              const name =
+                typeof value === 'object'
+                  ? value.name ||
+                    value.Name ||
+                    value.BatchNumber ||
+                    value.UnitName ||
+                    value.ProviderName ||
+                    value.FirstName ||
+                    value.TransactionNo ||
+                    id
+                  : getReferenceName(refModuleKey, value)
+              return <span title={String(id)}>{name}</span>
+            },
+          }
+        }
+
         return {
           key: col,
-          label: col,
-        };
+          label: module.fields?.find((f) => f.name === col)?.label || col,
+        }
       }
+
       // Handle object column definitions
       return {
         key: col.key || col.name,
         label: col.label || col.key || col.name,
         width: col.width,
         render: col.reference
-          ? (value) => getReferenceName(col.reference, value)
+          ? (value, row) => {
+              const id = value?.id || value?.Id || value
+              const name =
+                typeof value === 'object'
+                  ? value.name ||
+                    value.Name ||
+                    value.BatchNumber ||
+                    value.UnitName ||
+                    value.ProviderName ||
+                    value.FirstName ||
+                    value.TransactionNo ||
+                    id
+                  : getReferenceName(col.reference, value)
+              return <span title={String(id)}>{name}</span>
+            }
           : col.render,
-      };
-    });
-  }, [module, getReferenceName]);
+      }
+    })
+  }, [module, getReferenceName])
 
   if (!module) {
-    return null;
+    return null
   }
 
   return (
@@ -508,7 +725,7 @@ const GenericCrudPage = () => {
         loading={deleteLoading}
       />
     </div>
-  );
-};
+  )
+}
 
-export default GenericCrudPage;
+export default GenericCrudPage

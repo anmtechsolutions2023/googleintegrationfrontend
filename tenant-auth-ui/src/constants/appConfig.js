@@ -48,6 +48,15 @@ export const APP_CONFIG = {
     DISPLAY_WITH_TIME: 'MMM DD, YYYY HH:mm',
     API: 'YYYY-MM-DD',
   },
-};
+  // Expand config: which modules should request expanded objects from API
+  EXPAND_DEFAULT: true,
+  EXPAND_MODULES: [
+    'uomFactors',
+    'branchDetails',
+    'batchDetails',
+    'itemDetails',
+    'transactionItemDetails',
+  ],
+}
 
-export default APP_CONFIG;
+export default APP_CONFIG
