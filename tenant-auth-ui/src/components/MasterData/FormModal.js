@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import './MasterData.css';
+import React, { useState, useEffect, useCallback } from 'react'
+import './MasterData.css'
 
 /**
  * FormModal Component
@@ -25,73 +25,73 @@ const FormModal = ({
   loading = false,
   referenceData = {},
 }) => {
-  const [formData, setFormData] = useState({});
-  const [errors, setErrors] = useState({});
+  const [formData, setFormData] = useState({})
+  const [errors, setErrors] = useState({})
 
   // Initialize form data when modal opens or initialData changes
   useEffect(() => {
     if (isOpen) {
       if (initialData) {
-        setFormData(initialData);
+        setFormData(initialData)
       } else {
         // Initialize with default values
-        const defaults = {};
+        const defaults = {}
         fields.forEach((field) => {
           if (field.default !== undefined) {
-            defaults[field.name] = field.default;
+            defaults[field.name] = field.default
           } else if (field.type === 'boolean') {
-            defaults[field.name] = false;
+            defaults[field.name] = false
           } else {
-            defaults[field.name] = '';
+            defaults[field.name] = ''
           }
-        });
-        setFormData(defaults);
+        })
+        setFormData(defaults)
       }
-      setErrors({});
+      setErrors({})
     }
-  }, [isOpen, initialData, fields]);
+  }, [isOpen, initialData, fields])
 
   // Handle input change
   const handleChange = useCallback(
     (fieldName, value, fieldType) => {
-      let processedValue = value;
+      let processedValue = value
 
       // Type conversion
       if (fieldType === 'number') {
-        processedValue = value === '' ? '' : Number(value);
+        processedValue = value === '' ? '' : Number(value)
       } else if (fieldType === 'boolean') {
-        processedValue = Boolean(value);
+        processedValue = Boolean(value)
       }
 
       setFormData((prev) => ({
         ...prev,
         [fieldName]: processedValue,
-      }));
+      }))
 
       // Clear error for this field
       if (errors[fieldName]) {
         setErrors((prev) => {
-          const newErrors = { ...prev };
-          delete newErrors[fieldName];
-          return newErrors;
-        });
+          const newErrors = { ...prev }
+          delete newErrors[fieldName]
+          return newErrors
+        })
       }
     },
-    [errors]
-  );
+    [errors],
+  )
 
   // Validate form
   const validate = useCallback(() => {
-    const newErrors = {};
+    const newErrors = {}
 
     fields.forEach((field) => {
-      const value = formData[field.name];
+      const value = formData[field.name]
 
       // Required validation
       if (field.required) {
         if (value === undefined || value === null || value === '') {
-          newErrors[field.name] = `${field.label || field.name} is required`;
-          return;
+          newErrors[field.name] = `${field.label || field.name} is required`
+          return
         }
       }
 
@@ -103,7 +103,7 @@ const FormModal = ({
       ) {
         newErrors[field.name] = `${
           field.label || field.name
-        } must be less than ${field.maxLength} characters`;
+        } must be less than ${field.maxLength} characters`
       }
 
       // Min/Max number validation
@@ -111,49 +111,49 @@ const FormModal = ({
         if (field.min !== undefined && value < field.min) {
           newErrors[field.name] = `${
             field.label || field.name
-          } must be at least ${field.min}`;
+          } must be at least ${field.min}`
         }
         if (field.max !== undefined && value > field.max) {
           newErrors[field.name] = `${
             field.label || field.name
-          } must be at most ${field.max}`;
+          } must be at most ${field.max}`
         }
       }
-    });
+    })
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  }, [fields, formData]);
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }, [fields, formData])
 
   // Handle form submit
   const handleSubmit = (e) => {
-    e.preventDefault();
+    e.preventDefault()
     if (validate()) {
       // Convert boolean fields to proper boolean type before submission
-      const processedData = { ...formData };
+      const processedData = { ...formData }
       fields.forEach((field) => {
         if (field.type === 'boolean') {
           // Convert 1/0, "true"/"false", truthy/falsy to proper boolean
-          const val = processedData[field.name];
+          const val = processedData[field.name]
           processedData[field.name] =
-            val === true || val === 1 || val === '1' || val === 'true';
+            val === true || val === 1 || val === '1' || val === 'true'
         }
-      });
-      onSubmit(processedData);
+      })
+      onSubmit(processedData)
     }
-  };
+  }
 
   // Handle backdrop click
   const handleBackdropClick = (e) => {
     if (e.target === e.currentTarget) {
-      onClose();
+      onClose()
     }
-  };
+  }
 
   // Render field based on type
   const renderField = (field) => {
-    const value = formData[field.name] ?? '';
-    const hasError = !!errors[field.name];
+    const value = formData[field.name] ?? ''
+    const hasError = !!errors[field.name]
 
     switch (field.type) {
       case 'boolean':
@@ -171,10 +171,10 @@ const FormModal = ({
             />
             <label htmlFor={field.name}>{field.label || field.name}</label>
           </div>
-        );
+        )
 
       case 'select':
-        const options = referenceData[field.reference] || [];
+        const options = referenceData[field.reference] || []
         return (
           <select
             id={field.name}
@@ -186,8 +186,8 @@ const FormModal = ({
           >
             <option value="">Select {field.label || field.name}</option>
             {options.map((opt, idx) => {
-              const optId = opt.id || opt.Id;
-              const optName =
+              const optId = opt.id || opt.Id
+              let optName =
                 opt.name ||
                 opt.Name ||
                 opt.typeName ||
@@ -199,15 +199,23 @@ const FormModal = ({
                 opt.FirstName ||
                 opt.BatchNumber ||
                 opt.TransactionNo ||
-                optId;
+                optId
+
+              // If option has Lat and Lng fields (location), display as "Lat-Lng"
+              const hasLat = typeof opt.Lat !== 'undefined'
+              const hasLng = typeof opt.Lng !== 'undefined'
+              if (hasLat && hasLng) {
+                optName = `${opt.Lat}-${opt.Lng}`
+              }
+
               return (
                 <option key={optId || idx} value={optId}>
                   {optName}
                 </option>
-              );
+              )
             })}
           </select>
-        );
+        )
 
       case 'textarea':
         return (
@@ -224,7 +232,7 @@ const FormModal = ({
             maxLength={field.maxLength}
             style={hasError ? { borderColor: '#e74c3c' } : {}}
           />
-        );
+        )
 
       case 'number':
         return (
@@ -244,7 +252,7 @@ const FormModal = ({
             step={field.step || 'any'}
             style={hasError ? { borderColor: '#e74c3c' } : {}}
           />
-        );
+        )
 
       case 'date':
         return (
@@ -257,7 +265,7 @@ const FormModal = ({
             disabled={loading}
             style={hasError ? { borderColor: '#e74c3c' } : {}}
           />
-        );
+        )
 
       case 'datetime':
         return (
@@ -270,7 +278,7 @@ const FormModal = ({
             disabled={loading}
             style={hasError ? { borderColor: '#e74c3c' } : {}}
           />
-        );
+        )
 
       case 'email':
         return (
@@ -287,7 +295,7 @@ const FormModal = ({
             disabled={loading}
             style={hasError ? { borderColor: '#e74c3c' } : {}}
           />
-        );
+        )
 
       default:
         return (
@@ -305,14 +313,14 @@ const FormModal = ({
             maxLength={field.maxLength}
             style={hasError ? { borderColor: '#e74c3c' } : {}}
           />
-        );
+        )
     }
-  };
+  }
 
-  if (!isOpen) return null;
+  if (!isOpen) return null
 
   // Split fields into rows for 2-column layout (skip hidden fields and wide fields)
-  const visibleFields = fields.filter((f) => !f.hidden);
+  const visibleFields = fields.filter((f) => !f.hidden)
 
   return (
     <div className="modal-overlay" onClick={handleBackdropClick}>
@@ -366,7 +374,7 @@ const FormModal = ({
         </form>
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default FormModal;
+export default FormModal

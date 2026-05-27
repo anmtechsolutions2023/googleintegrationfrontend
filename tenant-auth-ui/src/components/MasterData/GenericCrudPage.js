@@ -298,6 +298,69 @@ const GenericCrudPage = () => {
           )
         }
       }
+
+      // If mapProviderLocationMappers loaded, use TagName as display label
+      if (
+        refData.mapProviderLocationMappers &&
+        refData.mapProviderLocationMappers.length
+      ) {
+        try {
+          refData.mapProviderLocationMappers =
+            refData.mapProviderLocationMappers.map((m) => {
+              const tag = m.TagName || m.tagName || m.Tag || ''
+              const label = tag || m.TagName || m.tagName || ''
+              return { ...m, DisplayLabel: label, Name: label, name: label }
+            })
+
+          if (MODULES.mapProviderLocationMappers)
+            MODULES.mapProviderLocationMappers.displayField = 'DisplayLabel'
+        } catch (e) {
+          console.warn(
+            'Failed to compute labels for mapProviderLocationMappers',
+            e,
+          )
+        }
+      }
+
+      // If addressDetails loaded, use TagName (or tagname) as display label
+      if (refData.addressDetails && refData.addressDetails.length) {
+        try {
+          refData.addressDetails = refData.addressDetails.map((a) => {
+            const tag =
+              a.TagName || a.tagName || a.Tag || a.tag || a.Name || a.name || ''
+            const label =
+              tag || a.TagName || a.tagName || a.Name || a.name || ''
+            return { ...a, DisplayLabel: label, Name: label, name: label }
+          })
+
+          if (MODULES.addressDetails)
+            MODULES.addressDetails.displayField = 'DisplayLabel'
+        } catch (e) {
+          console.warn('Failed to compute labels for addressDetails', e)
+        }
+      }
+
+      // If transactionTypeConfigs loaded, use TagName as display label
+      if (
+        refData.transactionTypeConfigs &&
+        refData.transactionTypeConfigs.length
+      ) {
+        try {
+          refData.transactionTypeConfigs = refData.transactionTypeConfigs.map(
+            (t) => {
+              const tag =
+                t.TagName || t.tagName || t.Tag || t.name || t.Name || ''
+              const label = tag || ''
+              return { ...t, DisplayLabel: label, Name: label, name: label }
+            },
+          )
+
+          if (MODULES.transactionTypeConfigs)
+            MODULES.transactionTypeConfigs.displayField = 'DisplayLabel'
+        } catch (e) {
+          console.warn('Failed to compute labels for transactionTypeConfigs', e)
+        }
+      }
       setReferenceData(refData)
     } catch (error) {
       console.error('Error fetching reference data:', error)
@@ -545,6 +608,11 @@ const GenericCrudPage = () => {
       const ref = refs.find((r) => (r.id || r.Id) === id)
       if (!ref) return id
 
+      // If this reference is a location with Lat & Lng, show as "Lat-Lng"
+      if (typeof ref.Lat !== 'undefined' && typeof ref.Lng !== 'undefined') {
+        return `${ref.Lat}-${ref.Lng}`
+      }
+
       // Prefer module-specific displayField if configured
       const displayField = MODULES[refModuleKey]?.displayField
       if (displayField && ref[displayField] !== undefined) {
@@ -586,14 +654,17 @@ const GenericCrudPage = () => {
               const id = value?.id || value?.Id || value
               const name =
                 typeof value === 'object'
-                  ? value.name ||
-                    value.Name ||
-                    value.BatchNumber ||
-                    value.UnitName ||
-                    value.ProviderName ||
-                    value.FirstName ||
-                    value.TransactionNo ||
-                    id
+                  ? typeof value.Lat !== 'undefined' &&
+                    typeof value.Lng !== 'undefined'
+                    ? `${value.Lat}-${value.Lng}`
+                    : value.name ||
+                      value.Name ||
+                      value.BatchNumber ||
+                      value.UnitName ||
+                      value.ProviderName ||
+                      value.FirstName ||
+                      value.TransactionNo ||
+                      id
                   : getReferenceName(refModuleKey, value)
               return <span title={String(id)}>{name}</span>
             },
@@ -616,14 +687,17 @@ const GenericCrudPage = () => {
               const id = value?.id || value?.Id || value
               const name =
                 typeof value === 'object'
-                  ? value.name ||
-                    value.Name ||
-                    value.BatchNumber ||
-                    value.UnitName ||
-                    value.ProviderName ||
-                    value.FirstName ||
-                    value.TransactionNo ||
-                    id
+                  ? typeof value.Lat !== 'undefined' &&
+                    typeof value.Lng !== 'undefined'
+                    ? `${value.Lat}-${value.Lng}`
+                    : value.name ||
+                      value.Name ||
+                      value.BatchNumber ||
+                      value.UnitName ||
+                      value.ProviderName ||
+                      value.FirstName ||
+                      value.TransactionNo ||
+                      id
                   : getReferenceName(col.reference, value)
               return <span title={String(id)}>{name}</span>
             }
