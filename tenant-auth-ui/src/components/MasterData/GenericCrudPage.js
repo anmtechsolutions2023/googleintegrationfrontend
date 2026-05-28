@@ -340,6 +340,22 @@ const GenericCrudPage = () => {
         }
       }
 
+      // If branchDetails loaded, use BranchName as display label
+      if (refData.branchDetails && refData.branchDetails.length) {
+        try {
+          refData.branchDetails = refData.branchDetails.map((b) => {
+            const name = b.BranchName || b.Branch || b.Name || b.name || ''
+            const label = name || b.BranchName || b.Name || b.name || ''
+            return { ...b, DisplayLabel: label, Name: label, name: label }
+          })
+
+          if (MODULES.branchDetails)
+            MODULES.branchDetails.displayField = 'DisplayLabel'
+        } catch (e) {
+          console.warn('Failed to compute labels for branchDetails', e)
+        }
+      }
+
       // If transactionTypeConfigs loaded, use TagName as display label
       if (
         refData.transactionTypeConfigs &&
@@ -778,6 +794,7 @@ const GenericCrudPage = () => {
         }
         fields={module.fields}
         initialData={editingItem}
+        moduleKey={moduleKey}
         onSubmit={handleFormSubmit}
         loading={formLoading}
         referenceData={referenceData}

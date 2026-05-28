@@ -24,6 +24,7 @@ const FormModal = ({
   onSubmit,
   loading = false,
   referenceData = {},
+  moduleKey = null,
 }) => {
   const [formData, setFormData] = useState({})
   const [errors, setErrors] = useState({})
@@ -120,6 +121,77 @@ const FormModal = ({
         }
       }
     })
+
+    setErrors(newErrors)
+    // Additional module-specific validation
+    if (moduleKey === 'batchDetails') {
+      // For create vs update
+      const isEdit = !!initialData
+
+      // BatchNo: required on create, max 100
+      const batchNo = formData.BatchNo
+      if (!isEdit) {
+        if (!batchNo || String(batchNo).trim() === '') {
+          newErrors.BatchNo = 'BatchNo is required'
+        }
+      }
+      if (batchNo && String(batchNo).length > 100) {
+        newErrors.BatchNo = 'BatchNo must be at most 100 characters'
+      }
+
+      // Barcode: optional max 100
+      const barcode = formData.Barcode
+      if (barcode && String(barcode).length > 100) {
+        newErrors.Barcode = 'Barcode must be at most 100 characters'
+      }
+
+      // Date fields: allow ISO or DD-MM-YYYY
+      const dateFields = ['MfgDate', 'Expdate', 'PurchaseDate']
+      const dateRegex = /^\d{1,2}-\d{1,2}-\d{4}$/
+      dateFields.forEach((df) => {
+        const v = formData[df]
+        if (v !== undefined && v !== null && v !== '') {
+          // Accept ISO date strings or the dd-mm-yyyy format
+          const isIso = !isNaN(Date.parse(v))
+          const isDmy = typeof v === 'string' && dateRegex.test(v)
+          if (!isIso && !isDmy) {
+            newErrors[df] = `${df} must be a valid date (ISO or DD-MM-YYYY)`
+          }
+        }
+      })
+
+      // UUID fields: CostInfoId, UOMId, MapProviderLocationMapperId, BranchDetailId
+      const uuidFields = [
+        'CostInfoId',
+        'UOMId',
+        'MapProviderLocationMapperId',
+        'BranchDetailId',
+      ]
+      const uuidRegex =
+        /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/
+      uuidFields.forEach((uf) => {
+        const v = formData[uf]
+        if (v !== undefined && v !== null && v !== '') {
+          if (!uuidRegex.test(String(v))) {
+            newErrors[uf] = `${uf} must be a valid UUID`
+          }
+        }
+      })
+
+      // Quantity: numeric with up to 4 decimal places
+      const qty = formData.Quantity
+      if (qty !== undefined && qty !== null && qty !== '') {
+        const num = Number(qty)
+        if (Number.isNaN(num)) {
+          newErrors.Quantity = 'Quantity must be a number'
+        } else {
+          const parts = String(num).split('.')
+          if (parts[1] && parts[1].length > 4) {
+            newErrors.Quantity = 'Quantity must have at most 4 decimal places'
+          }
+        }
+      }
+    }
 
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
