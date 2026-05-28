@@ -418,7 +418,25 @@ const GenericCrudPage = () => {
 
   // Open edit modal
   const handleEdit = (item) => {
-    setEditingItem(item)
+    // Normalize date fields so HTML date inputs show correct value
+    try {
+      const normalized = { ...item }
+      const dateFields = module?.fields
+        ? module.fields.filter((f) => f.type === 'date').map((f) => f.name)
+        : []
+      dateFields.forEach((df) => {
+        if (
+          normalized[df] !== undefined &&
+          normalized[df] !== null &&
+          normalized[df] !== ''
+        ) {
+          normalized[df] = parseDateToInput(normalized[df])
+        }
+      })
+      setEditingItem(normalized)
+    } catch (e) {
+      setEditingItem(item)
+    }
     setFormModalOpen(true)
   }
 
@@ -480,13 +498,19 @@ const GenericCrudPage = () => {
       if (editingItem) {
         // Handle both 'id' and 'Id' casing from API
         const itemId = editingItem.id || editingItem.Id
-        // Convert date fields to API expected format for batchDetails
-        if (moduleKey === 'batchDetails') {
+        // Convert date fields to API expected format for modules with date fields
+        {
           const dateFields = module.fields
             .filter((f) => f.type === 'date')
             .map((f) => f.name)
           dateFields.forEach((df) => {
-            if (payload[df]) payload[df] = formatDateToApi(payload[df])
+            if (
+              payload[df] !== undefined &&
+              payload[df] !== null &&
+              payload[df] !== ''
+            ) {
+              payload[df] = formatDateToApi(payload[df])
+            }
           })
         }
         await crudService.update(moduleKey, itemId, payload)
@@ -495,13 +519,19 @@ const GenericCrudPage = () => {
             `${module.label || module.name} updated successfully`,
         )
       } else {
-        // Convert date fields to API expected format for batchDetails
-        if (moduleKey === 'batchDetails') {
+        // Convert date fields to API expected format for modules with date fields
+        {
           const dateFields = module.fields
             .filter((f) => f.type === 'date')
             .map((f) => f.name)
           dateFields.forEach((df) => {
-            if (payload[df]) payload[df] = formatDateToApi(payload[df])
+            if (
+              payload[df] !== undefined &&
+              payload[df] !== null &&
+              payload[df] !== ''
+            ) {
+              payload[df] = formatDateToApi(payload[df])
+            }
           })
         }
         await crudService.create(moduleKey, payload)
