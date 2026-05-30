@@ -606,10 +606,11 @@ export const MODULES = {
 
   transactionItemDetails: {
     key: 'transactionItemDetails',
-    name: 'Transaction Items',
+    name: 'Transaction Item Details',
     endpoint: '/api/transactionitemdetails',
     icon: '📦',
     category: MODULE_CATEGORIES.TRANSACTIONS,
+    // Align fields with backend contract: TransactionDetailLogId, ItemId, Comment, Active
     fields: [
       {
         name: 'TransactionDetailLogId',
@@ -619,50 +620,30 @@ export const MODULES = {
         reference: 'transactionDetailLogs',
       },
       {
-        name: 'ItemDetailId',
+        name: 'ItemId',
         label: 'Item',
         type: 'select',
         required: true,
         reference: 'itemDetails',
       },
-      {
-        name: 'BatchDetailId',
-        label: 'Batch',
-        type: 'select',
-        reference: 'batchDetails',
-      },
-      { name: 'Quantity', type: 'number', required: true, step: 0.0001 },
-      { name: 'UOMId', label: 'UOM', type: 'select', reference: 'uom' },
-      { name: 'Rate', type: 'number', step: 0.0001 },
-      { name: 'Amount', type: 'number', step: 0.0001 },
-      {
-        name: 'TaxGroupId',
-        label: 'Tax Group',
-        type: 'select',
-        reference: 'taxGroups',
-      },
-      { name: 'TaxAmount', label: 'Tax Amount', type: 'number', step: 0.0001 },
-      {
-        name: 'DiscountAmount',
-        label: 'Discount',
-        type: 'number',
-        step: 0.0001,
-      },
-      { name: 'NetAmount', label: 'Net Amount', type: 'number', step: 0.0001 },
+      { name: 'Comment', type: 'textarea', maxLength: 100 },
       { name: 'Active', type: 'boolean', default: true },
     ],
+    // Include expanded columns returned by the API when expand=true
     tableColumns: [
-      'ItemDetailId',
-      'Quantity',
-      'Rate',
-      'Amount',
-      'NetAmount',
+      'TransactionNo',
+      'TransactionDate',
+      'ItemName',
+      'ItemCode',
+      'ItemSKU',
+      'Comment',
+      'Active',
       'CreatedBy',
       'UpdatedBy',
       'CreatedOn',
       'UpdatedOn',
     ],
-    searchFields: [],
+    searchFields: ['TransactionNo', 'ItemName', 'ItemCode', 'ItemSKU'],
   },
 
   // ============== INVENTORY ==============
