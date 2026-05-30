@@ -270,6 +270,7 @@ const FormModal = ({
                   opt.DisplayLabel ||
                   opt.name ||
                   opt.Name ||
+                  opt.Type ||
                   opt.typeName ||
                   opt.TypeName ||
                   opt.title ||

@@ -399,6 +399,68 @@ const GenericCrudPage = () => {
           )
         }
       }
+
+      // If paymentModes loaded, use Type as display label
+      if (refData.paymentModes && refData.paymentModes.length) {
+        try {
+          refData.paymentModes = refData.paymentModes.map((p) => {
+            const label = p.Type || p.type || p.Name || p.name || ''
+            return { ...p, DisplayLabel: label, Name: label, name: label }
+          })
+          if (MODULES.paymentModes)
+            MODULES.paymentModes.displayField = 'DisplayLabel'
+        } catch (e) {
+          console.warn('Failed to compute labels for paymentModes', e)
+        }
+      }
+
+      // If paymentReceivedTypes loaded, use Type as display label
+      if (refData.paymentReceivedTypes && refData.paymentReceivedTypes.length) {
+        try {
+          refData.paymentReceivedTypes = refData.paymentReceivedTypes.map(
+            (p) => {
+              const label = p.Type || p.type || p.Name || p.name || ''
+              return { ...p, DisplayLabel: label, Name: label, name: label }
+            },
+          )
+          if (MODULES.paymentReceivedTypes)
+            MODULES.paymentReceivedTypes.displayField = 'DisplayLabel'
+        } catch (e) {
+          console.warn('Failed to compute labels for paymentReceivedTypes', e)
+        }
+      }
+      // If accountTypeBases loaded, use Name as display label
+      if (refData.accountTypeBases && refData.accountTypeBases.length) {
+        try {
+          refData.accountTypeBases = refData.accountTypeBases.map((a) => {
+            const label = a.Name || a.name || ''
+            return { ...a, DisplayLabel: label, Name: label, name: label }
+          })
+          if (MODULES.accountTypeBases)
+            MODULES.accountTypeBases.displayField = 'DisplayLabel'
+        } catch (e) {
+          console.warn('Failed to compute labels for accountTypeBases', e)
+        }
+      }
+
+      // If transactionDetailLogs loaded, use TransactionNo as display label
+      if (
+        refData.transactionDetailLogs &&
+        refData.transactionDetailLogs.length
+      ) {
+        try {
+          refData.transactionDetailLogs = refData.transactionDetailLogs.map(
+            (t) => {
+              const label = t.TransactionNo || t.transactionNo || ''
+              return { ...t, DisplayLabel: label, Name: label, name: label }
+            },
+          )
+          if (MODULES.transactionDetailLogs)
+            MODULES.transactionDetailLogs.displayField = 'DisplayLabel'
+        } catch (e) {
+          console.warn('Failed to compute labels for transactionDetailLogs', e)
+        }
+      }
       // Generic mapping: if a module declares a displayField, use it as Name/DisplayLabel
       referenceModules.forEach((refKey) => {
         try {
@@ -534,9 +596,15 @@ const GenericCrudPage = () => {
 
       // Only include fields that are declared in the module definition
       const allowedFields = module?.fields?.map((f) => f.name) || []
+      const requiredFields = new Set(
+        module?.fields?.filter((f) => f.required).map((f) => f.name) || [],
+      )
       const payload = {}
       Object.keys(cleanedData).forEach((k) => {
-        if (allowedFields.includes(k)) payload[k] = cleanedData[k]
+        if (!allowedFields.includes(k)) return
+        // Drop empty strings for non-required fields — APIs reject "" but accept absence
+        if (!requiredFields.has(k) && cleanedData[k] === '') return
+        payload[k] = cleanedData[k]
       })
 
       if (editingItem) {

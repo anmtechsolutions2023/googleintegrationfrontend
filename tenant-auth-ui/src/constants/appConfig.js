@@ -58,6 +58,8 @@ export const APP_CONFIG = {
     'transactionItemDetails',
     'transactionTypeConversionMappers',
     'transactionTypeBaseConversions',
+    'paymentModeTransactionDetails',
+    'paymentDetails',
   ],
 }
 
