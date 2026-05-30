@@ -89,8 +89,14 @@ export const getReferenceData = async (moduleKey) => {
     }
 
     // Use MAX_LIMIT from centralized config
+    // Append expand param for modules that require expanded objects
+    const expandQuery =
+      APP_CONFIG.EXPAND_MODULES && APP_CONFIG.EXPAND_MODULES.includes(moduleKey)
+        ? `&expand=${String(APP_CONFIG.EXPAND_DEFAULT)}`
+        : ''
+
     const response = await api.get(
-      `${module.endpoint}?page=${DEFAULT_PAGE}&limit=${MAX_LIMIT}`,
+      `${module.endpoint}?page=${DEFAULT_PAGE}&limit=${MAX_LIMIT}${expandQuery}`,
     )
     const apiResponse = response.data
 

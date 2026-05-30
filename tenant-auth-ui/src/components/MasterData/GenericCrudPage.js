@@ -377,6 +377,50 @@ const GenericCrudPage = () => {
           console.warn('Failed to compute labels for transactionTypeConfigs', e)
         }
       }
+
+      // If transactionTypeBaseConversions loaded, use tag (lowercase) as display label
+      if (
+        refData.transactionTypeBaseConversions &&
+        refData.transactionTypeBaseConversions.length
+      ) {
+        try {
+          refData.transactionTypeBaseConversions =
+            refData.transactionTypeBaseConversions.map((t) => {
+              const label = t.tag || t.Tag || ''
+              return { ...t, DisplayLabel: label, Name: label, name: label }
+            })
+
+          if (MODULES.transactionTypeBaseConversions)
+            MODULES.transactionTypeBaseConversions.displayField = 'DisplayLabel'
+        } catch (e) {
+          console.warn(
+            'Failed to compute labels for transactionTypeBaseConversions',
+            e,
+          )
+        }
+      }
+      // Generic mapping: if a module declares a displayField, use it as Name/DisplayLabel
+      referenceModules.forEach((refKey) => {
+        try {
+          const df = MODULES[refKey]?.displayField
+          if (df && Array.isArray(refData[refKey])) {
+            refData[refKey] = refData[refKey].map((it) => {
+              const label =
+                it[df] ||
+                it[df.toLowerCase?.()] ||
+                it.Name ||
+                it.name ||
+                it.DisplayLabel ||
+                ''
+              return { ...it, DisplayLabel: label, Name: label, name: label }
+            })
+            // prefer the computed DisplayLabel
+            MODULES[refKey].displayField = 'DisplayLabel'
+          }
+        } catch (e) {
+          console.warn(`Failed to apply displayField mapping for ${refKey}`, e)
+        }
+      })
       setReferenceData(refData)
     } catch (error) {
       console.error('Error fetching reference data:', error)

@@ -471,10 +471,12 @@ export const MODULES = {
     endpoint: '/api/transactiontypebaseconversions',
     icon: '🔀',
     category: MODULE_CATEGORIES.TRANSACTIONS,
+    // API returns lowercase 'tag' field
+    displayField: 'tag',
     fields: [
       {
         name: 'TransactionTypeConfigId',
-        label: 'Config',
+        label: 'Transaction type Config tag',
         type: 'select',
         required: true,
         reference: 'transactionTypeConfigs',
@@ -493,60 +495,76 @@ export const MODULES = {
         required: true,
         reference: 'transactionTypeStatuses',
       },
+      { name: 'Tag', type: 'text', maxLength: 100 },
       { name: 'Active', type: 'boolean', default: true },
     ],
+    // Prefer expanded/joined fields when available from API (expand=true)
     tableColumns: [
-      'TransactionTypeConfigId',
-      'FromTransactionTypeStatusId',
-      'ToTransactionTypeStatusId',
+      'Tag',
+      'TransactionTypeConfigPrefix',
+      'TransactionTypeConfigFormat',
+      'FromStatusName',
+      'ToStatusName',
       'Active',
       'CreatedBy',
       'UpdatedBy',
       'CreatedOn',
       'UpdatedOn',
     ],
-    searchFields: [],
+    searchFields: ['Tag', 'FromStatusName', 'ToStatusName'],
   },
 
   transactionTypeConversionMappers: {
     key: 'transactionTypeConversionMappers',
     name: 'Conversion Mappers',
+    // Backend uses singular endpoint: /api/transactiontypeconversionmapper
     endpoint: '/api/transactiontypeconversionmappers',
     icon: '🗺️',
     category: MODULE_CATEGORIES.TRANSACTIONS,
+    // Align fields with backend contract: TransactionTypeBaseCoversionId, TransactionDetailLogId, TransactionTypeStatusId
     fields: [
       {
-        name: 'TransactionTypeBaseConversionId',
-        label: 'Base Conversion',
+        name: 'TransactionTypeBaseCoversionId',
+        label: 'Base Conversion Tag',
         type: 'select',
         required: true,
         reference: 'transactionTypeBaseConversions',
       },
       {
-        name: 'FromTransactionDetailLogId',
-        label: 'From Log',
+        name: 'TransactionDetailLogId',
+        label: 'Transaction Log',
         type: 'select',
         required: true,
         reference: 'transactionDetailLogs',
       },
       {
-        name: 'ToTransactionDetailLogId',
-        label: 'To Log',
+        name: 'TransactionTypeStatusId',
+        label: 'Status',
         type: 'select',
         required: true,
-        reference: 'transactionDetailLogs',
+        reference: 'transactionTypeStatuses',
       },
       { name: 'Active', type: 'boolean', default: true },
     ],
+    // Display expanded fields when API returns joined data
     tableColumns: [
-      'TransactionTypeBaseConversionId',
+      // show the Tag from the referenced base conversion module
+      {
+        key: 'TransactionTypeBaseCoversionId',
+        label: 'Base Conversion Tag',
+        reference: 'transactionTypeBaseConversions',
+      },
+      // 'TransactionTypeConfigId',
+      'TransactionNo',
+      'TransactionDate',
+      'TransactionTypeStatusName',
       'Active',
       'CreatedBy',
       'UpdatedBy',
       'CreatedOn',
       'UpdatedOn',
     ],
-    searchFields: [],
+    searchFields: ['TransactionNo', 'TransactionTypeStatusName', 'Tag'],
   },
 
   transactionDetailLogs: {

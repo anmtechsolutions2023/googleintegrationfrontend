@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
+import { MODULES } from '../../config/modules'
 import './MasterData.css'
 
 /**
@@ -259,19 +260,27 @@ const FormModal = ({
             <option value="">Select {field.label || field.name}</option>
             {options.map((opt, idx) => {
               const optId = opt.id || opt.Id
-              let optName =
-                opt.name ||
-                opt.Name ||
-                opt.typeName ||
-                opt.TypeName ||
-                opt.title ||
-                opt.Title ||
-                opt.UnitName ||
-                opt.ProviderName ||
-                opt.FirstName ||
-                opt.BatchNumber ||
-                opt.TransactionNo ||
-                optId
+              // Prefer module-configured displayField (e.g., Tag)
+              const displayField = MODULES[field.reference]?.displayField
+              let optName = ''
+              if (displayField && opt[displayField] !== undefined) {
+                optName = opt[displayField]
+              } else {
+                optName =
+                  opt.DisplayLabel ||
+                  opt.name ||
+                  opt.Name ||
+                  opt.typeName ||
+                  opt.TypeName ||
+                  opt.title ||
+                  opt.Title ||
+                  opt.UnitName ||
+                  opt.ProviderName ||
+                  opt.FirstName ||
+                  opt.BatchNumber ||
+                  opt.TransactionNo ||
+                  optId
+              }
 
               // If option has Lat and Lng fields (location), display as "Lat-Lng"
               const hasLat = typeof opt.Lat !== 'undefined'

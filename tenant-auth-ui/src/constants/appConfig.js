@@ -56,6 +56,8 @@ export const APP_CONFIG = {
     'batchDetails',
     'itemDetails',
     'transactionItemDetails',
+    'transactionTypeConversionMappers',
+    'transactionTypeBaseConversions',
   ],
 }
 
