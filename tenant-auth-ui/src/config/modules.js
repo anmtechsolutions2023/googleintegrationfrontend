@@ -383,19 +383,25 @@ export const MODULES = {
     displayField: 'ItemDetailId',
     fields: [
       { name: 'Name', type: 'text', required: true, maxLength: 100 },
-      { name: 'Description', type: 'textarea', maxLength: 255 },
+      {
+        name: 'TransactionTypeConfigId',
+        label: 'Transaction Type Config Tag',
+        type: 'select',
+        required: true,
+        reference: 'transactionTypeConfigs',
+      },
       { name: 'Active', type: 'boolean', default: true },
     ],
     tableColumns: [
       'Name',
-      'Description',
+      'TransactionTypeConfigId',
       'Active',
       'CreatedBy',
       'UpdatedBy',
       'CreatedOn',
       'UpdatedOn',
     ],
-    searchFields: ['Name', 'Description'],
+    searchFields: ['Name'],
   },
 
   transactionTypeConfigs: {
@@ -559,7 +565,7 @@ export const MODULES = {
       },
       {
         name: 'TransactionTypeConfigId',
-        label: 'Config',
+        label: 'Transaction Config Tag',
         type: 'select',
         required: true,
         reference: 'transactionTypeConfigs',
@@ -584,6 +590,7 @@ export const MODULES = {
     ],
     tableColumns: [
       'TransactionNo',
+      'TransactionTypeConfigId',
       'TransactionDate',
       'TransactionTypeStatusId',
       'BranchId',
