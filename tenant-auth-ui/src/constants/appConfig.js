@@ -60,6 +60,7 @@ export const APP_CONFIG = {
     'transactionTypeBaseConversions',
     'paymentModeTransactionDetails',
     'paymentDetails',
+    'paymentBreakups',
   ],
 }
 

@@ -461,6 +461,42 @@ const GenericCrudPage = () => {
           console.warn('Failed to compute labels for transactionDetailLogs', e)
         }
       }
+      // If paymentModeTransactionDetails loaded, use RefNo as display label
+      if (
+        refData.paymentModeTransactionDetails &&
+        refData.paymentModeTransactionDetails.length
+      ) {
+        try {
+          refData.paymentModeTransactionDetails =
+            refData.paymentModeTransactionDetails.map((p) => {
+              const label = p.RefNo || p.refNo || p.Name || p.name || ''
+              return { ...p, DisplayLabel: label, Name: label, name: label }
+            })
+          if (MODULES.paymentModeTransactionDetails)
+            MODULES.paymentModeTransactionDetails.displayField = 'DisplayLabel'
+        } catch (e) {
+          console.warn(
+            'Failed to compute labels for paymentModeTransactionDetails',
+            e,
+          )
+        }
+      }
+      // If paymentDetails loaded, use TransactionNo-GrossAmount as display label
+      // expand=true on the reference fetch returns TransactionNo from the joined transactionDetailLog
+      if (refData.paymentDetails && refData.paymentDetails.length) {
+        try {
+          refData.paymentDetails = refData.paymentDetails.map((p) => {
+            const txNo = p.TransactionNo || p.transactionNo || ''
+            const gross = p.GrossAmount || p.grossAmount || ''
+            const label = txNo && gross ? `${txNo}-${gross}` : txNo || gross || (p.id || p.Id || '')
+            return { ...p, DisplayLabel: label, Name: label, name: label }
+          })
+          if (MODULES.paymentDetails)
+            MODULES.paymentDetails.displayField = 'DisplayLabel'
+        } catch (e) {
+          console.warn('Failed to compute labels for paymentDetails', e)
+        }
+      }
       // Generic mapping: if a module declares a displayField, use it as Name/DisplayLabel
       referenceModules.forEach((refKey) => {
         try {
@@ -524,21 +560,31 @@ const GenericCrudPage = () => {
 
   // Open edit modal
   const handleEdit = (item) => {
-    // Normalize date fields so HTML date inputs show correct value
     try {
       const normalized = { ...item }
+
+      // Normalize date fields (YYYY-MM-DD) for <input type="date">
       const dateFields = module?.fields
         ? module.fields.filter((f) => f.type === 'date').map((f) => f.name)
         : []
       dateFields.forEach((df) => {
-        if (
-          normalized[df] !== undefined &&
-          normalized[df] !== null &&
-          normalized[df] !== ''
-        ) {
+        if (normalized[df] !== undefined && normalized[df] !== null && normalized[df] !== '') {
           normalized[df] = parseDateToInput(normalized[df])
         }
       })
+
+      // Normalize datetime fields for <input type="datetime-local">
+      // Strip Z suffix and milliseconds — display only, raw value is sent on submit
+      const datetimeFields = module?.fields
+        ? module.fields.filter((f) => f.type === 'datetime').map((f) => f.name)
+        : []
+      datetimeFields.forEach((df) => {
+        if (normalized[df] !== undefined && normalized[df] !== null && normalized[df] !== '') {
+          // "2026-05-25T16:46:00.000Z" → "2026-05-25T16:46:00"
+          normalized[df] = String(normalized[df]).replace(/\.\d+Z$/, '').replace('Z', '')
+        }
+      })
+
       setEditingItem(normalized)
     } catch (e) {
       setEditingItem(item)
