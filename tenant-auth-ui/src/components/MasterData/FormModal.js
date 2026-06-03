@@ -26,9 +26,20 @@ const FormModal = ({
   loading = false,
   referenceData = {},
   moduleKey = null,
+  onQuickCreate = null,
+  fieldUpdates = null,
+  onFieldUpdatesApplied = null,
 }) => {
   const [formData, setFormData] = useState({})
   const [errors, setErrors] = useState({})
+
+  // When parent pushes a field update (e.g. after quick-create auto-selects the new record)
+  useEffect(() => {
+    if (fieldUpdates && Object.keys(fieldUpdates).length > 0) {
+      setFormData((prev) => ({ ...prev, ...fieldUpdates }))
+      if (typeof onFieldUpdatesApplied === 'function') onFieldUpdatesApplied()
+    }
+  }, [fieldUpdates]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Initialize form data when modal opens or initialData changes
   useEffect(() => {
@@ -246,58 +257,87 @@ const FormModal = ({
           </div>
         )
 
-      case 'select':
+      case 'select': {
         const options = referenceData[field.reference] || []
+        const canQuickCreate =
+          typeof onQuickCreate === 'function' &&
+          field.reference &&
+          MODULES[field.reference]
         return (
-          <select
-            id={field.name}
-            className="form-select"
-            value={value}
-            onChange={(e) => handleChange(field.name, e.target.value, 'string')}
-            disabled={loading}
-            style={hasError ? { borderColor: '#e74c3c' } : {}}
-          >
-            <option value="">Select {field.label || field.name}</option>
-            {options.map((opt, idx) => {
-              const optId = opt.id || opt.Id
-              // Prefer module-configured displayField (e.g., Tag)
-              const displayField = MODULES[field.reference]?.displayField
-              let optName = ''
-              if (displayField && opt[displayField] !== undefined) {
-                optName = opt[displayField]
-              } else {
-                optName =
-                  opt.DisplayLabel ||
-                  opt.name ||
-                  opt.Name ||
-                  opt.Type ||
-                  opt.typeName ||
-                  opt.TypeName ||
-                  opt.title ||
-                  opt.Title ||
-                  opt.UnitName ||
-                  opt.ProviderName ||
-                  opt.FirstName ||
-                  opt.BatchNumber ||
-                  opt.TransactionNo ||
-                  optId
-              }
-
-              // If option has Lat and Lng fields (location), display as "Lat-Lng"
-              const hasLat = typeof opt.Lat !== 'undefined'
-              const hasLng = typeof opt.Lng !== 'undefined'
-              if (hasLat && hasLng) {
-                optName = `${opt.Lat}-${opt.Lng}`
-              }
-
-              return (
-                <option key={optId || idx} value={optId}>
-                  {optName}
-                </option>
-              )
-            })}
-          </select>
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'stretch' }}>
+            <select
+              id={field.name}
+              className="form-select"
+              value={value}
+              onChange={(e) => handleChange(field.name, e.target.value, 'string')}
+              disabled={loading}
+              style={{ ...(hasError ? { borderColor: '#e74c3c' } : {}), flex: 1 }}
+            >
+              <option value="">Select {field.label || field.name}</option>
+              {options.map((opt, idx) => {
+                const optId = opt.id || opt.Id
+                // Prefer module-configured displayField (e.g., Tag)
+                const displayField = MODULES[field.reference]?.displayField
+                let optName = ''
+                if (displayField && opt[displayField] !== undefined) {
+                  optName = opt[displayField]
+                } else {
+                  optName =
+                    opt.DisplayLabel ||
+                    opt.name ||
+                    opt.Name ||
+                    opt.Type ||
+                    opt.typeName ||
+                    opt.TypeName ||
+                    opt.title ||
+                    opt.Title ||
+                    opt.UnitName ||
+                    opt.ProviderName ||
+                    opt.FirstName ||
+                    opt.BatchNumber ||
+                    opt.TransactionNo ||
+                    optId
+                }
+                // If option has Lat and Lng fields (location), display as "Lat-Lng"
+                if (typeof opt.Lat !== 'undefined' && typeof opt.Lng !== 'undefined') {
+                  optName = `${opt.Lat}-${opt.Lng}`
+                }
+                return (
+                  <option key={optId || idx} value={optId}>
+                    {optName}
+                  </option>
+                )
+              })}
+            </select>
+            {canQuickCreate && (
+              <button
+                type="button"
+                onClick={() => onQuickCreate(field.name, field.reference)}
+                disabled={loading}
+                title={`Create new ${MODULES[field.reference]?.label || field.label || field.reference}`}
+                style={{
+                  padding: '0 10px',
+                  minWidth: '36px',
+                  background: '#27ae60',
+                  color: '#fff',
+                  border: '1px solid #219150',
+                  borderRadius: '4px',
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  fontSize: '20px',
+                  fontWeight: 'bold',
+                  lineHeight: 1,
+                  flexShrink: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                +
+              </button>
+            )}
+          </div>
         )
+      }
 
       case 'textarea':
         return (

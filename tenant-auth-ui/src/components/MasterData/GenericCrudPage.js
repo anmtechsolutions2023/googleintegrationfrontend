@@ -9,8 +9,104 @@ import FormModal from './FormModal'
 import ConfirmDialog from './ConfirmDialog'
 import './MasterData.css'
 
-// Centralized pagination config
 const { DEFAULT_PAGE, DEFAULT_LIMIT } = APP_CONFIG.PAGINATION
+
+// System fields that should never be sent to the API
+const SYSTEM_FIELDS = [
+  'Id', 'id', 'TenantId', 'tenantId',
+  'CreatedAt', 'UpdatedAt', 'CreatedOn', 'UpdatedOn',
+  'createdAt', 'updatedAt', 'createdOn', 'updatedOn',
+  'CreatedBy', 'UpdatedBy', 'createdBy', 'updatedBy',
+  'DeletedAt', 'deletedAt', 'DeletedBy', 'deletedBy',
+]
+
+const stripSystemFields = (data) => {
+  const cleaned = {}
+  Object.keys(data).forEach((key) => {
+    if (!SYSTEM_FIELDS.includes(key)) cleaned[key] = data[key]
+  })
+  return cleaned
+}
+
+// Apply display label transformations for a reference module's items.
+// Sets DisplayLabel, Name, and name on each item for consistent dropdown rendering.
+const applyDisplayLabel = (refKey, items) => {
+  if (!Array.isArray(items) || items.length === 0) return items
+  const wrap = (it, label) => ({ ...it, DisplayLabel: label, Name: label, name: label })
+  const setDF = () => { if (MODULES[refKey]) MODULES[refKey].displayField = 'DisplayLabel' }
+
+  if (refKey === 'mapProviderLocationMappers') {
+    setDF()
+    return items.map((m) => wrap(m, m.TagName || m.tagName || m.Tag || ''))
+  }
+  if (refKey === 'addressDetails') {
+    setDF()
+    return items.map((a) =>
+      wrap(a, a.TagName || a.tagName || a.Tag || a.tag || a.Name || a.name || ''),
+    )
+  }
+  if (refKey === 'branchDetails') {
+    setDF()
+    return items.map((b) => wrap(b, b.BranchName || b.Branch || b.Name || b.name || ''))
+  }
+  if (refKey === 'transactionTypeConfigs') {
+    setDF()
+    return items.map((tx) =>
+      wrap(tx, tx.TagName || tx.tagName || tx.Tag || tx.name || tx.Name || ''),
+    )
+  }
+  if (refKey === 'transactionTypeBaseConversions') {
+    setDF()
+    return items.map((tx) => wrap(tx, tx.tag || tx.Tag || ''))
+  }
+  if (refKey === 'paymentModes') {
+    setDF()
+    return items.map((p) => wrap(p, p.Type || p.type || p.Name || p.name || ''))
+  }
+  if (refKey === 'paymentReceivedTypes') {
+    setDF()
+    return items.map((p) => wrap(p, p.Type || p.type || p.Name || p.name || ''))
+  }
+  if (refKey === 'accountTypeBases') {
+    setDF()
+    return items.map((a) => wrap(a, a.Name || a.name || ''))
+  }
+  if (refKey === 'transactionDetailLogs') {
+    setDF()
+    return items.map((tx) => wrap(tx, tx.TransactionNo || tx.transactionNo || ''))
+  }
+  if (refKey === 'paymentModeTransactionDetails') {
+    setDF()
+    return items.map((p) => wrap(p, p.RefNo || p.refNo || p.Name || p.name || ''))
+  }
+  if (refKey === 'paymentDetails') {
+    setDF()
+    return items.map((p) => {
+      const txNo = p.TransactionNo || p.transactionNo || ''
+      const gross = p.GrossAmount || p.grossAmount || ''
+      const label = txNo && gross ? `${txNo}-${gross}` : txNo || gross || p.id || p.Id || ''
+      return wrap(p, label)
+    })
+  }
+
+  // Generic fallback: use module's declared displayField
+  const df = MODULES[refKey]?.displayField
+  if (df && df !== 'DisplayLabel') {
+    if (MODULES[refKey]) MODULES[refKey].displayField = 'DisplayLabel'
+    return items.map((it) => {
+      const label =
+        it[df] ||
+        (typeof df === 'string' && it[df.toLowerCase()]) ||
+        it.Name ||
+        it.name ||
+        it.DisplayLabel ||
+        ''
+      return wrap(it, label)
+    })
+  }
+
+  return items
+}
 
 /**
  * GenericCrudPage Component
@@ -21,10 +117,9 @@ const GenericCrudPage = () => {
   const { moduleKey } = useParams()
   const navigate = useNavigate()
 
-  // Get module configuration
   const module = useMemo(() => MODULES[moduleKey], [moduleKey])
 
-  // State
+  // Main list state
   const [data, setData] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -35,39 +130,39 @@ const GenericCrudPage = () => {
     total: 0,
   })
 
-  // Modal states
+  // Main form modal state
   const [formModalOpen, setFormModalOpen] = useState(false)
   const [editingItem, setEditingItem] = useState(null)
   const [formLoading, setFormLoading] = useState(false)
 
-  // Delete confirmation states
+  // Delete confirmation state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deletingItem, setDeletingItem] = useState(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
 
-  // Reference data for dropdowns
+  // Reference data for main form dropdowns
   const [referenceData, setReferenceData] = useState({})
 
-  // Extract reference modules from fields (fields that have type='select' with 'reference')
+  // Quick-create: which field/module triggered it
+  const [quickCreate, setQuickCreate] = useState({ isOpen: false, fieldName: '', moduleKey: '' })
+  const [quickCreateLoading, setQuickCreateLoading] = useState(false)
+  const [quickCreateRefData, setQuickCreateRefData] = useState({})
+  // After a successful quick-create, push the new ID into the parent form field
+  const [pendingFieldUpdate, setPendingFieldUpdate] = useState(null)
+
   const referenceModules = useMemo(() => {
     if (!module?.fields) return []
     const refs = new Set()
     module.fields.forEach((field) => {
-      if (field.type === 'select' && field.reference) {
-        refs.add(field.reference)
-      }
+      if (field.type === 'select' && field.reference) refs.add(field.reference)
     })
     return Array.from(refs)
   }, [module])
 
-  // Redirect if module not found
   useEffect(() => {
-    if (!module) {
-      navigate('/master', { replace: true })
-    }
+    if (!module) navigate('/master', { replace: true })
   }, [module, navigate])
 
-  // When module changes (via sidebar navigation), ensure the main content scrolls to top
   useEffect(() => {
     const container = document.querySelector('.master-content')
     if (container) {
@@ -79,10 +174,8 @@ const GenericCrudPage = () => {
     }
   }, [moduleKey])
 
-  // Fetch data - uses API pagination, search is done locally
   const fetchData = useCallback(async () => {
     if (!module) return
-
     setLoading(true)
     try {
       const response = await crudService.getAll(moduleKey, {
@@ -90,27 +183,20 @@ const GenericCrudPage = () => {
         limit: pagination.pageSize,
       })
 
-      // Actual API response format:
-      // { success: true, data: {pagination info}, message: [array of records], pagination: "message string" }
-      // Note: The API has swapped field names - 'message' contains data, 'data' contains pagination
       let items = []
       let totalRecords = 0
 
       if (response.success !== undefined) {
-        // Check if 'message' contains the data array (actual API format)
         if (Array.isArray(response.message)) {
           items = response.message
           totalRecords = response.data?.total || items.length
-        }
-        // Standard format where 'data' is the array
-        else if (Array.isArray(response.data)) {
+        } else if (Array.isArray(response.data)) {
           items = response.data
           totalRecords = response.pagination?.total || items.length
         }
       } else if (Array.isArray(response.data)) {
         items = response.data
-        totalRecords =
-          response.total || response.pagination?.total || items.length
+        totalRecords = response.total || response.pagination?.total || items.length
       } else if (response.data?.items) {
         items = response.data.items
         totalRecords = response.data.total || items.length
@@ -119,46 +205,35 @@ const GenericCrudPage = () => {
         totalRecords = items.length
       }
 
-      setData(items)
-      // Normalize known field name differences for modules
       try {
         if (moduleKey === 'branchDetails' && Array.isArray(items)) {
-          const normalized = items.map((it) => ({
-            ...it,
-            BranchName: it.BranchName || it.Name || it.Branch || '',
-            OrganizationDetailId:
-              it.OrganizationDetailId ||
-              it.OrganizationId ||
-              it.Organization ||
-              null,
-          }))
-          setData(normalized)
+          setData(
+            items.map((it) => ({
+              ...it,
+              BranchName: it.BranchName || it.Name || it.Branch || '',
+              OrganizationDetailId:
+                it.OrganizationDetailId || it.OrganizationId || it.Organization || null,
+            })),
+          )
         } else if (moduleKey === 'batchDetails' && Array.isArray(items)) {
-          const normalized = items.map((it) => ({
-            ...it,
-            BatchNo: it.BatchNo || it.BatchNumber || it.Batch || '',
-            Barcode: it.Barcode || it.barcode || '',
-            MfgDate: parseDateToInput(
-              it.MfgDate || it.ManufacturedDate || it.ManufactureDate || '',
-            ),
-            Expdate: parseDateToInput(
-              it.Expdate || it.ExpiryDate || it.ExpireDate || '',
-            ),
-            PurchaseDate: parseDateToInput(
-              it.PurchaseDate || it.Purchase_Date || '',
-            ),
-          }))
-          setData(normalized)
+          setData(
+            items.map((it) => ({
+              ...it,
+              BatchNo: it.BatchNo || it.BatchNumber || it.Batch || '',
+              Barcode: it.Barcode || it.barcode || '',
+              MfgDate: parseDateToInput(it.MfgDate || it.ManufacturedDate || it.ManufactureDate || ''),
+              Expdate: parseDateToInput(it.Expdate || it.ExpiryDate || it.ExpireDate || ''),
+              PurchaseDate: parseDateToInput(it.PurchaseDate || it.Purchase_Date || ''),
+            })),
+          )
         } else {
           setData(items)
         }
       } catch (e) {
         setData(items)
       }
-      setPagination((prev) => ({
-        ...prev,
-        total: totalRecords,
-      }))
+
+      setPagination((prev) => ({ ...prev, total: totalRecords }))
     } catch (error) {
       console.error('Error fetching data:', error)
       toast.error(MESSAGES.error.FETCH_FAILED || 'Failed to load data')
@@ -168,18 +243,14 @@ const GenericCrudPage = () => {
     }
   }, [moduleKey, module, pagination.page, pagination.pageSize])
 
-  // Helper: convert various API date formats to YYYY-MM-DD for HTML date inputs
   const parseDateToInput = (v) => {
     if (!v && v !== 0) return ''
     if (typeof v === 'string') {
       const s = v.trim()
-      // If already ISO-like YYYY-MM-DD
       const isoMatch = s.match(/^(\d{4})-(\d{2})-(\d{2})/)
       if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`
-      // If DD-MM-YYYY -> convert
       const dmyMatch = s.match(/^(\d{2})-(\d{2})-(\d{4})$/)
       if (dmyMatch) return `${dmyMatch[3]}-${dmyMatch[2]}-${dmyMatch[1]}`
-      // Try parsing with Date
       const parsed = new Date(s)
       if (!isNaN(parsed)) {
         const yyyy = parsed.getFullYear()
@@ -201,17 +272,13 @@ const GenericCrudPage = () => {
     }
   }
 
-  // Helper: convert YYYY-MM-DD (or Date) to API expected DD-MM-YYYY
   const formatDateToApi = (v) => {
     if (!v && v !== 0) return ''
     if (typeof v === 'string') {
       const s = v.trim()
-      // If already DD-MM-YYYY
       if (/^\d{2}-\d{2}-\d{4}$/.test(s)) return s
-      // If ISO-like YYYY-MM-DD
       const isoMatch = s.match(/^(\d{4})-(\d{2})-(\d{2})/)
       if (isoMatch) return `${isoMatch[3]}-${isoMatch[2]}-${isoMatch[1]}`
-      // Try parse
       const parsed = new Date(s)
       if (!isNaN(parsed)) {
         const yyyy = parsed.getFullYear()
@@ -233,299 +300,100 @@ const GenericCrudPage = () => {
     }
   }
 
-  // Fetch reference data for dropdowns
   const fetchReferenceData = useCallback(async () => {
     if (referenceModules.length === 0) return
-
     try {
       const refData = {}
       await Promise.all(
         referenceModules.map(async (refModuleKey) => {
           try {
             const response = await crudService.getReferenceData(refModuleKey)
-            // Handle different response structures
             let items = []
-            if (Array.isArray(response)) {
-              items = response
-            } else if (Array.isArray(response?.message)) {
-              items = response.message
-            } else if (Array.isArray(response?.data)) {
-              items = response.data
-            } else if (response?.items) {
-              items = response.items
-            } else if (response?.data?.items) {
-              items = response.data.items
-            }
+            if (Array.isArray(response)) items = response
+            else if (Array.isArray(response?.message)) items = response.message
+            else if (Array.isArray(response?.data)) items = response.data
+            else if (response?.items) items = response.items
+            else if (response?.data?.items) items = response.data.items
             refData[refModuleKey] = items
           } catch (err) {
-            console.warn(
-              `Failed to load reference data for ${refModuleKey}:`,
-              err,
-            )
+            console.warn(`Failed to load reference data for ${refModuleKey}:`, err)
             refData[refModuleKey] = []
           }
         }),
       )
-      // If costInfos were loaded, compute a display label of Amount-TaxGroup-TaxIncluded
+
+      // costInfos needs a secondary taxGroups fetch to build its display label
       if (refData.costInfos && refData.costInfos.length) {
         try {
           const taxResp = await crudService.getReferenceData('taxGroups')
           let taxItems = []
           if (Array.isArray(taxResp)) taxItems = taxResp
           else if (Array.isArray(taxResp?.data)) taxItems = taxResp.data
-
           const taxMap = {}
-          taxItems.forEach((t) => {
-            const id = t.id || t.Id
-            taxMap[id] =
-              t.Name || t.name || t.TaxGroupName || t.Title || t.title
+          taxItems.forEach((tx) => {
+            const id = tx.id || tx.Id
+            taxMap[id] = tx.Name || tx.name || tx.TaxGroupName || tx.Title || tx.title
           })
-
           refData.costInfos = refData.costInfos.map((ci) => {
             const taxName = taxMap[ci.TaxGroupId] || ci.TaxGroupId || ''
             const amount = ci.Amount !== undefined ? ci.Amount : ''
             const label = `${amount}-${taxName}`
-            // ensure existing UI that prefers opt.Name or opt.name picks up the label
             return { ...ci, DisplayLabel: label, Name: label, name: label }
           })
-
-          // Prefer the computed display label when resolving costInfos
           if (MODULES.costInfos) MODULES.costInfos.displayField = 'DisplayLabel'
         } catch (e) {
-          console.warn(
-            'Failed to load tax groups for costInfos display label',
-            e,
-          )
+          console.warn('Failed to load tax groups for costInfos display label', e)
         }
       }
 
-      // If mapProviderLocationMappers loaded, use TagName as display label
-      if (
-        refData.mapProviderLocationMappers &&
-        refData.mapProviderLocationMappers.length
-      ) {
-        try {
-          refData.mapProviderLocationMappers =
-            refData.mapProviderLocationMappers.map((m) => {
-              const tag = m.TagName || m.tagName || m.Tag || ''
-              const label = tag || m.TagName || m.tagName || ''
-              return { ...m, DisplayLabel: label, Name: label, name: label }
-            })
-
-          if (MODULES.mapProviderLocationMappers)
-            MODULES.mapProviderLocationMappers.displayField = 'DisplayLabel'
-        } catch (e) {
-          console.warn(
-            'Failed to compute labels for mapProviderLocationMappers',
-            e,
-          )
-        }
-      }
-
-      // If addressDetails loaded, use TagName (or tagname) as display label
-      if (refData.addressDetails && refData.addressDetails.length) {
-        try {
-          refData.addressDetails = refData.addressDetails.map((a) => {
-            const tag =
-              a.TagName || a.tagName || a.Tag || a.tag || a.Name || a.name || ''
-            const label =
-              tag || a.TagName || a.tagName || a.Name || a.name || ''
-            return { ...a, DisplayLabel: label, Name: label, name: label }
-          })
-
-          if (MODULES.addressDetails)
-            MODULES.addressDetails.displayField = 'DisplayLabel'
-        } catch (e) {
-          console.warn('Failed to compute labels for addressDetails', e)
-        }
-      }
-
-      // If branchDetails loaded, use BranchName as display label
-      if (refData.branchDetails && refData.branchDetails.length) {
-        try {
-          refData.branchDetails = refData.branchDetails.map((b) => {
-            const name = b.BranchName || b.Branch || b.Name || b.name || ''
-            const label = name || b.BranchName || b.Name || b.name || ''
-            return { ...b, DisplayLabel: label, Name: label, name: label }
-          })
-
-          if (MODULES.branchDetails)
-            MODULES.branchDetails.displayField = 'DisplayLabel'
-        } catch (e) {
-          console.warn('Failed to compute labels for branchDetails', e)
-        }
-      }
-
-      // If transactionTypeConfigs loaded, use TagName as display label
-      if (
-        refData.transactionTypeConfigs &&
-        refData.transactionTypeConfigs.length
-      ) {
-        try {
-          refData.transactionTypeConfigs = refData.transactionTypeConfigs.map(
-            (t) => {
-              const tag =
-                t.TagName || t.tagName || t.Tag || t.name || t.Name || ''
-              const label = tag || ''
-              return { ...t, DisplayLabel: label, Name: label, name: label }
-            },
-          )
-
-          if (MODULES.transactionTypeConfigs)
-            MODULES.transactionTypeConfigs.displayField = 'DisplayLabel'
-        } catch (e) {
-          console.warn('Failed to compute labels for transactionTypeConfigs', e)
-        }
-      }
-
-      // If transactionTypeBaseConversions loaded, use tag (lowercase) as display label
-      if (
-        refData.transactionTypeBaseConversions &&
-        refData.transactionTypeBaseConversions.length
-      ) {
-        try {
-          refData.transactionTypeBaseConversions =
-            refData.transactionTypeBaseConversions.map((t) => {
-              const label = t.tag || t.Tag || ''
-              return { ...t, DisplayLabel: label, Name: label, name: label }
-            })
-
-          if (MODULES.transactionTypeBaseConversions)
-            MODULES.transactionTypeBaseConversions.displayField = 'DisplayLabel'
-        } catch (e) {
-          console.warn(
-            'Failed to compute labels for transactionTypeBaseConversions',
-            e,
-          )
-        }
-      }
-
-      // If paymentModes loaded, use Type as display label
-      if (refData.paymentModes && refData.paymentModes.length) {
-        try {
-          refData.paymentModes = refData.paymentModes.map((p) => {
-            const label = p.Type || p.type || p.Name || p.name || ''
-            return { ...p, DisplayLabel: label, Name: label, name: label }
-          })
-          if (MODULES.paymentModes)
-            MODULES.paymentModes.displayField = 'DisplayLabel'
-        } catch (e) {
-          console.warn('Failed to compute labels for paymentModes', e)
-        }
-      }
-
-      // If paymentReceivedTypes loaded, use Type as display label
-      if (refData.paymentReceivedTypes && refData.paymentReceivedTypes.length) {
-        try {
-          refData.paymentReceivedTypes = refData.paymentReceivedTypes.map(
-            (p) => {
-              const label = p.Type || p.type || p.Name || p.name || ''
-              return { ...p, DisplayLabel: label, Name: label, name: label }
-            },
-          )
-          if (MODULES.paymentReceivedTypes)
-            MODULES.paymentReceivedTypes.displayField = 'DisplayLabel'
-        } catch (e) {
-          console.warn('Failed to compute labels for paymentReceivedTypes', e)
-        }
-      }
-      // If accountTypeBases loaded, use Name as display label
-      if (refData.accountTypeBases && refData.accountTypeBases.length) {
-        try {
-          refData.accountTypeBases = refData.accountTypeBases.map((a) => {
-            const label = a.Name || a.name || ''
-            return { ...a, DisplayLabel: label, Name: label, name: label }
-          })
-          if (MODULES.accountTypeBases)
-            MODULES.accountTypeBases.displayField = 'DisplayLabel'
-        } catch (e) {
-          console.warn('Failed to compute labels for accountTypeBases', e)
-        }
-      }
-
-      // If transactionDetailLogs loaded, use TransactionNo as display label
-      if (
-        refData.transactionDetailLogs &&
-        refData.transactionDetailLogs.length
-      ) {
-        try {
-          refData.transactionDetailLogs = refData.transactionDetailLogs.map(
-            (t) => {
-              const label = t.TransactionNo || t.transactionNo || ''
-              return { ...t, DisplayLabel: label, Name: label, name: label }
-            },
-          )
-          if (MODULES.transactionDetailLogs)
-            MODULES.transactionDetailLogs.displayField = 'DisplayLabel'
-        } catch (e) {
-          console.warn('Failed to compute labels for transactionDetailLogs', e)
-        }
-      }
-      // If paymentModeTransactionDetails loaded, use RefNo as display label
-      if (
-        refData.paymentModeTransactionDetails &&
-        refData.paymentModeTransactionDetails.length
-      ) {
-        try {
-          refData.paymentModeTransactionDetails =
-            refData.paymentModeTransactionDetails.map((p) => {
-              const label = p.RefNo || p.refNo || p.Name || p.name || ''
-              return { ...p, DisplayLabel: label, Name: label, name: label }
-            })
-          if (MODULES.paymentModeTransactionDetails)
-            MODULES.paymentModeTransactionDetails.displayField = 'DisplayLabel'
-        } catch (e) {
-          console.warn(
-            'Failed to compute labels for paymentModeTransactionDetails',
-            e,
-          )
-        }
-      }
-      // If paymentDetails loaded, use TransactionNo-GrossAmount as display label
-      // expand=true on the reference fetch returns TransactionNo from the joined transactionDetailLog
-      if (refData.paymentDetails && refData.paymentDetails.length) {
-        try {
-          refData.paymentDetails = refData.paymentDetails.map((p) => {
-            const txNo = p.TransactionNo || p.transactionNo || ''
-            const gross = p.GrossAmount || p.grossAmount || ''
-            const label = txNo && gross ? `${txNo}-${gross}` : txNo || gross || (p.id || p.Id || '')
-            return { ...p, DisplayLabel: label, Name: label, name: label }
-          })
-          if (MODULES.paymentDetails)
-            MODULES.paymentDetails.displayField = 'DisplayLabel'
-        } catch (e) {
-          console.warn('Failed to compute labels for paymentDetails', e)
-        }
-      }
-      // Generic mapping: if a module declares a displayField, use it as Name/DisplayLabel
+      // Apply display labels for all other modules via the shared helper
       referenceModules.forEach((refKey) => {
-        try {
-          const df = MODULES[refKey]?.displayField
-          if (df && Array.isArray(refData[refKey])) {
-            refData[refKey] = refData[refKey].map((it) => {
-              const label =
-                it[df] ||
-                it[df.toLowerCase?.()] ||
-                it.Name ||
-                it.name ||
-                it.DisplayLabel ||
-                ''
-              return { ...it, DisplayLabel: label, Name: label, name: label }
-            })
-            // prefer the computed DisplayLabel
-            MODULES[refKey].displayField = 'DisplayLabel'
-          }
-        } catch (e) {
-          console.warn(`Failed to apply displayField mapping for ${refKey}`, e)
+        if (refKey !== 'costInfos') {
+          refData[refKey] = applyDisplayLabel(refKey, refData[refKey] || [])
         }
       })
+
       setReferenceData(refData)
     } catch (error) {
       console.error('Error fetching reference data:', error)
     }
   }, [referenceModules])
 
-  // Initial data load
+  // When the quick-create modal opens, fetch reference data for its own select fields
+  useEffect(() => {
+    if (!quickCreate.isOpen || !quickCreate.moduleKey) {
+      setQuickCreateRefData({})
+      return
+    }
+    const qcModule = MODULES[quickCreate.moduleKey]
+    const qcRefs = new Set(
+      (qcModule?.fields || [])
+        .filter((f) => f.type === 'select' && f.reference)
+        .map((f) => f.reference),
+    )
+    if (qcRefs.size === 0) return
+
+    const fetchQcRefs = async () => {
+      const newRefData = {}
+      await Promise.all(
+        Array.from(qcRefs).map(async (refKey) => {
+          try {
+            const resp = await crudService.getReferenceData(refKey)
+            let items = []
+            if (Array.isArray(resp)) items = resp
+            else if (Array.isArray(resp?.message)) items = resp.message
+            else if (Array.isArray(resp?.data)) items = resp.data
+            newRefData[refKey] = applyDisplayLabel(refKey, items)
+          } catch (e) {
+            newRefData[refKey] = []
+          }
+        }),
+      )
+      setQuickCreateRefData(newRefData)
+    }
+    fetchQcRefs()
+  }, [quickCreate.isOpen, quickCreate.moduleKey])
+
   useEffect(() => {
     if (module) {
       fetchData()
@@ -533,37 +401,41 @@ const GenericCrudPage = () => {
     }
   }, [module, fetchData, fetchReferenceData])
 
-  // Handle search - local filtering only, no API call
-  const handleSearch = (e) => {
-    setSearchQuery(e.target.value)
-  }
+  // Re-fetch a single reference module and merge into referenceData
+  const refreshSingleReference = useCallback(async (refModuleKey) => {
+    try {
+      const response = await crudService.getReferenceData(refModuleKey)
+      let items = []
+      if (Array.isArray(response)) items = response
+      else if (Array.isArray(response?.message)) items = response.message
+      else if (Array.isArray(response?.data)) items = response.data
+      else if (response?.items) items = response.items
+      items = applyDisplayLabel(refModuleKey, items)
+      setReferenceData((prev) => ({ ...prev, [refModuleKey]: items }))
+      return items
+    } catch (err) {
+      console.warn(`Failed to refresh reference data for ${refModuleKey}:`, err)
+      return []
+    }
+  }, [])
 
-  // Handle page change - triggers API call
-  const handlePageChange = (newPage) => {
-    setPagination((prev) => ({ ...prev, page: newPage }))
-  }
-
-  // Handle column sorting - local sorting
+  const handleSearch = (e) => setSearchQuery(e.target.value)
+  const handlePageChange = (newPage) => setPagination((prev) => ({ ...prev, page: newPage }))
   const handleSort = (columnKey) => {
     setSortConfig((prev) => ({
       key: columnKey,
-      direction:
-        prev.key === columnKey && prev.direction === 'asc' ? 'desc' : 'asc',
+      direction: prev.key === columnKey && prev.direction === 'asc' ? 'desc' : 'asc',
     }))
   }
 
-  // Open create modal
   const handleCreate = () => {
     setEditingItem(null)
     setFormModalOpen(true)
   }
 
-  // Open edit modal
   const handleEdit = (item) => {
     try {
       const normalized = { ...item }
-
-      // Normalize date fields (YYYY-MM-DD) for <input type="date">
       const dateFields = module?.fields
         ? module.fields.filter((f) => f.type === 'date').map((f) => f.name)
         : []
@@ -572,19 +444,14 @@ const GenericCrudPage = () => {
           normalized[df] = parseDateToInput(normalized[df])
         }
       })
-
-      // Normalize datetime fields for <input type="datetime-local">
-      // Strip Z suffix and milliseconds — display only, raw value is sent on submit
       const datetimeFields = module?.fields
         ? module.fields.filter((f) => f.type === 'datetime').map((f) => f.name)
         : []
       datetimeFields.forEach((df) => {
         if (normalized[df] !== undefined && normalized[df] !== null && normalized[df] !== '') {
-          // "2026-05-25T16:46:00.000Z" → "2026-05-25T16:46:00"
           normalized[df] = String(normalized[df]).replace(/\.\d+Z$/, '').replace('Z', '')
         }
       })
-
       setEditingItem(normalized)
     } catch (e) {
       setEditingItem(item)
@@ -592,180 +459,152 @@ const GenericCrudPage = () => {
     setFormModalOpen(true)
   }
 
-  // Close form modal
   const handleFormClose = () => {
     setFormModalOpen(false)
     setEditingItem(null)
   }
 
-  // System fields that should never be sent to the API
-  const SYSTEM_FIELDS = [
-    'Id',
-    'id',
-    'TenantId',
-    'tenantId',
-    'CreatedAt',
-    'UpdatedAt',
-    'CreatedOn',
-    'UpdatedOn',
-    'createdAt',
-    'updatedAt',
-    'createdOn',
-    'updatedOn',
-    'CreatedBy',
-    'UpdatedBy',
-    'createdBy',
-    'updatedBy',
-    'DeletedAt',
-    'deletedAt',
-    'DeletedBy',
-    'deletedBy',
-  ]
-
-  // Helper to strip system fields from form data
-  const stripSystemFields = (data) => {
-    const cleaned = {}
-    Object.keys(data).forEach((key) => {
-      if (!SYSTEM_FIELDS.includes(key)) {
-        cleaned[key] = data[key]
-      }
+  const buildPayload = (formData, moduleDef) => {
+    const cleanedData = stripSystemFields(formData)
+    const allowedFields = moduleDef?.fields?.map((f) => f.name) || []
+    const requiredFields = new Set(
+      moduleDef?.fields?.filter((f) => f.required).map((f) => f.name) || [],
+    )
+    const payload = {}
+    Object.keys(cleanedData).forEach((k) => {
+      if (!allowedFields.includes(k)) return
+      if (!requiredFields.has(k) && cleanedData[k] === '') return
+      payload[k] = cleanedData[k]
     })
-    return cleaned
+    return payload
   }
 
-  // Submit form (create/update)
   const handleFormSubmit = async (formData) => {
     setFormLoading(true)
     try {
-      // Strip all system fields from the payload
-      const cleanedData = stripSystemFields(formData)
+      const payload = buildPayload(formData, module)
 
-      // Only include fields that are declared in the module definition
-      const allowedFields = module?.fields?.map((f) => f.name) || []
-      const requiredFields = new Set(
-        module?.fields?.filter((f) => f.required).map((f) => f.name) || [],
-      )
-      const payload = {}
-      Object.keys(cleanedData).forEach((k) => {
-        if (!allowedFields.includes(k)) return
-        // Drop empty strings for non-required fields — APIs reject "" but accept absence
-        if (!requiredFields.has(k) && cleanedData[k] === '') return
-        payload[k] = cleanedData[k]
-      })
+      const applyDateFormat = (p) => {
+        const dateFields = module.fields.filter((f) => f.type === 'date').map((f) => f.name)
+        dateFields.forEach((df) => {
+          if (p[df] !== undefined && p[df] !== null && p[df] !== '') {
+            p[df] = formatDateToApi(p[df])
+          }
+        })
+      }
+      applyDateFormat(payload)
 
       if (editingItem) {
-        // Handle both 'id' and 'Id' casing from API
         const itemId = editingItem.id || editingItem.Id
-        // Convert date fields to API expected format for modules with date fields
-        {
-          const dateFields = module.fields
-            .filter((f) => f.type === 'date')
-            .map((f) => f.name)
-          dateFields.forEach((df) => {
-            if (
-              payload[df] !== undefined &&
-              payload[df] !== null &&
-              payload[df] !== ''
-            ) {
-              payload[df] = formatDateToApi(payload[df])
-            }
-          })
-        }
         await crudService.update(moduleKey, itemId, payload)
         toast.success(
-          MESSAGES.success.UPDATE ||
-            `${module.label || module.name} updated successfully`,
+          MESSAGES.success.UPDATE || `${module.label || module.name} updated successfully`,
         )
       } else {
-        // Convert date fields to API expected format for modules with date fields
-        {
-          const dateFields = module.fields
-            .filter((f) => f.type === 'date')
-            .map((f) => f.name)
-          dateFields.forEach((df) => {
-            if (
-              payload[df] !== undefined &&
-              payload[df] !== null &&
-              payload[df] !== ''
-            ) {
-              payload[df] = formatDateToApi(payload[df])
-            }
-          })
-        }
         await crudService.create(moduleKey, payload)
         toast.success(
-          MESSAGES.success.CREATE ||
-            `${module.label || module.name} created successfully`,
+          MESSAGES.success.CREATE || `${module.label || module.name} created successfully`,
         )
       }
       handleFormClose()
       fetchData()
     } catch (error) {
       console.error('Error saving:', error)
-      const errorMessage =
-        error.response?.data?.message ||
-        MESSAGES.error.SAVE_FAILED ||
-        'Failed to save'
-      toast.error(errorMessage)
+      toast.error(
+        error.response?.data?.message || MESSAGES.error.SAVE_FAILED || 'Failed to save',
+      )
     } finally {
       setFormLoading(false)
     }
   }
 
-  // Open delete confirmation
+  // Triggered by FormModal when user clicks + next to a select field
+  const handleQuickCreate = useCallback((fieldName, refModuleKey) => {
+    setQuickCreate({ isOpen: true, fieldName, moduleKey: refModuleKey })
+  }, [])
+
+  const handleFieldUpdatesApplied = useCallback(() => {
+    setPendingFieldUpdate(null)
+  }, [])
+
+  // Submit the quick-create form: create the record, refresh the dropdown, auto-select
+  const handleQuickCreateSubmit = useCallback(
+    async (formData) => {
+      const { fieldName, moduleKey: refModuleKey } = quickCreate
+      const refModule = MODULES[refModuleKey]
+      if (!refModule) return
+
+      setQuickCreateLoading(true)
+      try {
+        const payload = buildPayload(formData, refModule)
+        const result = await crudService.create(refModuleKey, payload)
+
+        // Extract the new record's ID from various API response shapes
+        const rec = result?.data || result?.message || result || {}
+        const newId =
+          (Array.isArray(rec) ? rec[0]?.id || rec[0]?.Id : rec?.id || rec?.Id) || null
+
+        await refreshSingleReference(refModuleKey)
+
+        if (newId) {
+          setPendingFieldUpdate({ [fieldName]: String(newId) })
+        }
+
+        toast.success(
+          `${refModule.label || refModule.name || refModuleKey} created successfully`,
+        )
+        setQuickCreate({ isOpen: false, fieldName: '', moduleKey: '' })
+      } catch (error) {
+        console.error('Error in quick create:', error)
+        toast.error(error.response?.data?.message || 'Failed to create record')
+      } finally {
+        setQuickCreateLoading(false)
+      }
+    },
+    [quickCreate, refreshSingleReference],
+  )
+
   const handleDelete = (item) => {
     setDeletingItem(item)
     setDeleteDialogOpen(true)
   }
 
-  // Confirm delete
   const handleDeleteConfirm = async () => {
     if (!deletingItem) return
-
     setDeleteLoading(true)
     try {
-      // Handle both 'id' and 'Id' casing from API
       const itemId = deletingItem.id || deletingItem.Id
       await crudService.remove(moduleKey, itemId)
       toast.success(
-        MESSAGES.success.DELETE ||
-          `${module.label || module.name} deleted successfully`,
+        MESSAGES.success.DELETE || `${module.label || module.name} deleted successfully`,
       )
       setDeleteDialogOpen(false)
       setDeletingItem(null)
       fetchData()
     } catch (error) {
       console.error('Error deleting:', error)
-      const errorMessage =
-        error.response?.data?.message ||
-        MESSAGES.error.DELETE_FAILED ||
-        'Failed to delete'
-      toast.error(errorMessage)
+      toast.error(
+        error.response?.data?.message || MESSAGES.error.DELETE_FAILED || 'Failed to delete',
+      )
     } finally {
       setDeleteLoading(false)
     }
   }
 
-  // Close delete dialog
   const handleDeleteClose = () => {
     setDeleteDialogOpen(false)
     setDeletingItem(null)
   }
 
-  // Filter and sort data locally (client-side)
   const filteredAndSortedData = useMemo(() => {
     let result = [...data]
-
-    // Apply local search filter
     if (searchQuery && module?.searchFields) {
       const query = searchQuery.toLowerCase()
       result = result.filter((item) => {
-        // Search in defined search fields
         const matchesSearchFields = module.searchFields.some((field) => {
           const value = item[field]
           return value && String(value).toLowerCase().includes(query)
         })
-        // Also search in all string columns for better UX
         const matchesAnyColumn = module.tableColumns?.some((col) => {
           const key = typeof col === 'string' ? col : col.key
           const value = item[key]
@@ -774,55 +613,39 @@ const GenericCrudPage = () => {
         return matchesSearchFields || matchesAnyColumn
       })
     }
-
-    // Apply sorting
     if (sortConfig.key) {
       result.sort((a, b) => {
         const aVal = a[sortConfig.key]
         const bVal = b[sortConfig.key]
-
-        // Handle null/undefined
         if (aVal == null && bVal == null) return 0
         if (aVal == null) return sortConfig.direction === 'asc' ? 1 : -1
         if (bVal == null) return sortConfig.direction === 'asc' ? -1 : 1
-
-        // Compare values
         let comparison = 0
         if (typeof aVal === 'number' && typeof bVal === 'number') {
           comparison = aVal - bVal
         } else if (typeof aVal === 'boolean' && typeof bVal === 'boolean') {
           comparison = aVal === bVal ? 0 : aVal ? -1 : 1
         } else {
-          comparison = String(aVal).localeCompare(String(bVal), undefined, {
-            numeric: true,
-          })
+          comparison = String(aVal).localeCompare(String(bVal), undefined, { numeric: true })
         }
-
         return sortConfig.direction === 'asc' ? comparison : -comparison
       })
     }
-
     return result
   }, [data, searchQuery, module, sortConfig])
 
-  // Get display name from reference data
   const getReferenceName = useCallback(
     (refModuleKey, id) => {
       const refs = referenceData[refModuleKey] || []
       const ref = refs.find((r) => (r.id || r.Id) === id)
       if (!ref) return id
-
-      // If this reference is a location with Lat & Lng, show as "Lat-Lng"
       if (typeof ref.Lat !== 'undefined' && typeof ref.Lng !== 'undefined') {
         return `${ref.Lat}-${ref.Lng}`
       }
-
-      // Prefer module-specific displayField if configured
       const displayField = MODULES[refModuleKey]?.displayField
       if (displayField && ref[displayField] !== undefined) {
         return ref[displayField]
       }
-
       return (
         ref.name ||
         ref.Name ||
@@ -841,25 +664,21 @@ const GenericCrudPage = () => {
     [referenceData],
   )
 
-  // Build table columns with reference resolution
   const columns = useMemo(() => {
     if (!module?.tableColumns) return []
     return module.tableColumns.map((col) => {
-      // Handle string column names (simple case)
       if (typeof col === 'string') {
-        // try to find field definition to resolve references
         const fieldDef = module.fields?.find((f) => f.name === col)
         if (fieldDef && fieldDef.reference) {
           const refModuleKey = fieldDef.reference
           return {
             key: col,
             label: fieldDef.label || col,
-            render: (value, row) => {
+            render: (value) => {
               const id = value?.id || value?.Id || value
               const name =
                 typeof value === 'object'
-                  ? typeof value.Lat !== 'undefined' &&
-                    typeof value.Lng !== 'undefined'
+                  ? typeof value.Lat !== 'undefined' && typeof value.Lng !== 'undefined'
                     ? `${value.Lat}-${value.Lng}`
                     : value.name ||
                       value.Name ||
@@ -874,25 +693,21 @@ const GenericCrudPage = () => {
             },
           }
         }
-
         return {
           key: col,
           label: module.fields?.find((f) => f.name === col)?.label || col,
         }
       }
-
-      // Handle object column definitions
       return {
         key: col.key || col.name,
         label: col.label || col.key || col.name,
         width: col.width,
         render: col.reference
-          ? (value, row) => {
+          ? (value) => {
               const id = value?.id || value?.Id || value
               const name =
                 typeof value === 'object'
-                  ? typeof value.Lat !== 'undefined' &&
-                    typeof value.Lng !== 'undefined'
+                  ? typeof value.Lat !== 'undefined' && typeof value.Lng !== 'undefined'
                     ? `${value.Lat}-${value.Lng}`
                     : value.name ||
                       value.Name ||
@@ -910,9 +725,7 @@ const GenericCrudPage = () => {
     })
   }, [module, getReferenceName])
 
-  if (!module) {
-    return null
-  }
+  if (!module) return null
 
   return (
     <div className="generic-crud-page">
@@ -966,9 +779,7 @@ const GenericCrudPage = () => {
           module.label ||
           module.name ||
           ''
-        ).toLowerCase()} found. Click "Add ${
-          module.label || module.name
-        }" to create one.`}
+        ).toLowerCase()} found. Click "Add ${module.label || module.name}" to create one.`}
       />
 
       {/* Create/Edit Modal */}
@@ -986,7 +797,26 @@ const GenericCrudPage = () => {
         onSubmit={handleFormSubmit}
         loading={formLoading}
         referenceData={referenceData}
+        onQuickCreate={handleQuickCreate}
+        fieldUpdates={pendingFieldUpdate}
+        onFieldUpdatesApplied={handleFieldUpdatesApplied}
       />
+
+      {/* Quick-create nested modal — no recursive quick-create (onQuickCreate=null) */}
+      {quickCreate.isOpen && MODULES[quickCreate.moduleKey] && (
+        <FormModal
+          isOpen={quickCreate.isOpen}
+          onClose={() => setQuickCreate({ isOpen: false, fieldName: '', moduleKey: '' })}
+          title={`Create ${MODULES[quickCreate.moduleKey]?.label || quickCreate.moduleKey}`}
+          fields={MODULES[quickCreate.moduleKey]?.fields || []}
+          initialData={null}
+          moduleKey={quickCreate.moduleKey}
+          onSubmit={handleQuickCreateSubmit}
+          loading={quickCreateLoading}
+          referenceData={quickCreateRefData}
+          onQuickCreate={null}
+        />
+      )}
 
       {/* Delete Confirmation */}
       <ConfirmDialog
