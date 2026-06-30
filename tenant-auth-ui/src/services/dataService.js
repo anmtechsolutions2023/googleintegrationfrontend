@@ -8,7 +8,8 @@ export const getAdminSettings = () => api.get(ENDPOINTS.ADMIN.SETTINGS);
 export const getReports = () => api.get(ENDPOINTS.REPORTS.LIST);
 
 // Audit Services
-export const getAuditLogs = () => api.get(ENDPOINTS.AUDIT.LOGS);
+export const getAuditLogs = (params = {}) => api.get(ENDPOINTS.AUDIT.LOGS, { params });
+export const getAuditCategories = () => api.get(ENDPOINTS.AUDIT.CATEGORIES);
 
 export default {
   getAdminSettings,

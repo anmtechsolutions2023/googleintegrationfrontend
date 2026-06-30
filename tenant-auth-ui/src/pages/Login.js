@@ -17,17 +17,24 @@ const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Redirect back to intended page, or dashboard
   const from = location.state?.from?.pathname || ROUTES.DASHBOARD;
 
   const onSuccess = async (res) => {
     try {
-      // res.credential is the JWT from Google
-      const result = await login(res.credential);
+      const payload = await login(res.credential);
 
-      if (result) {
-        toast.success(MESSAGES.success.welcome);
-        navigate(from, { replace: true });
+      if (payload) {
+        if (payload.onboardingStatus !== 'APPROVED') {
+          // Unprovisioned user — send to onboarding holding page
+          toast.info('Your access request is pending review.');
+          navigate(ROUTES.ONBOARDING, { replace: true });
+        } else {
+          toast.success(MESSAGES.success.welcome);
+          // Don't bounce approved users back to /onboarding if that's where they came from
+          const destination =
+            from === ROUTES.ONBOARDING ? ROUTES.DASHBOARD : from;
+          navigate(destination, { replace: true });
+        }
       }
     } catch (error) {
       const backendData = error.response?.data;
@@ -50,33 +57,11 @@ const Login = () => {
   };
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        height: '80vh',
-        fontFamily: 'sans-serif',
-      }}
-    >
-      <div
-        style={{
-          padding: '40px',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-          borderRadius: '12px',
-          textAlign: 'center',
-          backgroundColor: '#fff',
-        }}
-      >
-        <h2 style={{ color: '#2c3e50', marginBottom: '10px' }}>
-          {STRINGS.pages.login.title}
-        </h2>
-        <p style={{ color: '#7f8c8d', marginBottom: '30px' }}>
-          {STRINGS.pages.login.subtitle}
-        </p>
-
-        <div style={{ display: 'flex', justifyContent: 'center' }}>
+    <div style={styles.page}>
+      <div style={styles.card}>
+        <h2 style={styles.title}>{STRINGS.pages.login.title}</h2>
+        <p style={styles.subtitle}>{STRINGS.pages.login.subtitle}</p>
+        <div style={styles.btnWrapper}>
           <GoogleLogin
             onSuccess={onSuccess}
             onError={() =>
@@ -88,6 +73,43 @@ const Login = () => {
       </div>
     </div>
   );
+};
+
+const styles = {
+  page: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: '80vh',
+    padding: '16px',
+    fontFamily: 'sans-serif',
+    boxSizing: 'border-box',
+  },
+  card: {
+    width: '100%',
+    maxWidth: '420px',
+    padding: '40px 32px',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+    borderRadius: '12px',
+    textAlign: 'center',
+    backgroundColor: '#fff',
+    boxSizing: 'border-box',
+  },
+  title: {
+    color: '#2c3e50',
+    marginBottom: '10px',
+    fontSize: 'clamp(1.2rem, 4vw, 1.6rem)',
+  },
+  subtitle: {
+    color: '#7f8c8d',
+    marginBottom: '30px',
+    fontSize: 'clamp(0.85rem, 2.5vw, 1rem)',
+  },
+  btnWrapper: {
+    display: 'flex',
+    justifyContent: 'center',
+  },
 };
 
 export default Login;

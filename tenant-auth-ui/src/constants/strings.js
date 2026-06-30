@@ -17,10 +17,10 @@ const STRINGS = {
     reports: 'Reports',
     auditLogs: 'Audit Logs',
     admin: 'Admin',
+    access: 'Access',
     settings: 'Settings',
     profile: 'Profile',
     masterData: 'Master Data',
-    // Add more nav items as needed
   },
 
   // Common button labels
@@ -90,10 +90,21 @@ const STRINGS = {
   // Filter/Sort options
   filters: {
     allStatuses: 'All Statuses',
+    allCategories: 'All Categories',
+    allLevels: 'All Levels',
     success: 'Success',
     denied: 'Denied',
     newestFirst: 'Newest First',
     oldestFirst: 'Oldest First',
+  },
+
+  // Pagination
+  pagination: {
+    previous: 'Previous',
+    next: 'Next',
+    pageOf: (page, total) => `Page ${page} of ${total}`,
+    showingOf: (from, to, total) => `Showing ${from}–${to} of ${total} logs`,
+    rowsPerPage: 'Rows per page:',
   },
 
   // Page-specific strings - organized by page
@@ -145,6 +156,57 @@ const STRINGS = {
       title: 'Master Data',
       description:
         'Manage core configuration data, inventory, transactions, payments, and more.',
+    },
+
+    onboarding: {
+      title: 'Access Pending',
+      pendingTitle: 'Your request is under review',
+      pendingDesc: 'An administrator will review your request and grant access to the system.',
+      rejectedTitle: 'Access Request Rejected',
+      rejectedDesc: 'Your access request was not approved.',
+      cancelledTitle: 'Access Request Cancelled',
+      noteLabel: 'Add a note for the administrator (optional)',
+      notePlaceholder: 'Describe your role, team, or reason for access...',
+      saveNote: 'Save Note',
+      checkStatus: 'Check Status',
+      contactAdmin: 'If you believe this is an error, please contact your administrator.',
+    },
+
+    adminApprovals: {
+      title: 'Onboarding Requests',
+      empty: 'No onboarding requests found.',
+      approveTitle: 'Approve Request',
+      rejectTitle: 'Reject Request',
+      tenantLabel: 'Assign Tenant ID',
+      tenantPlaceholder: 'Enter tenant UUID to provision user into',
+      rejectReasonLabel: 'Rejection Reason',
+      rejectReasonPlaceholder: 'Briefly explain why access is being denied...',
+    },
+
+    adminUsers: {
+      title: 'Users',
+      empty: 'No users found in this tenant.',
+      rolesTitle: 'Edit Roles',
+      confirmSuspend: 'Suspend this user? They will lose access on next login.',
+      confirmActivate: 'Restore access for this user?',
+      confirmDelete: 'Permanently remove this user from the tenant?',
+    },
+
+    adminRoles: {
+      title: 'Roles',
+      empty: 'No roles defined yet.',
+      createTitle: 'Create Role',
+      editTitle: 'Edit Role',
+      permissionsTitle: 'Edit Permissions',
+      systemRoleNote: 'System roles cannot be modified or deleted.',
+      noFeatures: 'No features available to assign.',
+    },
+
+    adminFeatures: {
+      title: 'Features',
+      empty: 'No features defined yet.',
+      createTitle: 'Create Feature',
+      editTitle: 'Edit Feature',
     },
   },
 

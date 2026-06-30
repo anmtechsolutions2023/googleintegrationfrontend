@@ -104,13 +104,17 @@ export const getReferenceData = async (moduleKey) => {
     // { success: true, data: {pagination}, message: [array], pagination: "string" }
     // Note: 'message' contains the data array, not 'data'
     if (apiResponse?.success !== undefined) {
-      // Check 'message' first (actual API format)
+      // Check 'message' first (common API format)
       if (Array.isArray(apiResponse.message)) {
         return apiResponse.message
       }
-      // Fallback to standard 'data' array
+      // Standard 'data' array
       if (Array.isArray(apiResponse.data)) {
         return apiResponse.data
+      }
+      // Some endpoints return records in 'pagination' and metadata in 'message'
+      if (Array.isArray(apiResponse.pagination)) {
+        return apiResponse.pagination
       }
     }
 

@@ -20,11 +20,19 @@ export const AUTH = {
 
 // API Endpoints - organized by domain/feature for scalability
 export const ENDPOINTS = {
+  // Onboarding endpoints (guest token)
+  ONBOARDING: {
+    STATUS: '/api/onboarding/status',
+    NOTE: '/api/onboarding/note',
+  },
+
   // Admin endpoints
   ADMIN: {
     SETTINGS: process.env.REACT_APP_ENDPOINT_ADMIN || '/api/data/settings',
     USERS: '/api/admin/users',
     ROLES: '/api/admin/roles',
+    ONBOARDING: '/api/admin/onboarding',
+    FEATURES: '/api/admin/features',
   },
 
   // Reports endpoints
@@ -37,6 +45,7 @@ export const ENDPOINTS = {
   // Audit endpoints
   AUDIT: {
     LOGS: process.env.REACT_APP_ENDPOINT_AUDIT || '/api/audit/logs',
+    CATEGORIES: '/api/audit/categories',
     DETAIL: '/api/audit/logs/:id',
   },
 

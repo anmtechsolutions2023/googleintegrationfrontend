@@ -35,13 +35,17 @@ export const AuthProvider = ({ children }) => {
     try {
       const res = await authLogin(googleToken);
       const { token } = res.data;
+      // Guest tokens are short-lived (15m); approved tokens use the normal expiry
+      const isGuest = res.data.onboardingStatus !== 'APPROVED';
       Cookies.set(APP_CONFIG.COOKIE_NAME, token, {
-        expires: APP_CONFIG.COOKIE_EXPIRY_HOURS / 24,
+        expires: isGuest
+          ? 1 / 96  // ~15 minutes
+          : APP_CONFIG.COOKIE_EXPIRY_HOURS / 24,
         secure: false,
       });
       const payload = decodeToken(token);
       setUser(payload);
-      return true;
+      return payload; // callers use payload.onboardingStatus to decide redirect
     } catch (err) {
       throw err;
     }

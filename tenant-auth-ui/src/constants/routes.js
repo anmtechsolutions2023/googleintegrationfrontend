@@ -12,10 +12,16 @@ export const ROUTES = {
   FORBIDDEN: '/forbidden',
   NOT_FOUND: '/404',
 
+  // Onboarding (guest users)
+  ONBOARDING: '/onboarding',
+
   // Admin Routes
   ADMIN: '/admin',
   ADMIN_SETTINGS: '/admin/settings',
   ADMIN_USERS: '/admin/users',
+  ADMIN_APPROVALS: '/admin/approvals',
+  ADMIN_ROLES: '/admin/roles',
+  ADMIN_FEATURES: '/admin/features',
 
   // Reports Module
   REPORTS: '/reports',

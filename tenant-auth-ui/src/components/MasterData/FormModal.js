@@ -39,7 +39,7 @@ const FormModal = ({
       setFormData((prev) => ({ ...prev, ...fieldUpdates }))
       if (typeof onFieldUpdatesApplied === 'function') onFieldUpdatesApplied()
     }
-  }, [fieldUpdates]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fieldUpdates]) // eslint-disable-line
 
   // Initialize form data when modal opens or initialData changes
   useEffect(() => {

@@ -9,10 +9,13 @@ import './Navbar.css';
 
 const Navbar = () => {
   const { user, logout, switchTenant } = useAuth();
-  const [isOpen, setIsOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
 
   if (!user) return null;
+
+  const isGuest = !user.tid || user.onboardingStatus !== 'APPROVED';
 
   const handleLogout = () => {
     logout();
@@ -21,63 +24,83 @@ const Navbar = () => {
   };
 
   const handleSwitch = async (tenantId) => {
-    // Prevent switching to the one currently active
     if (user.tid === tenantId) return;
-
     try {
       await switchTenant(tenantId);
-      setIsOpen(false);
-      // Most apps redirect to dashboard on switch to refresh all component data
+      setIsProfileOpen(false);
       navigate(ROUTES.DASHBOARD);
-    } catch (err) {
+    } catch {
       toast.error(MESSAGES.error.SWITCH_TENANT_FAILED);
     }
   };
 
+  const closeMobileMenu = () => setIsMobileMenuOpen(false);
+
   return (
     <nav className="navbar">
-      <div className="nav-logo" onClick={() => navigate(ROUTES.DASHBOARD)}>
+      <div className="nav-logo" onClick={() => navigate(isGuest ? ROUTES.ONBOARDING : ROUTES.DASHBOARD)}>
         {STRINGS.app.logo} {STRINGS.app.name}
       </div>
 
-      <div className="nav-links">
-        <Link to={ROUTES.DASHBOARD}>{STRINGS.nav.home}</Link>
+      {/* Desktop nav links — hidden for guests */}
+      {!isGuest && (
+        <div className="nav-links">
+          <Link to={ROUTES.DASHBOARD}>{STRINGS.nav.home}</Link>
+          <Link to={ROUTES.MASTER}>{STRINGS.nav.masterData}</Link>
 
-        <Link to={ROUTES.MASTER}>{STRINGS.nav.masterData}</Link>
+          {hasScope(user, [SCOPES.REPORTS_READ, SCOPES.REPORTS_WRITE, SCOPES.TENANT_ADMIN]) && (
+            <Link to={ROUTES.REPORTS}>{STRINGS.nav.reports}</Link>
+          )}
 
-        {hasScope(user, [
-          SCOPES.REPORTS_READ,
-          SCOPES.REPORTS_WRITE,
-          SCOPES.TENANT_ADMIN,
-        ]) && <Link to={ROUTES.REPORTS}>{STRINGS.nav.reports}</Link>}
+          {hasScope(user, [SCOPES.ADMIN_ACCESS]) && (
+            <Link to={ROUTES.ADMIN}>{STRINGS.nav.access}</Link>
+          )}
 
-        {hasScope(user, [SCOPES.TENANT_ADMIN]) && (
-          <Link to={ROUTES.ADMIN}>{STRINGS.nav.admin}</Link>
-        )}
+          <Link to={ROUTES.AUDIT}>{STRINGS.nav.auditLogs}</Link>
+        </div>
+      )}
 
-        <Link to={ROUTES.AUDIT}>{STRINGS.nav.auditLogs}</Link>
-      </div>
+      {/* Mobile hamburger — only for provisioned users */}
+      {!isGuest && (
+        <button
+          className="hamburger"
+          aria-label="Toggle navigation"
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+        >
+          <span className={`ham-line ${isMobileMenuOpen ? 'open' : ''}`} />
+          <span className={`ham-line ${isMobileMenuOpen ? 'open' : ''}`} />
+          <span className={`ham-line ${isMobileMenuOpen ? 'open' : ''}`} />
+        </button>
+      )}
+
+      {/* Guest label */}
+      {isGuest && (
+        <span className="guest-badge">Pending Access</span>
+      )}
 
       <div className="profile-zone">
-        <div className="avatar" onClick={() => setIsOpen(!isOpen)}>
-          {user.name ? user.name.charAt(0) : 'U'}
+        <div className="avatar" onClick={() => setIsProfileOpen(!isProfileOpen)}>
+          {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
         </div>
 
-        {isOpen && (
+        {isProfileOpen && (
           <div className="dropdown">
             <div className="dropdown-header">
-              <p>
-                <strong>{user.name}</strong>
-              </p>
+              <p><strong>{user.name}</strong></p>
               <p className="user-email">{user.email}</p>
-              <p className="tid-label">
-                {STRINGS.labels.activeId}{' '}
-                {user.tid?.substring(0, APP_CONFIG.UI.TRUNCATE_ID_LENGTH)}...
-              </p>
+              {!isGuest && (
+                <p className="tid-label">
+                  {STRINGS.labels.activeId}{' '}
+                  {user.tid?.substring(0, APP_CONFIG.UI.TRUNCATE_ID_LENGTH)}...
+                </p>
+              )}
+              {isGuest && (
+                <p className="guest-status-label">Status: Pending Approval</p>
+              )}
             </div>
 
-            {/* TENANT SWITCHER LOGIC */}
-            {user.associatedTenants && user.associatedTenants.length > 1 && (
+            {/* Tenant switcher — approved users with multiple tenants only */}
+            {!isGuest && user.associatedTenants && user.associatedTenants.length > 1 && (
               <>
                 <hr />
                 <p className="switcher-label">{STRINGS.labels.switchTenant}</p>
@@ -85,26 +108,14 @@ const Navbar = () => {
                   {user.associatedTenants.map((t) => (
                     <div
                       key={t.tenantId}
-                      className={`tenant-item ${
-                        user.tid === t.tenantId ? 'active' : ''
-                      }`}
+                      className={`tenant-item ${user.tid === t.tenantId ? 'active' : ''}`}
                       onClick={() => handleSwitch(t.tenantId)}
                     >
                       <div className="tenant-info">
-                        <span className="status-dot"></span>
-                        <span>
-                          {t.tenantId.substring(
-                            0,
-                            APP_CONFIG.UI.TRUNCATE_ID_LENGTH
-                          )}
-                          ...
-                        </span>
+                        <span className="status-dot" />
+                        <span>{t.tenantId.substring(0, APP_CONFIG.UI.TRUNCATE_ID_LENGTH)}...</span>
                       </div>
-                      {t.isAdmin && (
-                        <span className="admin-badge">
-                          {STRINGS.roles.admin}
-                        </span>
-                      )}
+                      {t.isAdmin && <span className="admin-badge">{STRINGS.roles.admin}</span>}
                     </div>
                   ))}
                 </div>
@@ -118,8 +129,30 @@ const Navbar = () => {
           </div>
         )}
       </div>
-      {isOpen && (
-        <div className="dropdown-overlay" onClick={() => setIsOpen(false)} />
+
+      {isProfileOpen && (
+        <div className="dropdown-overlay" onClick={() => setIsProfileOpen(false)} />
+      )}
+
+      {/* Mobile slide-down menu */}
+      {isMobileMenuOpen && !isGuest && (
+        <div className="mobile-menu">
+          <Link to={ROUTES.DASHBOARD} onClick={closeMobileMenu}>{STRINGS.nav.home}</Link>
+          <Link to={ROUTES.MASTER} onClick={closeMobileMenu}>{STRINGS.nav.masterData}</Link>
+
+          {hasScope(user, [SCOPES.REPORTS_READ, SCOPES.REPORTS_WRITE, SCOPES.TENANT_ADMIN]) && (
+            <Link to={ROUTES.REPORTS} onClick={closeMobileMenu}>{STRINGS.nav.reports}</Link>
+          )}
+
+          {hasScope(user, [SCOPES.ADMIN_ACCESS]) && (
+            <Link to={ROUTES.ADMIN} onClick={closeMobileMenu}>{STRINGS.nav.access}</Link>
+          )}
+
+          <Link to={ROUTES.AUDIT} onClick={closeMobileMenu}>{STRINGS.nav.auditLogs}</Link>
+        </div>
+      )}
+      {isMobileMenuOpen && (
+        <div className="mobile-menu-overlay" onClick={closeMobileMenu} />
       )}
     </nav>
   );

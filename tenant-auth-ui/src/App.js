@@ -8,7 +8,12 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { SCOPES, APP_CONFIG } from './constants';
 import { ROUTES } from './constants/routes';
 import { THIRD_PARTY } from './config/config';
-import { ProtectedRoute, ScopeGuard } from './components/Guards';
+import {
+  ProtectedRoute,
+  ScopeGuard,
+  ApprovedRoute,
+  GuestRoute,
+} from './components/Guards';
 import Navbar from './components/Navbar';
 import LoadingSpinner from './components/LoadingSpinner';
 import {
@@ -24,6 +29,8 @@ import NotFound from './pages/NotFound';
 import AdminPage from './pages/AdminPage';
 import AuditLogs from './pages/AuditLogs';
 import ReportsPage from './pages/ReportsPage';
+import OnboardingPage from './pages/OnboardingPage';
+import AdminDashboard from './pages/admin/AdminDashboard';
 
 const AppRoutes = () => {
   const { loading, user } = useAuth();
@@ -33,29 +40,38 @@ const AppRoutes = () => {
     <>
       {user && <Navbar />}
       <Routes>
+        {/* Public */}
         <Route path={ROUTES.LOGIN} element={<Login />} />
+        <Route path={ROUTES.FORBIDDEN} element={<Forbidden />} />
+        <Route path={ROUTES.HOME} element={<Navigate to={ROUTES.DASHBOARD} replace />} />
+
+        {/* Open access - no auth guard */}
+        <Route path={ROUTES.AUDIT} element={<AuditLogs />} />
+
+        {/* Guest-only: unprovisioned users waiting for approval */}
+        <Route
+          path={ROUTES.ONBOARDING}
+          element={
+            <GuestRoute>
+              <OnboardingPage />
+            </GuestRoute>
+          }
+        />
+
+        {/* ── Approved (provisioned) users only ── */}
         <Route
           path={ROUTES.DASHBOARD}
           element={
-            <ProtectedRoute>
+            <ApprovedRoute>
               <Dashboard />
-            </ProtectedRoute>
+            </ApprovedRoute>
           }
         />
-        <Route
-          path={ROUTES.ADMIN}
-          element={
-            <ProtectedRoute>
-              <ScopeGuard requiredScopes={[SCOPES.TENANT_ADMIN]}>
-                <AdminPage />
-              </ScopeGuard>
-            </ProtectedRoute>
-          }
-        />
+
         <Route
           path={ROUTES.REPORTS}
           element={
-            <ProtectedRoute>
+            <ApprovedRoute>
               <ScopeGuard
                 requiredScopes={[
                   SCOPES.REPORTS_READ,
@@ -65,31 +81,48 @@ const AppRoutes = () => {
               >
                 <ReportsPage />
               </ScopeGuard>
-            </ProtectedRoute>
+            </ApprovedRoute>
           }
         />
-        <Route path={ROUTES.FORBIDDEN} element={<Forbidden />} />
-        <Route
-          path={ROUTES.HOME}
-          element={<Navigate to={ROUTES.DASHBOARD} replace />}
-        />
-        {/* Open access route - No guards applied */}
-        <Route path={ROUTES.AUDIT} element={<AuditLogs />} />
 
-        {/* Master Data Module - Nested Routes */}
+        {/* Legacy admin page (TENANT_ADMIN scope) — unchanged */}
+        <Route
+          path={ROUTES.ADMIN_SETTINGS}
+          element={
+            <ApprovedRoute>
+              <ScopeGuard requiredScopes={[SCOPES.TENANT_ADMIN]}>
+                <AdminPage />
+              </ScopeGuard>
+            </ApprovedRoute>
+          }
+        />
+
+        {/* New IAM admin section (admin:access scope) — nested under /admin/* */}
+        <Route
+          path={`${ROUTES.ADMIN}/*`}
+          element={
+            <ApprovedRoute>
+              <ScopeGuard requiredScopes={[SCOPES.ADMIN_ACCESS]}>
+                <AdminDashboard />
+              </ScopeGuard>
+            </ApprovedRoute>
+          }
+        />
+
+        {/* Master Data Module */}
         <Route
           path={ROUTES.MASTER}
           element={
-            <ProtectedRoute>
+            <ApprovedRoute>
               <MasterDataLayout />
-            </ProtectedRoute>
+            </ApprovedRoute>
           }
         >
           <Route index element={<MasterDataIndex />} />
           <Route path=":moduleKey" element={<GenericCrudPage />} />
         </Route>
 
-        {/* 404 catch-all route */}
+        {/* 404 */}
         <Route path="*" element={<NotFound />} />
       </Routes>
     </>

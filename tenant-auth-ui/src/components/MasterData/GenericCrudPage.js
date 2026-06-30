@@ -7,6 +7,8 @@ import { MESSAGES, STRINGS, APP_CONFIG } from '../../constants'
 import DataTable from './DataTable'
 import FormModal from './FormModal'
 import ConfirmDialog from './ConfirmDialog'
+import { useAuth } from '../../context/AuthContext'
+import { hasScope, CATEGORY_READ_SCOPE, CATEGORY_WRITE_SCOPE } from '../../utils/permissions'
 import './MasterData.css'
 
 const { DEFAULT_PAGE, DEFAULT_LIMIT } = APP_CONFIG.PAGINATION
@@ -119,6 +121,12 @@ const GenericCrudPage = () => {
 
   const module = useMemo(() => MODULES[moduleKey], [moduleKey])
 
+  const { user } = useAuth()
+  const readScope = module ? CATEGORY_READ_SCOPE[module.category] : undefined
+  const writeScope = module ? CATEGORY_WRITE_SCOPE[module.category] : undefined
+  const hasRead = !readScope || hasScope(user, [readScope])
+  const hasWrite = !writeScope || hasScope(user, [writeScope])
+
   // Main list state
   const [data, setData] = useState([])
   const [loading, setLoading] = useState(true)
@@ -193,6 +201,10 @@ const GenericCrudPage = () => {
         } else if (Array.isArray(response.data)) {
           items = response.data
           totalRecords = response.pagination?.total || items.length
+        } else if (Array.isArray(response.pagination)) {
+          // Some endpoints return records in `pagination` and metadata in `message`
+          items = response.pagination
+          totalRecords = response.message?.total || items.length
         }
       } else if (Array.isArray(response.data)) {
         items = response.data
@@ -727,6 +739,23 @@ const GenericCrudPage = () => {
 
   if (!module) return null
 
+  if (!hasRead) {
+    return (
+      <div className="generic-crud-page">
+        <div className="content-header">
+          <h1><span>{module.icon}</span>{module.label || module.name}</h1>
+        </div>
+        <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+          <p style={{ fontSize: '3rem', margin: '0 0 8px' }}>🔒</p>
+          <h3 style={{ fontSize: '1.1rem', margin: '0 0 6px', color: '#4a5568' }}>Access Denied</h3>
+          <p style={{ fontSize: '0.875rem', color: '#718096' }}>
+            You need <code>{readScope}</code> permission to view this module.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="generic-crud-page">
       {/* Header */}
@@ -736,9 +765,11 @@ const GenericCrudPage = () => {
           {module.label || module.name}
         </h1>
         <div className="content-header-actions">
-          <button className="btn btn-primary" onClick={handleCreate}>
-            ➕ Add {module.label || module.name}
-          </button>
+          {hasWrite && (
+            <button className="btn btn-primary" onClick={handleCreate}>
+              ➕ Add {module.label || module.name}
+            </button>
+          )}
         </div>
       </div>
 
@@ -769,8 +800,8 @@ const GenericCrudPage = () => {
         columns={columns}
         data={filteredAndSortedData}
         loading={loading}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
+        onEdit={hasWrite ? handleEdit : undefined}
+        onDelete={hasWrite ? handleDelete : undefined}
         pagination={pagination}
         onPageChange={handlePageChange}
         sortConfig={sortConfig}

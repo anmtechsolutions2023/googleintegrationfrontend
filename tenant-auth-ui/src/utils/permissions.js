@@ -1,5 +1,24 @@
 import { SCOPES } from '../constants/scopes';
 
+// Maps MODULE_CATEGORIES display values → scope strings
+export const CATEGORY_READ_SCOPE = {
+  'Master Data':          SCOPES.MASTER_DATA_READ,
+  'Inventory':            SCOPES.INVENTORY_READ,
+  'Transactions':         SCOPES.TRANSACTIONS_READ,
+  'Payments':             SCOPES.PAYMENTS_READ,
+  'Contacts & Addresses': SCOPES.CONTACTS_READ,
+  'Organization':         SCOPES.ORGANIZATION_READ,
+};
+
+export const CATEGORY_WRITE_SCOPE = {
+  'Master Data':          SCOPES.MASTER_DATA_WRITE,
+  'Inventory':            SCOPES.INVENTORY_WRITE,
+  'Transactions':         SCOPES.TRANSACTIONS_WRITE,
+  'Payments':             SCOPES.PAYMENTS_WRITE,
+  'Contacts & Addresses': SCOPES.CONTACTS_WRITE,
+  'Organization':         SCOPES.ORGANIZATION_WRITE,
+};
+
 /**
  * Check if user has any of the required scopes
  * Super admin has access to everything
@@ -85,10 +104,21 @@ export const getDisplayScopes = (user) => {
   return user?.scopes || [];
 };
 
+// Returns true if the user can READ the given module category.
+// Unknown categories (no scope mapping) default to allowed.
+export const hasCategoryAccess = (user, categoryValue) => {
+  const scope = CATEGORY_READ_SCOPE[categoryValue];
+  if (!scope) return true;
+  return hasScope(user, [scope]);
+};
+
 export default {
   hasScope,
   hasAllScopes,
   isSuperAdmin,
   isTenantAdmin,
   getDisplayScopes,
+  hasCategoryAccess,
+  CATEGORY_READ_SCOPE,
+  CATEGORY_WRITE_SCOPE,
 };

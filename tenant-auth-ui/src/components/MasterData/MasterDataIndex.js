@@ -2,6 +2,8 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { MODULES, MODULE_CATEGORIES } from '../../config/modules';
 import { STRINGS } from '../../constants';
+import { useAuth } from '../../context/AuthContext';
+import { hasCategoryAccess } from '../../utils/permissions';
 import './MasterData.css';
 
 /**
@@ -9,6 +11,8 @@ import './MasterData.css';
  * Landing page for master data section showing all available modules
  */
 const MasterDataIndex = () => {
+  const { user } = useAuth();
+
   // Group modules by category
   const groupedModules = Object.entries(MODULES).reduce(
     (acc, [key, module]) => {
@@ -84,6 +88,7 @@ const MasterDataIndex = () => {
         {Object.entries(MODULE_CATEGORIES).map(([, categoryValue]) => {
           const modules = groupedModules[categoryValue];
           if (!modules || modules.length === 0) return null;
+          if (!hasCategoryAccess(user, categoryValue)) return null;
 
           const categoryInfo = getCategoryInfo(categoryValue);
 

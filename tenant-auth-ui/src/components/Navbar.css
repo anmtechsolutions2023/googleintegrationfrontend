@@ -1,45 +1,119 @@
-/* src/components/Navbar.css */
+/* ── Base navbar ── */
 .navbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 30px;
-  background-color: #1a202c; /* Dark theme */
+  padding: 0 16px;
+  background-color: #1a202c;
   color: white;
   height: 64px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  position: relative;
+  z-index: 100;
 }
 
+@media (min-width: 768px) {
+  .navbar { padding: 0 30px; }
+}
+
+/* ── Logo ── */
 .nav-logo {
-  font-size: 1.5rem;
+  font-size: 1.2rem;
   font-weight: 700;
   color: #63b3ed;
   cursor: pointer;
+  white-space: nowrap;
 }
 
+@media (min-width: 480px) {
+  .nav-logo { font-size: 1.5rem; }
+}
+
+/* ── Desktop nav links (hidden on mobile) ── */
 .nav-links {
-  display: flex;
-  gap: 25px;
+  display: none;
+  gap: 20px;
+  align-items: center;
+}
+
+@media (min-width: 1024px) {
+  .nav-links {
+    display: flex;
+    gap: 25px;
+  }
 }
 
 .nav-links a {
   color: #cbd5e0;
   text-decoration: none;
   font-weight: 500;
+  font-size: 0.95rem;
   transition: color 0.2s;
+  white-space: nowrap;
 }
 
 .nav-links a:hover {
   color: white;
 }
 
+/* ── Hamburger button (visible on mobile/tablet only) ── */
+.hamburger {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 24px;
+  height: 18px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  margin-right: 8px;
+}
+
+@media (min-width: 1024px) {
+  .hamburger { display: none; }
+}
+
+.ham-line {
+  display: block;
+  width: 100%;
+  height: 2px;
+  background-color: #cbd5e0;
+  border-radius: 2px;
+  transition: transform 0.2s, opacity 0.2s;
+}
+
+/* ── Guest badge ── */
+.guest-badge {
+  font-size: 0.7rem;
+  background: #744210;
+  color: #fefcbf;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  margin: 0 auto 0 12px;
+}
+
+.guest-status-label {
+  font-size: 0.78rem;
+  color: #e67e22;
+  margin: 6px 0 0;
+}
+
+/* ── Profile zone ── */
 .profile-zone {
   position: relative;
+  margin-left: auto;
+}
+
+@media (min-width: 1024px) {
+  .profile-zone { margin-left: 0; }
 }
 
 .avatar {
-  width: 38px;
-  height: 38px;
+  width: 36px;
+  height: 36px;
   background-color: #4299e1;
   color: white;
   border-radius: 50%;
@@ -47,32 +121,47 @@
   justify-content: center;
   align-items: center;
   font-weight: bold;
+  font-size: 0.9rem;
   cursor: pointer;
   border: 2px solid transparent;
   transition: border 0.2s;
+  flex-shrink: 0;
 }
 
 .avatar:hover {
   border-color: #63b3ed;
 }
 
+/* ── Profile dropdown ── */
 .dropdown {
   position: absolute;
   top: 50px;
   right: 0;
   background: white;
   color: #2d3748;
-  width: 240px;
-  border-radius: 8px;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-  padding: 15px;
-  border: 1px solid #e2e8f0;
-  z-index: 1000;
+  min-width: 220px;
+  width: max-content;
+  max-width: calc(100vw - 32px);
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
+  padding: 10px 0;
+  z-index: 200;
+  border: 1px solid #edf2f7;
+}
+
+.dropdown-header {
+  padding: 8px 16px 12px;
 }
 
 .dropdown p {
   margin: 5px 0;
   font-size: 0.9rem;
+}
+
+.user-email {
+  color: #718096;
+  font-size: 0.8rem !important;
+  word-break: break-all;
 }
 
 .tid-label {
@@ -81,113 +170,37 @@
   padding: 4px 8px;
   border-radius: 4px;
   display: block;
-  margin-top: 10px !important;
+  margin-top: 8px !important;
   color: #4a5568;
+  font-size: 0.78rem !important;
 }
 
 .dropdown hr {
-  margin: 12px 0;
+  margin: 8px 0;
   border: 0;
   border-top: 1px solid #e2e8f0;
 }
 
-.dropdown button {
-  width: 100%;
+.logout-btn {
+  display: block;
+  width: calc(100% - 32px);
+  margin: 0 16px;
   padding: 8px;
   background: #fed7d7;
   color: #c53030;
   border: none;
-  border-radius: 4px;
+  border-radius: 6px;
   font-weight: 600;
   cursor: pointer;
   transition: background 0.2s;
+  font-size: 0.9rem;
 }
 
-.dropdown button:hover {
+.logout-btn:hover {
   background: #feb2b2;
 }
 
-/* Container for the switcher area */
-.switcher-section {
-  max-height: 150px;
-  overflow-y: auto; /* Scroll if user has many tenants */
-  margin-top: 5px;
-}
-
-.switcher-label {
-  font-size: 10px;
-  font-weight: bold;
-  color: #a0aec0;
-  margin: 8px 15px 4px;
-  text-transform: uppercase;
-}
-
-/* Individual Tenant Row */
-.tenant-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 15px;
-  font-size: 13px;
-  cursor: pointer;
-  transition: background 0.2s;
-  color: #4a5568;
-}
-
-.tenant-item:hover {
-  background-color: #f7fafc;
-}
-
-/* Active State (Current Tenant) */
-.tenant-item.active {
-  background-color: #ebf8ff;
-  color: #2b6cb0;
-  font-weight: 600;
-  cursor: default;
-}
-
-.tenant-info {
-  display: flex;
-  align-items: center;
-}
-
-/* Status Dot */
-.tenant-item .dot {
-  width: 6px;
-  height: 6px;
-  background-color: #cbd5e0;
-  border-radius: 50%;
-  margin-right: 8px;
-}
-
-.tenant-item.active .dot {
-  background-color: #4299e1;
-}
-
-/* Admin Badge */
-.admin-badge {
-  font-size: 10px;
-  background-color: #edf2f7;
-  color: #718096;
-  padding: 2px 6px;
-  border-radius: 4px;
-  border: 1px solid #e2e8f0;
-}
-
-/* Dropdown refinements */
-.dropdown {
-  position: absolute;
-  right: 0;
-  top: 60px;
-  background: white;
-  min-width: 240px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-  border-radius: 12px;
-  padding: 10px 0;
-  z-index: 1000;
-  border: 1px solid #edf2f7;
-}
-
+/* ── Tenant switcher ── */
 .switcher-label {
   font-size: 11px;
   font-weight: 700;
@@ -197,9 +210,8 @@
   letter-spacing: 0.05em;
 }
 
-/* Scroll container if user has 5+ tenants */
 .switcher-scroll-container {
-  max-height: 200px;
+  max-height: 180px;
   overflow-y: auto;
 }
 
@@ -209,7 +221,7 @@
   justify-content: space-between;
   padding: 10px 16px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background 0.15s;
 }
 
 .tenant-item:hover {
@@ -218,13 +230,13 @@
 
 .tenant-item.active {
   background-color: #ebf8ff;
-  pointer-events: none; /* Can't click active one */
+  pointer-events: none;
 }
 
 .tenant-info {
   display: flex;
   align-items: center;
-  font-size: 14px;
+  font-size: 13px;
   color: #4a5568;
 }
 
@@ -239,6 +251,7 @@
   border-radius: 50%;
   background-color: #cbd5e0;
   margin-right: 10px;
+  flex-shrink: 0;
 }
 
 .tenant-item.active .status-dot {
@@ -252,4 +265,59 @@
   padding: 2px 6px;
   border-radius: 4px;
   font-weight: 600;
+}
+
+/* ── Overlay (closes dropdown on outside click) ── */
+.dropdown-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+}
+
+/* ── Mobile slide-down nav menu ── */
+.mobile-menu {
+  position: absolute;
+  top: 64px;
+  left: 0;
+  right: 0;
+  background-color: #2d3748;
+  display: flex;
+  flex-direction: column;
+  padding: 8px 0;
+  z-index: 90;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.mobile-menu a {
+  color: #cbd5e0;
+  text-decoration: none;
+  font-weight: 500;
+  padding: 14px 24px;
+  border-bottom: 1px solid #3d4a5c;
+  transition: background 0.15s, color 0.15s;
+  font-size: 1rem;
+}
+
+.mobile-menu a:last-child {
+  border-bottom: none;
+}
+
+.mobile-menu a:hover {
+  background-color: #3d4a5c;
+  color: white;
+}
+
+.mobile-menu-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* ── Hide mobile menu on desktop ── */
+@media (min-width: 1024px) {
+  .mobile-menu,
+  .mobile-menu-overlay {
+    display: none;
+  }
 }
