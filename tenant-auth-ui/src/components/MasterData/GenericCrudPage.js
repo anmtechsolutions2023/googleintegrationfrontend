@@ -110,6 +110,36 @@ const applyDisplayLabel = (refKey, items) => {
   return items
 }
 
+// Fetch tax groups and stamp Amount-TaxGroupName DisplayLabel onto each costInfo item.
+// Used by both the initial reference load and the post-quick-create refresh so the
+// dropdown always shows human-readable labels rather than raw IDs.
+const buildCostInfoLabels = async (items) => {
+  if (!items || !items.length) return items
+  try {
+    const taxResp = await crudService.getReferenceData('taxGroups')
+    let taxItems = []
+    if (Array.isArray(taxResp)) taxItems = taxResp
+    else if (Array.isArray(taxResp?.data)) taxItems = taxResp.data
+    else if (Array.isArray(taxResp?.message)) taxItems = taxResp.message
+    const taxMap = {}
+    taxItems.forEach((tx) => {
+      const id = tx.id || tx.Id
+      taxMap[id] = tx.Name || tx.name || tx.TaxGroupName || tx.Title || tx.title
+    })
+    const labeled = items.map((ci) => {
+      const taxName = taxMap[ci.TaxGroupId] || ci.TaxGroupId || ''
+      const amount = ci.Amount !== undefined ? ci.Amount : ''
+      const label = `${amount}-${taxName}`
+      return { ...ci, DisplayLabel: label, Name: label, name: label }
+    })
+    if (MODULES.costInfos) MODULES.costInfos.displayField = 'DisplayLabel'
+    return labeled
+  } catch (e) {
+    console.warn('Failed to load tax groups for costInfos display label', e)
+    return items
+  }
+}
+
 /**
  * GenericCrudPage Component
  * A dynamic page that renders CRUD operations for any module
@@ -334,28 +364,9 @@ const GenericCrudPage = () => {
         }),
       )
 
-      // costInfos needs a secondary taxGroups fetch to build its display label
+      // costInfos needs a secondary taxGroups fetch to build Amount-TaxGroupName labels
       if (refData.costInfos && refData.costInfos.length) {
-        try {
-          const taxResp = await crudService.getReferenceData('taxGroups')
-          let taxItems = []
-          if (Array.isArray(taxResp)) taxItems = taxResp
-          else if (Array.isArray(taxResp?.data)) taxItems = taxResp.data
-          const taxMap = {}
-          taxItems.forEach((tx) => {
-            const id = tx.id || tx.Id
-            taxMap[id] = tx.Name || tx.name || tx.TaxGroupName || tx.Title || tx.title
-          })
-          refData.costInfos = refData.costInfos.map((ci) => {
-            const taxName = taxMap[ci.TaxGroupId] || ci.TaxGroupId || ''
-            const amount = ci.Amount !== undefined ? ci.Amount : ''
-            const label = `${amount}-${taxName}`
-            return { ...ci, DisplayLabel: label, Name: label, name: label }
-          })
-          if (MODULES.costInfos) MODULES.costInfos.displayField = 'DisplayLabel'
-        } catch (e) {
-          console.warn('Failed to load tax groups for costInfos display label', e)
-        }
+        refData.costInfos = await buildCostInfoLabels(refData.costInfos)
       }
 
       // Apply display labels for all other modules via the shared helper
@@ -422,7 +433,12 @@ const GenericCrudPage = () => {
       else if (Array.isArray(response?.message)) items = response.message
       else if (Array.isArray(response?.data)) items = response.data
       else if (response?.items) items = response.items
-      items = applyDisplayLabel(refModuleKey, items)
+      // costInfos requires an extra tax-group fetch to build Amount-TaxGroupName labels
+      if (refModuleKey === 'costInfos') {
+        items = await buildCostInfoLabels(items)
+      } else {
+        items = applyDisplayLabel(refModuleKey, items)
+      }
       setReferenceData((prev) => ({ ...prev, [refModuleKey]: items }))
       return items
     } catch (err) {
@@ -551,8 +567,11 @@ const GenericCrudPage = () => {
         const payload = buildPayload(formData, refModule)
         const result = await crudService.create(refModuleKey, payload)
 
-        // Extract the new record's ID from various API response shapes
-        const rec = result?.data || result?.message || result || {}
+        // Extract the new record's ID from the API response.
+        // Some endpoints return data/message as a plain string ("Created successfully")
+        // rather than an object/array — skip those so we don't accidentally read .Id on a string.
+        const toRecord = (v) => (v != null && typeof v === 'object' ? v : null)
+        const rec = toRecord(result?.data) || toRecord(result?.message) || result || {}
         const newId =
           (Array.isArray(rec) ? rec[0]?.id || rec[0]?.Id : rec?.id || rec?.Id) || null
 
@@ -689,7 +708,7 @@ const GenericCrudPage = () => {
             render: (value) => {
               const id = value?.id || value?.Id || value
               const name =
-                typeof value === 'object'
+                value !== null && typeof value === 'object'
                   ? typeof value.Lat !== 'undefined' && typeof value.Lng !== 'undefined'
                     ? `${value.Lat}-${value.Lng}`
                     : value.name ||
@@ -701,7 +720,7 @@ const GenericCrudPage = () => {
                       value.TransactionNo ||
                       id
                   : getReferenceName(refModuleKey, value)
-              return <span title={String(id)}>{name}</span>
+              return <span title={String(id ?? '')}>{name}</span>
             },
           }
         }
@@ -718,7 +737,7 @@ const GenericCrudPage = () => {
           ? (value) => {
               const id = value?.id || value?.Id || value
               const name =
-                typeof value === 'object'
+                value !== null && typeof value === 'object'
                   ? typeof value.Lat !== 'undefined' && typeof value.Lng !== 'undefined'
                     ? `${value.Lat}-${value.Lng}`
                     : value.name ||
@@ -730,7 +749,7 @@ const GenericCrudPage = () => {
                       value.TransactionNo ||
                       id
                   : getReferenceName(col.reference, value)
-              return <span title={String(id)}>{name}</span>
+              return <span title={String(id ?? '')}>{name}</span>
             }
           : col.render,
       }

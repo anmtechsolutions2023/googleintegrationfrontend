@@ -304,7 +304,7 @@ export const MODULES = {
     category: MODULE_CATEGORIES.ORGANIZATION,
     fields: [
       {
-        name: 'BranchId',
+        name: 'BranchDetailId',
         label: 'Branch',
         type: 'select',
         required: true,
@@ -319,7 +319,7 @@ export const MODULES = {
       { name: 'Active', type: 'boolean', default: true },
     ],
     tableColumns: [
-      'BranchId',
+      'BranchDetailId',
       'UserGroupId',
       'Active',
       'CreatedBy',
