@@ -56,6 +56,14 @@ const Navbar = () => {
             <Link to={ROUTES.ADMIN}>{STRINGS.nav.access}</Link>
           )}
 
+          {hasScope(user, [
+            SCOPES.POS_ORDER_READ, SCOPES.POS_CONFIG_READ, SCOPES.POS_KITCHEN_READ,
+            SCOPES.POS_BILLING_READ, SCOPES.POS_CRM_READ, SCOPES.POS_OPS_READ,
+            SCOPES.POS_REPORTS_READ, SCOPES.TENANT_ADMIN,
+          ]) && (
+            <Link to={ROUTES.FRONTDESK}>{STRINGS.nav.frontDesk}</Link>
+          )}
+
           <Link to={ROUTES.AUDIT}>{STRINGS.nav.auditLogs}</Link>
         </div>
       )}
@@ -146,6 +154,14 @@ const Navbar = () => {
 
           {hasScope(user, [SCOPES.ADMIN_ACCESS]) && (
             <Link to={ROUTES.ADMIN} onClick={closeMobileMenu}>{STRINGS.nav.access}</Link>
+          )}
+
+          {hasScope(user, [
+            SCOPES.POS_ORDER_READ, SCOPES.POS_CONFIG_READ, SCOPES.POS_KITCHEN_READ,
+            SCOPES.POS_BILLING_READ, SCOPES.POS_CRM_READ, SCOPES.POS_OPS_READ,
+            SCOPES.POS_REPORTS_READ, SCOPES.TENANT_ADMIN,
+          ]) && (
+            <Link to={ROUTES.FRONTDESK} onClick={closeMobileMenu}>{STRINGS.nav.frontDesk}</Link>
           )}
 
           <Link to={ROUTES.AUDIT} onClick={closeMobileMenu}>{STRINGS.nav.auditLogs}</Link>

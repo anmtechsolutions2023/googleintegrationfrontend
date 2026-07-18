@@ -8,6 +8,10 @@ export const CATEGORY_READ_SCOPE = {
   'Payments':             SCOPES.PAYMENTS_READ,
   'Contacts & Addresses': SCOPES.CONTACTS_READ,
   'Organization':         SCOPES.ORGANIZATION_READ,
+  // POS categories
+  'POS Config':           SCOPES.POS_CONFIG_READ,
+  'POS Operations':       SCOPES.POS_OPS_READ,
+  'POS CRM':              SCOPES.POS_CRM_READ,
 };
 
 export const CATEGORY_WRITE_SCOPE = {
@@ -17,6 +21,10 @@ export const CATEGORY_WRITE_SCOPE = {
   'Payments':             SCOPES.PAYMENTS_WRITE,
   'Contacts & Addresses': SCOPES.CONTACTS_WRITE,
   'Organization':         SCOPES.ORGANIZATION_WRITE,
+  // POS categories
+  'POS Config':           SCOPES.POS_CONFIG_WRITE,
+  'POS Operations':       SCOPES.POS_OPS_WRITE,
+  'POS CRM':              SCOPES.POS_CRM_WRITE,
 };
 
 /**

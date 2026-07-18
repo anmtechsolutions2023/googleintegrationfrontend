@@ -1,5 +1,6 @@
 import api from '../api/api'
 import { MODULES } from '../config/modules'
+import { POS_MODULES } from '../config/posModules'
 import { APP_CONFIG } from '../constants'
 
 // Centralized pagination config
@@ -82,7 +83,9 @@ export const remove = async (moduleKey, id) => {
 // Get reference data for dropdowns
 export const getReferenceData = async (moduleKey) => {
   try {
-    const module = MODULES[moduleKey]
+    // Reference selects may point at a core module (MODULES) or a POS module
+    // (POS_MODULES) — e.g. Feedback → posCustomers.
+    const module = MODULES[moduleKey] || POS_MODULES[moduleKey]
     if (!module) {
       console.warn(`Module ${moduleKey} not found for reference data`)
       return []

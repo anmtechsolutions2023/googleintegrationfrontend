@@ -54,6 +54,8 @@ const FormModal = ({
             defaults[field.name] = field.default
           } else if (field.type === 'boolean') {
             defaults[field.name] = false
+          } else if (field.type === 'multiselect') {
+            defaults[field.name] = []
           } else {
             defaults[field.name] = ''
           }
@@ -258,7 +260,10 @@ const FormModal = ({
         )
 
       case 'select': {
-        const options = referenceData[field.reference] || []
+        // Inline static options ({ value, label }) take precedence over
+        // reference-loaded data; falls back to referenceData for reference selects.
+        const inlineOptions = Array.isArray(field.options) ? field.options : null
+        const options = inlineOptions || referenceData[field.reference] || []
         const canQuickCreate =
           typeof onQuickCreate === 'function' &&
           field.reference &&
@@ -275,6 +280,16 @@ const FormModal = ({
             >
               <option value="">Select {field.label || field.name}</option>
               {options.map((opt, idx) => {
+                // Inline static option: { value, label }
+                if (inlineOptions) {
+                  const optVal = opt.value ?? opt
+                  const optLbl = opt.label ?? opt.value ?? opt
+                  return (
+                    <option key={optVal ?? idx} value={optVal}>
+                      {optLbl}
+                    </option>
+                  )
+                }
                 const optId = opt.id || opt.Id
                 // Prefer module-configured displayField (e.g., Tag)
                 const displayField = MODULES[field.reference]?.displayField
@@ -336,6 +351,84 @@ const FormModal = ({
               </button>
             )}
           </div>
+        )
+      }
+
+      case 'multiselect': {
+        // Multi-select over reference data; stores an array of ids. Rendered as
+        // a checkbox list so several channels/variants can be picked per item.
+        const options = referenceData[field.reference] || []
+        const selected = Array.isArray(value) ? value : []
+        const displayField = MODULES[field.reference]?.displayField
+        const optLabel = (opt) => {
+          if (displayField && opt[displayField] !== undefined) return opt[displayField]
+          return opt.DisplayLabel || opt.name || opt.Name || opt.Title || opt.id || opt.Id
+        }
+        const toggle = (optId) => {
+          const next = selected.includes(optId)
+            ? selected.filter((v) => v !== optId)
+            : [...selected, optId]
+          handleChange(field.name, next, 'array')
+        }
+        return (
+          <div
+            className="form-multiselect"
+            style={{
+              border: `1px solid ${hasError ? '#e74c3c' : '#ddd'}`,
+              borderRadius: '4px',
+              padding: '8px',
+              maxHeight: '160px',
+              overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '4px',
+            }}
+          >
+            {options.length === 0 && (
+              <span style={{ color: '#95a5a6', fontSize: '0.9em' }}>No options available</span>
+            )}
+            {options.map((opt) => {
+              const optId = opt.id || opt.Id
+              return (
+                <label
+                  key={optId}
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0 }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selected.includes(optId)}
+                    onChange={() => toggle(optId)}
+                    disabled={loading}
+                  />
+                  <span>{optLabel(opt)}</span>
+                </label>
+              )
+            })}
+          </div>
+        )
+      }
+
+      case 'json': {
+        // JSON columns (Channels/Prices/Variants/Addons). The API returns them as
+        // objects/arrays; render them as pretty-printed JSON text for editing.
+        const jsonText =
+          value !== null && typeof value === 'object'
+            ? JSON.stringify(value, null, 2)
+            : value
+        return (
+          <textarea
+            id={field.name}
+            className="form-textarea"
+            value={jsonText}
+            onChange={(e) => handleChange(field.name, e.target.value, 'string')}
+            placeholder={field.placeholder || '{ }'}
+            disabled={loading}
+            rows={field.rows || 5}
+            style={{
+              fontFamily: 'monospace',
+              ...(hasError ? { borderColor: '#e74c3c' } : {}),
+            }}
+          />
         )
       }
 

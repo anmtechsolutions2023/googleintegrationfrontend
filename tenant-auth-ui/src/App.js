@@ -32,6 +32,27 @@ import ReportsPage from './pages/ReportsPage';
 import OnboardingPage from './pages/OnboardingPage';
 import AdminDashboard from './pages/admin/AdminDashboard';
 
+// Front Desk (POS)
+import FrontDeskLayout from './components/frontdesk/FrontDeskLayout';
+import FrontDeskDashboard from './pages/frontdesk/FrontDeskDashboard';
+import Billing from './pages/frontdesk/Billing';
+import Tables from './pages/frontdesk/Tables';
+import Kitchen from './pages/frontdesk/Kitchen';
+import MenuMaster from './pages/frontdesk/MenuMaster';
+import Channels from './pages/frontdesk/Channels';
+import Variants from './pages/frontdesk/Variants';
+import Floors from './pages/frontdesk/Floors';
+import Staff from './pages/frontdesk/Staff';
+import Expenses from './pages/frontdesk/Expenses';
+import Customers from './pages/frontdesk/Customers';
+import Feedback from './pages/frontdesk/Feedback';
+import Tokens from './pages/frontdesk/Tokens';
+import OnlineOrders from './pages/frontdesk/OnlineOrders';
+import Tracking from './pages/frontdesk/Tracking';
+import Inventory from './pages/frontdesk/Inventory';
+import Reports from './pages/frontdesk/Reports';
+import AccessControl from './pages/frontdesk/AccessControl';
+
 const AppRoutes = () => {
   const { loading, user } = useAuth();
   if (loading) return <LoadingSpinner />;
@@ -120,6 +141,48 @@ const AppRoutes = () => {
         >
           <Route index element={<MasterDataIndex />} />
           <Route path=":moduleKey" element={<GenericCrudPage />} />
+        </Route>
+
+        {/* Front Desk (POS) */}
+        <Route
+          path={`${ROUTES.FRONTDESK}/*`}
+          element={
+            <ApprovedRoute>
+              <ScopeGuard
+                requiredScopes={[
+                  SCOPES.POS_ORDER_READ,
+                  SCOPES.POS_CONFIG_READ,
+                  SCOPES.POS_KITCHEN_READ,
+                  SCOPES.POS_BILLING_READ,
+                  SCOPES.POS_CRM_READ,
+                  SCOPES.POS_OPS_READ,
+                  SCOPES.POS_REPORTS_READ,
+                  SCOPES.TENANT_ADMIN,
+                ]}
+              >
+                <FrontDeskLayout />
+              </ScopeGuard>
+            </ApprovedRoute>
+          }
+        >
+          <Route index element={<FrontDeskDashboard />} />
+          <Route path="billing"   element={<ScopeGuard requiredScopes={[SCOPES.POS_ORDER_READ,   SCOPES.TENANT_ADMIN]}><Billing /></ScopeGuard>} />
+          <Route path="tables"    element={<ScopeGuard requiredScopes={[SCOPES.POS_ORDER_READ,   SCOPES.TENANT_ADMIN]}><Tables /></ScopeGuard>} />
+          <Route path="kitchen"   element={<ScopeGuard requiredScopes={[SCOPES.POS_KITCHEN_READ, SCOPES.TENANT_ADMIN]}><Kitchen /></ScopeGuard>} />
+          <Route path="tokens"    element={<ScopeGuard requiredScopes={[SCOPES.POS_OPS_READ,     SCOPES.TENANT_ADMIN]}><Tokens /></ScopeGuard>} />
+          <Route path="online"    element={<ScopeGuard requiredScopes={[SCOPES.POS_OPS_READ,     SCOPES.TENANT_ADMIN]}><OnlineOrders /></ScopeGuard>} />
+          <Route path="menu"      element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ,  SCOPES.TENANT_ADMIN]}><MenuMaster /></ScopeGuard>} />
+          <Route path="channels"  element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ,  SCOPES.TENANT_ADMIN]}><Channels /></ScopeGuard>} />
+          <Route path="variants"  element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ,  SCOPES.TENANT_ADMIN]}><Variants /></ScopeGuard>} />
+          <Route path="floors"    element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ,  SCOPES.TENANT_ADMIN]}><Floors /></ScopeGuard>} />
+          <Route path="staff"     element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ,  SCOPES.TENANT_ADMIN]}><Staff /></ScopeGuard>} />
+          <Route path="expenses"  element={<ScopeGuard requiredScopes={[SCOPES.POS_OPS_READ,     SCOPES.TENANT_ADMIN]}><Expenses /></ScopeGuard>} />
+          <Route path="customers"      element={<ScopeGuard requiredScopes={[SCOPES.POS_CRM_READ,     SCOPES.TENANT_ADMIN]}><Customers /></ScopeGuard>} />
+          <Route path="feedback"       element={<ScopeGuard requiredScopes={[SCOPES.POS_CRM_READ,     SCOPES.TENANT_ADMIN]}><Feedback /></ScopeGuard>} />
+          <Route path="tracking"       element={<ScopeGuard requiredScopes={[SCOPES.POS_OPS_READ,     SCOPES.TENANT_ADMIN]}><Tracking /></ScopeGuard>} />
+          <Route path="inventory"      element={<ScopeGuard requiredScopes={[SCOPES.INVENTORY_READ,   SCOPES.TENANT_ADMIN]}><Inventory /></ScopeGuard>} />
+          <Route path="reports"        element={<ScopeGuard requiredScopes={[SCOPES.POS_REPORTS_READ, SCOPES.TENANT_ADMIN]}><Reports /></ScopeGuard>} />
+          <Route path="access-control" element={<ScopeGuard requiredScopes={[SCOPES.TENANT_ADMIN]}><AccessControl /></ScopeGuard>} />
         </Route>
 
         {/* 404 */}

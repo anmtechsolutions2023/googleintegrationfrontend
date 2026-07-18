@@ -822,6 +822,7 @@ export const MODULES = {
     endpoint: '/api/costinfos',
     icon: '💵',
     category: MODULE_CATEGORIES.INVENTORY,
+    displayField: 'Amount',
     fields: [
       { name: 'Amount', type: 'number', required: true, step: 0.0001 },
       {
@@ -849,6 +850,45 @@ export const MODULES = {
       'UpdatedOn',
     ],
     searchFields: [],
+  },
+
+  // ============== POS MASTERS (reference-only; nav lives under Front Desk) ==============
+  // No `category` → excluded from the Master Data sidebar, but still available to
+  // crudService.getReferenceData + FormModal label resolution for the Menu form.
+  posChannel: {
+    key: 'posChannel',
+    name: 'Channels',
+    endpoint: '/api/pos/channels',
+    icon: '📡',
+    displayField: 'Name',
+    fields: [
+      { name: 'Name', type: 'text', required: true, maxLength: 100 },
+      { name: 'Code', type: 'text', required: true, maxLength: 50 },
+      { name: 'Description', type: 'textarea', maxLength: 255 },
+      { name: 'SortOrder', label: 'Sort Order', type: 'number', default: 0 },
+      { name: 'Price', type: 'number', step: 0.0001 },
+      { name: 'Active', type: 'boolean', default: true },
+    ],
+    tableColumns: ['Name', 'Code', 'Description', 'SortOrder', 'Price', 'Active', 'CreatedBy', 'CreatedOn'],
+    searchFields: ['Name', 'Code'],
+  },
+
+  posVariant: {
+    key: 'posVariant',
+    name: 'Variants',
+    endpoint: '/api/pos/variants',
+    icon: '🧩',
+    displayField: 'Name',
+    fields: [
+      { name: 'Name', type: 'text', required: true, maxLength: 100 },
+      { name: 'Code', type: 'text', required: true, maxLength: 50 },
+      { name: 'Description', type: 'textarea', maxLength: 255 },
+      { name: 'SortOrder', label: 'Sort Order', type: 'number', default: 0 },
+      { name: 'Price', type: 'number', step: 0.0001 },
+      { name: 'Active', type: 'boolean', default: true },
+    ],
+    tableColumns: ['Name', 'Code', 'Description', 'SortOrder', 'Price', 'Active', 'CreatedBy', 'CreatedOn'],
+    searchFields: ['Name', 'Code'],
   },
 
   // ============== CONTACTS & ADDRESSES ==============
@@ -887,7 +927,7 @@ export const MODULES = {
         required: true,
         maxLength: 100,
       },
-      { name: 'LastName', label: 'Last Name', type: 'text', maxLength: 100 },
+      { name: 'LastName', label: 'Last Name', type: 'text', required: true, maxLength: 100 },
       { name: 'MobileNo', label: 'Mobile No', type: 'text', maxLength: 20 },
       { name: 'AltMobileNo', label: 'Alt Mobile', type: 'text', maxLength: 20 },
       { name: 'Landline1', label: 'Landline 1', type: 'text', maxLength: 20 },

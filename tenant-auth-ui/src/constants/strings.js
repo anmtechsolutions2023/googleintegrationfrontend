@@ -21,6 +21,7 @@ const STRINGS = {
     settings: 'Settings',
     profile: 'Profile',
     masterData: 'Master Data',
+    frontDesk: 'Front Desk',
   },
 
   // Common button labels

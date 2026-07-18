@@ -34,6 +34,10 @@ export const ROUTES = {
   // Master Data Module
   MASTER: '/master',
   MASTER_MODULE: '/master/:moduleKey',
+
+  // Front Desk (POS)
+  FRONTDESK: '/frontdesk',
+  FRONTDESK_MODULE: '/frontdesk/:tab',
 };
 
 // Route groups for navigation menus

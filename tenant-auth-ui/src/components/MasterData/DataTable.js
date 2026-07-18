@@ -118,6 +118,18 @@ const DataTable = ({
       return <span style={{ color: '#bdc3c7' }}>—</span>;
     }
 
+    // Handle JSON columns (objects/arrays) — React can't render raw objects.
+    if (typeof value === 'object') {
+      return (
+        <span
+          title={JSON.stringify(value, null, 2)}
+          style={{ fontFamily: 'monospace', fontSize: '0.85em' }}
+        >
+          {JSON.stringify(value)}
+        </span>
+      );
+    }
+
     return value;
   };
 

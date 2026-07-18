@@ -35,6 +35,25 @@ jest.mock('./components/MasterData', () => ({
   GenericCrudPage: () => <div>Generic Crud Page</div>,
 }));
 
+// Front Desk (POS) stubs — prevents axios ESM parse error via posService → api.js
+jest.mock('./components/frontdesk/FrontDeskLayout', () => () => <div>Front Desk Layout</div>);
+jest.mock('./pages/frontdesk/FrontDeskDashboard', () => () => <div>Front Desk Dashboard</div>);
+jest.mock('./pages/frontdesk/Billing',     () => () => <div>Billing</div>);
+jest.mock('./pages/frontdesk/Tables',      () => () => <div>Tables</div>);
+jest.mock('./pages/frontdesk/Kitchen',     () => () => <div>Kitchen</div>);
+jest.mock('./pages/frontdesk/MenuMaster',  () => () => <div>Menu Master</div>);
+jest.mock('./pages/frontdesk/Floors',      () => () => <div>Floors</div>);
+jest.mock('./pages/frontdesk/Staff',       () => () => <div>Staff</div>);
+jest.mock('./pages/frontdesk/Expenses',    () => () => <div>Expenses</div>);
+jest.mock('./pages/frontdesk/Customers',   () => () => <div>Customers</div>);
+jest.mock('./pages/frontdesk/Feedback',    () => () => <div>Feedback</div>);
+jest.mock('./pages/frontdesk/Tokens',        () => () => <div>Tokens</div>);
+jest.mock('./pages/frontdesk/OnlineOrders',  () => () => <div>Online Orders</div>);
+jest.mock('./pages/frontdesk/Tracking',      () => () => <div>Tracking</div>);
+jest.mock('./pages/frontdesk/Inventory',     () => () => <div>Inventory</div>);
+jest.mock('./pages/frontdesk/Reports',       () => () => <div>POS Reports</div>);
+jest.mock('./pages/frontdesk/AccessControl', () => () => <div>Access Control</div>);
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const APPROVED_USER = {
   email: 'admin@test.com',
