@@ -11,10 +11,20 @@ import { buildTableRounds } from '../../utils/posRounds'
 
 const { MAX_LIMIT } = APP_CONFIG.PAGINATION
 
+// Canonical table statuses — single source of truth for both the Create/Edit
+// dropdown and the occupancy-view color coding below. Must match the backend
+// enum in postable.schemas.js / config/constants.js (POS_TABLE_STATUSES).
+const TABLE_STATUSES = ['Available', 'Occupied', 'Reserved']
+
 const TABLE_FIELDS = [
   { name: 'Name', type: 'text', required: true, maxLength: 50 },
   { name: 'Capacity', type: 'number', min: 1 },
-  { name: 'Status', type: 'text', maxLength: 20 },
+  {
+    name: 'Status',
+    type: 'select',
+    default: 'Available',
+    options: TABLE_STATUSES.map((s) => ({ value: s, label: s })),
+  },
   { name: 'Active', type: 'boolean', default: true },
 ]
 
