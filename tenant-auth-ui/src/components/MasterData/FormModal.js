@@ -409,7 +409,7 @@ const FormModal = ({
       }
 
       case 'json': {
-        // JSON columns (Channels/Prices/Variants/Addons). The API returns them as
+        // JSON columns (e.g. Channels/Prices/Variants). The API returns them as
         // objects/arrays; render them as pretty-printed JSON text for editing.
         const jsonText =
           value !== null && typeof value === 'object'

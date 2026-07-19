@@ -39,6 +39,7 @@ import Billing from './pages/frontdesk/Billing';
 import Tables from './pages/frontdesk/Tables';
 import Kitchen from './pages/frontdesk/Kitchen';
 import MenuMaster from './pages/frontdesk/MenuMaster';
+import FoodTypes from './pages/frontdesk/FoodTypes';
 import Channels from './pages/frontdesk/Channels';
 import Variants from './pages/frontdesk/Variants';
 import Floors from './pages/frontdesk/Floors';
@@ -171,7 +172,8 @@ const AppRoutes = () => {
           <Route path="kitchen"   element={<ScopeGuard requiredScopes={[SCOPES.POS_KITCHEN_READ, SCOPES.TENANT_ADMIN]}><Kitchen /></ScopeGuard>} />
           <Route path="tokens"    element={<ScopeGuard requiredScopes={[SCOPES.POS_OPS_READ,     SCOPES.TENANT_ADMIN]}><Tokens /></ScopeGuard>} />
           <Route path="online"    element={<ScopeGuard requiredScopes={[SCOPES.POS_OPS_READ,     SCOPES.TENANT_ADMIN]}><OnlineOrders /></ScopeGuard>} />
-          <Route path="menu"      element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ,  SCOPES.TENANT_ADMIN]}><MenuMaster /></ScopeGuard>} />
+          <Route path="menu"       element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ,  SCOPES.TENANT_ADMIN]}><MenuMaster /></ScopeGuard>} />
+          <Route path="food-types" element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ,  SCOPES.TENANT_ADMIN]}><FoodTypes /></ScopeGuard>} />
           <Route path="channels"  element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ,  SCOPES.TENANT_ADMIN]}><Channels /></ScopeGuard>} />
           <Route path="variants"  element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ,  SCOPES.TENANT_ADMIN]}><Variants /></ScopeGuard>} />
           <Route path="floors"    element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ,  SCOPES.TENANT_ADMIN]}><Floors /></ScopeGuard>} />

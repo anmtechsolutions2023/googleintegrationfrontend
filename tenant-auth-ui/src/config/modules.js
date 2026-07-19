@@ -19,7 +19,7 @@ export const MODULES = {
     endpoint: '/api/taxtypes',
     icon: '💰',
     category: MODULE_CATEGORIES.MASTER_DATA,
-    displayField: 'UnitName',
+    displayField: 'Name',
     fields: [
       { name: 'Name', type: 'text', required: true, maxLength: 100 },
       {
@@ -50,7 +50,7 @@ export const MODULES = {
     endpoint: '/api/uom',
     icon: '📏',
     category: MODULE_CATEGORIES.MASTER_DATA,
-    displayField: 'Factor',
+    displayField: 'UnitName',
     fields: [
       {
         name: 'UnitName',
@@ -381,7 +381,7 @@ export const MODULES = {
     endpoint: '/api/transactiontypes',
     icon: '📋',
     category: MODULE_CATEGORIES.TRANSACTIONS,
-    displayField: 'ItemDetailId',
+    displayField: 'Name',
     fields: [
       { name: 'Name', type: 'text', required: true, maxLength: 100 },
       {
@@ -888,6 +888,24 @@ export const MODULES = {
       { name: 'Active', type: 'boolean', default: true },
     ],
     tableColumns: ['Name', 'Code', 'Description', 'SortOrder', 'Price', 'Active', 'CreatedBy', 'CreatedOn'],
+    searchFields: ['Name', 'Code'],
+  },
+
+  posFoodType: {
+    key: 'posFoodType',
+    name: 'Food Types',
+    endpoint: '/api/pos/food-types',
+    icon: '🥗',
+    displayField: 'Name',
+    fields: [
+      { name: 'Name', type: 'text', required: true, maxLength: 100 },
+      { name: 'Code', type: 'text', required: true, maxLength: 50 },
+      { name: 'Description', type: 'textarea', maxLength: 255 },
+      { name: 'SortOrder', label: 'Sort Order', type: 'number', default: 0 },
+      { name: 'IsVeg', label: 'Is Vegetarian', type: 'boolean', default: false },
+      { name: 'Active', type: 'boolean', default: true },
+    ],
+    tableColumns: ['Name', 'Code', 'Description', 'SortOrder', 'IsVeg', 'Active', 'CreatedBy', 'CreatedOn'],
     searchFields: ['Name', 'Code'],
   },
 

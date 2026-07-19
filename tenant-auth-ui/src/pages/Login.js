@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { GoogleLogin } from '@react-oauth/google';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -11,19 +11,30 @@ import {
   ERROR_CODES,
 } from '../constants';
 import { ROUTES } from '../constants/routes';
+import { peekRedirect, clearRedirect } from '../utils/redirectStore';
 
 const Login = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const from = location.state?.from?.pathname || ROUTES.DASHBOARD;
+  // Resolve where to send the user after login, evaluated once on mount:
+  //  1. React Router state (client-side guard redirect)
+  //  2. sessionStorage (session-expiry hard redirect from the API interceptor)
+  //  3. dashboard fallback
+  // peekRedirect() does NOT clear, so refreshing the login page before logging
+  // in still resolves the same destination; it's cleared after login succeeds.
+  const [from] = useState(
+    () => location.state?.from?.pathname || peekRedirect() || ROUTES.DASHBOARD
+  );
 
   const onSuccess = async (res) => {
     try {
       const payload = await login(res.credential);
 
       if (payload) {
+        // Login succeeded — the saved redirect (if any) has served its purpose.
+        clearRedirect();
         if (payload.onboardingStatus !== 'APPROVED') {
           // Unprovisioned user — send to onboarding holding page
           toast.info('Your access request is pending review.');

@@ -17,8 +17,9 @@ const NAV_ITEMS = [
   ]},
   // Config tabs
   { group: 'Setup', items: [
-    { path: '/frontdesk/menu',     label: 'Menu Master',   icon: '🍽️', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
-    { path: '/frontdesk/channels', label: 'Channels',      icon: '📡', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
+    { path: '/frontdesk/menu',       label: 'Menu Master',   icon: '🍽️', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
+    { path: '/frontdesk/food-types', label: 'Food Types',    icon: '🥗', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
+    { path: '/frontdesk/channels',   label: 'Channels',      icon: '📡', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
     { path: '/frontdesk/variants', label: 'Variants',      icon: '🧩', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
     { path: '/frontdesk/floors',   label: 'Floors',        icon: '🏢', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
     { path: '/frontdesk/staff',    label: 'Staff',         icon: '👤', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },

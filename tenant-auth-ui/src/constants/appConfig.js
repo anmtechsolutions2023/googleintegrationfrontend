@@ -10,6 +10,8 @@ export const APP_CONFIG = {
   COOKIE_NAME: 'app_token',
   COOKIE_EXPIRY_HOURS: 1,
   SESSION_TIMEOUT_MS: 3600000, // 1 hour in milliseconds
+  // sessionStorage key: page to return to after re-login on session expiry
+  POST_LOGIN_REDIRECT_KEY: 'postLoginRedirect',
 
   // Toast Notifications
   TOAST: {

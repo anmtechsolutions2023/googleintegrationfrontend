@@ -260,12 +260,12 @@ const Billing = () => {
                 const id = meta.id || meta.Id
                 const name = itemName(meta, itemDetails[meta.ItemDetailId])
                 const price = itemPrice(meta)
-                const ft = (meta.FoodType || '').toLowerCase()
+                const isVeg = meta.FoodTypeIsVeg === 1 || meta.FoodTypeIsVeg === true
                 return (
                   <div key={id} className="fd-menu-item-card" onClick={() => addToCart(meta)}>
-                    {meta.FoodType && (
-                      <span className={`food-type-badge ${ft.includes('veg') && !ft.includes('non') ? 'veg' : 'nonveg'}`}>
-                        {meta.FoodType}
+                    {meta.FoodTypeName && (
+                      <span className={`food-type-badge ${isVeg ? 'veg' : 'nonveg'}`}>
+                        {meta.FoodTypeName}
                       </span>
                     )}
                     <div className="item-name">{name || '(unnamed)'}</div>

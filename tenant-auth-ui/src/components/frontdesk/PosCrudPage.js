@@ -24,7 +24,8 @@ const referenceLabel = (id, options, reference) => {
   }
   return (
     opt.DisplayLabel || opt.name || opt.Name || opt.Type || opt.Title || opt.title ||
-    opt.UnitName || opt.Amount || opt.id || opt.Id || id
+    opt.UnitName || opt.BranchName || opt.ProviderName || opt.FirstName ||
+    opt.Amount || opt.id || opt.Id || id
   )
 }
 

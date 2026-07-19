@@ -3,6 +3,7 @@ import Cookies from 'js-cookie';
 import { API_BASE_URL, AUTH } from '../config/config';
 import { HTTP_STATUS, APP_CONFIG } from '../constants';
 import { ROUTES } from '../constants/routes';
+import { saveRedirect } from '../utils/redirectStore';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -23,6 +24,9 @@ api.interceptors.response.use(
 
     if (err.response?.status === HTTP_STATUS.UNAUTHORIZED && !isLoginRequest) {
       Cookies.remove(APP_CONFIG.COOKIE_NAME);
+      // Remember the current page so re-login can return the user here.
+      // The hard redirect below wipes React Router state, so we persist it.
+      saveRedirect(window.location.pathname + window.location.search);
       // Only redirect if it's an expired session, not a failed login attempt
       window.location.href = `${ROUTES.LOGIN}?session=expired`;
     }
