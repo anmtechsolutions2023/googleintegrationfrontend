@@ -6,6 +6,7 @@ export const SCOPES = {
   REPORTS_WRITE: 'reports:WRITE',
   GUEST_EXPLORE: 'guest:explore',
   ADMIN_ACCESS: 'admin:access',
+  AUDIT_READ: 'AUDIT:READ',
 
   // Master data module category scopes (match feature_short_name:scope in DB)
   MASTER_DATA_READ:    'MASTER_DATA:READ',

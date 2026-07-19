@@ -3,6 +3,7 @@ import {
   getOnboardingRequests,
   approveOnboardingRequest,
   rejectOnboardingRequest,
+  reopenOnboardingRequest,
   getRoles,
 } from '../../services/adminService';
 import { toast } from 'react-toastify';
@@ -39,6 +40,25 @@ const ApproveModal = ({ request, onClose, onDone }) => {
       prev.includes(id) ? prev.filter((r) => r !== id) : [...prev, id]
     );
 
+  const generateTenantId = async () => {
+    // Prefer the native crypto UUID; fall back to a manual v4 generator.
+    const uuid =
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+            const r = (Math.random() * 16) | 0;
+            const v = c === 'x' ? r : (r & 0x3) | 0x8;
+            return v.toString(16);
+          });
+    setTenantId(uuid);
+    try {
+      await navigator.clipboard.writeText(uuid);
+      toast.success('Tenant ID generated and copied to clipboard.');
+    } catch {
+      toast.info('Tenant ID generated. Copy it manually if needed.');
+    }
+  };
+
   const handleApprove = async () => {
     if (!tenantId.trim()) {
       toast.error('Please enter a tenant ID.');
@@ -70,13 +90,25 @@ const ApproveModal = ({ request, onClose, onDone }) => {
 
           <div className="form-group">
             <label className="form-label">{s.tenantLabel} *</label>
-            <input
-              className="form-input"
-              placeholder={s.tenantPlaceholder}
-              value={tenantId}
-              onChange={(e) => setTenantId(e.target.value)}
-              autoFocus
-            />
+            <div style={{ display: 'flex', gap: 8, alignItems: 'stretch' }}>
+              <input
+                className="form-input"
+                placeholder={s.tenantPlaceholder}
+                value={tenantId}
+                onChange={(e) => setTenantId(e.target.value)}
+                style={{ flex: 1 }}
+                autoFocus
+              />
+              <button
+                type="button"
+                className="btn-outline btn-sm"
+                onClick={generateTenantId}
+                title="Generate a new GUID and copy it to the clipboard"
+                style={{ whiteSpace: 'nowrap' }}
+              >
+                ⚡ Generate
+              </button>
+            </div>
           </div>
 
           <div className="form-group">
@@ -212,11 +244,14 @@ const AdminApprovals = () => {
   const [search, setSearch] = useState('');
   const [approveTarget, setApproveTarget] = useState(null);
   const [rejectTarget, setRejectTarget] = useState(null);
+  const [reopeningId, setReopeningId] = useState(null);
 
   const fetchRequests = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await getOnboardingRequests(filter !== 'ALL' ? { status: filter } : {});
+      // Always send the status explicitly — the backend defaults a missing
+      // status to PENDING, so 'ALL' must be passed as an explicit value.
+      const res = await getOnboardingRequests({ status: filter });
       const data = res.data?.data ?? res.data?.resource ?? res.data ?? [];
       setRequests(Array.isArray(data) ? data : []);
     } catch {
@@ -233,6 +268,19 @@ const AdminApprovals = () => {
     setApproveTarget(null);
     setRejectTarget(null);
     fetchRequests();
+  };
+
+  const handleReopen = async (request) => {
+    setReopeningId(request.id);
+    try {
+      await reopenOnboardingRequest(request.id);
+      toast.success(STRINGS.success?.ONBOARDING_REOPENED || 'Request reopened for review.');
+      fetchRequests();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to reopen request.');
+    } finally {
+      setReopeningId(null);
+    }
   };
 
   const filtered = requests.filter((r) => {
@@ -331,7 +379,24 @@ const AdminApprovals = () => {
                         </button>
                       </div>
                     )}
-                    {r.status !== 'PENDING' && (
+                    {r.status === 'REJECTED' && (
+                      <div className="cell-actions">
+                        <button
+                          className="btn-outline btn-sm"
+                          onClick={() => handleReopen(r)}
+                          disabled={reopeningId === r.id}
+                          title="Return this request to Pending for another review"
+                        >
+                          {reopeningId === r.id ? 'Reopening…' : '↺ Reopen'}
+                        </button>
+                        {r.reviewed_by && (
+                          <span style={{ fontSize: '0.78rem', color: '#a0aec0', alignSelf: 'center' }}>
+                            by {r.reviewed_by}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    {r.status !== 'PENDING' && r.status !== 'REJECTED' && (
                       <span style={{ fontSize: '0.78rem', color: '#a0aec0' }}>
                         {r.reviewed_by ? `by ${r.reviewed_by}` : '—'}
                       </span>

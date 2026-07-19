@@ -13,6 +13,9 @@ export const approveOnboardingRequest = (id, tenantId, roleIds = []) =>
 export const rejectOnboardingRequest = (id, rejectionReason) =>
   api.put(`${BASE.ONBOARDING}/${id}/reject`, { rejectionReason });
 
+export const reopenOnboardingRequest = (id) =>
+  api.put(`${BASE.ONBOARDING}/${id}/reopen`);
+
 // ── Users ──
 export const getAdminUsers = () =>
   api.get(BASE.USERS);
@@ -65,6 +68,7 @@ export default {
   getOnboardingRequests,
   approveOnboardingRequest,
   rejectOnboardingRequest,
+  reopenOnboardingRequest,
   getAdminUsers,
   getUserRoles,
   updateUserRoles,

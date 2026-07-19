@@ -64,7 +64,9 @@ const Navbar = () => {
             <Link to={ROUTES.FRONTDESK}>{STRINGS.nav.frontDesk}</Link>
           )}
 
-          <Link to={ROUTES.AUDIT}>{STRINGS.nav.auditLogs}</Link>
+          {hasScope(user, [SCOPES.AUDIT_READ, SCOPES.ADMIN_ACCESS]) && (
+            <Link to={ROUTES.AUDIT}>{STRINGS.nav.auditLogs}</Link>
+          )}
         </div>
       )}
 
@@ -164,7 +166,9 @@ const Navbar = () => {
             <Link to={ROUTES.FRONTDESK} onClick={closeMobileMenu}>{STRINGS.nav.frontDesk}</Link>
           )}
 
-          <Link to={ROUTES.AUDIT} onClick={closeMobileMenu}>{STRINGS.nav.auditLogs}</Link>
+          {hasScope(user, [SCOPES.AUDIT_READ, SCOPES.ADMIN_ACCESS]) && (
+            <Link to={ROUTES.AUDIT} onClick={closeMobileMenu}>{STRINGS.nav.auditLogs}</Link>
+          )}
         </div>
       )}
       {isMobileMenuOpen && (

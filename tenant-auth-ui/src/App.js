@@ -67,8 +67,17 @@ const AppRoutes = () => {
         <Route path={ROUTES.FORBIDDEN} element={<Forbidden />} />
         <Route path={ROUTES.HOME} element={<Navigate to={ROUTES.DASHBOARD} replace />} />
 
-        {/* Open access - no auth guard */}
-        <Route path={ROUTES.AUDIT} element={<AuditLogs />} />
+        {/* Audit logs — provisioned users with AUDIT:READ (or IAM admins) */}
+        <Route
+          path={ROUTES.AUDIT}
+          element={
+            <ApprovedRoute>
+              <ScopeGuard requiredScopes={[SCOPES.AUDIT_READ, SCOPES.ADMIN_ACCESS]}>
+                <AuditLogs />
+              </ScopeGuard>
+            </ApprovedRoute>
+          }
+        />
 
         {/* Guest-only: unprovisioned users waiting for approval */}
         <Route

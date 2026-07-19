@@ -7,6 +7,7 @@ jest.mock('../../../services/adminService', () => ({
   getOnboardingRequests: jest.fn(),
   approveOnboardingRequest: jest.fn(),
   rejectOnboardingRequest: jest.fn(),
+  reopenOnboardingRequest: jest.fn(),
   getRoles: jest.fn(),
 }));
 jest.mock('react-toastify', () => ({
@@ -32,6 +33,16 @@ const APPROVED_REQUEST = {
   reviewed_by: 'admin@test.com',
 };
 
+const REJECTED_REQUEST = {
+  id: 'req-3',
+  name: 'Carol White',
+  email: 'carol@test.com',
+  status: 'REJECTED',
+  requested_at: '2024-01-13T08:00:00Z',
+  request_note: '',
+  reviewed_by: 'admin@test.com',
+};
+
 const MOCK_ROLES = [
   { id: 'role-1', name: 'EDITOR', description: 'Can edit records', is_active: 1 },
   { id: 'role-2', name: 'VIEWER', description: 'Read-only access', is_active: 1 },
@@ -44,6 +55,7 @@ beforeEach(() => {
   adminService.getRoles.mockResolvedValue({ data: { data: MOCK_ROLES } });
   adminService.approveOnboardingRequest.mockResolvedValue({ data: {} });
   adminService.rejectOnboardingRequest.mockResolvedValue({ data: {} });
+  adminService.reopenOnboardingRequest.mockResolvedValue({ data: {} });
 });
 
 afterEach(() => jest.clearAllMocks());
@@ -59,6 +71,38 @@ test('fetches with PENDING status filter by default', async () => {
   render(<AdminApprovals />);
   await waitFor(() =>
     expect(adminService.getOnboardingRequests).toHaveBeenCalledWith({ status: 'PENDING' })
+  );
+});
+
+test('selecting "All Statuses" sends status=ALL explicitly', async () => {
+  render(<AdminApprovals />);
+  await waitFor(() => screen.getByText('Alice Smith'));
+
+  fireEvent.change(screen.getByRole('combobox'), { target: { value: 'ALL' } });
+
+  await waitFor(() =>
+    expect(adminService.getOnboardingRequests).toHaveBeenCalledWith({ status: 'ALL' })
+  );
+});
+
+test('REJECTED rows show a Reopen button that calls reopen and refetches', async () => {
+  adminService.getOnboardingRequests.mockResolvedValue({
+    data: { data: [REJECTED_REQUEST] },
+  });
+  render(<AdminApprovals />);
+  await waitFor(() => screen.getByText('Carol White'));
+
+  const reopenBtn = screen.getByRole('button', { name: /Reopen/i });
+  expect(reopenBtn).toBeInTheDocument();
+
+  fireEvent.click(reopenBtn);
+
+  await waitFor(() =>
+    expect(adminService.reopenOnboardingRequest).toHaveBeenCalledWith('req-3')
+  );
+  // one initial load + one refetch after reopen
+  await waitFor(() =>
+    expect(adminService.getOnboardingRequests).toHaveBeenCalledTimes(2)
   );
 });
 
