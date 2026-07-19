@@ -426,6 +426,13 @@
   -webkit-overflow-scrolling: touch;
 }
 
+/* Nested (quick-create) modal must stack above its parent modal.
+   Both overlays otherwise share z-index: 1100 and rely on DOM order. */
+.modal-overlay-nested {
+  z-index: 1200;
+  background: rgba(0, 0, 0, 0.35);
+}
+
 .modal {
   background: #fff;
   border-radius: 12px;
@@ -689,8 +696,9 @@
   }
 }
 
-/* Mobile */
-@media (max-width: 768px) {
+/* Off-canvas sidebar — aligned with Front Desk (≤900px) so all iPad
+   portrait sizes (768–834px) behave consistently across modules. */
+@media (max-width: 900px) {
   .master-layout {
     flex-direction: column;
   }
@@ -718,7 +726,10 @@
     align-items: center;
     justify-content: center;
   }
+}
 
+/* Mobile */
+@media (max-width: 768px) {
   .master-content {
     padding: 16px;
   }

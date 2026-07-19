@@ -29,6 +29,7 @@ const FormModal = ({
   onQuickCreate = null,
   fieldUpdates = null,
   onFieldUpdatesApplied = null,
+  elevated = false,
 }) => {
   const [formData, setFormData] = useState({})
   const [errors, setErrors] = useState({})
@@ -538,7 +539,10 @@ const FormModal = ({
   const visibleFields = fields.filter((f) => !f.hidden)
 
   return (
-    <div className="modal-overlay" onClick={handleBackdropClick}>
+    <div
+      className={`modal-overlay${elevated ? ' modal-overlay-nested' : ''}`}
+      onClick={handleBackdropClick}
+    >
       <div className="modal">
         <div className="modal-header">
           <h2>{title}</h2>

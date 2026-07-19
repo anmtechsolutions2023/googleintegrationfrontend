@@ -865,6 +865,7 @@ const GenericCrudPage = () => {
           loading={quickCreateLoading}
           referenceData={quickCreateRefData}
           onQuickCreate={null}
+          elevated
         />
       )}
 

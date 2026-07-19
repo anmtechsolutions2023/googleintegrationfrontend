@@ -14,7 +14,7 @@ const AdminPage = () => {
   }, []);
 
   return (
-    <div style={{ padding: '40px' }}>
+    <div style={{ padding: 'clamp(16px, 4vw, 40px)' }}>
       <h1>{STRINGS.pages.admin.title}</h1>
       <div
         style={{ background: '#f9f9f9', padding: '20px', borderRadius: '8px' }}
@@ -24,7 +24,7 @@ const AdminPage = () => {
           <strong>{SCOPES.TENANT_ADMIN}</strong>{' '}
           {STRINGS.pages.admin.scopeLabel}
         </p>
-        <pre>{JSON.stringify(logs, null, 2)}</pre>
+        <pre style={{ overflowX: 'auto', maxWidth: '100%', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{JSON.stringify(logs, null, 2)}</pre>
       </div>
     </div>
   );

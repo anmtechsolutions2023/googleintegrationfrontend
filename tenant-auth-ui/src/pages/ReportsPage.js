@@ -14,7 +14,7 @@ const ReportsPage = () => {
   }, []);
 
   return (
-    <div style={{ padding: '40px' }}>
+    <div style={{ padding: 'clamp(16px, 4vw, 40px)' }}>
       <h2>{STRINGS.pages.reports.title}</h2>
       <div
         style={{
@@ -26,7 +26,7 @@ const ReportsPage = () => {
       >
         <p>{STRINGS.pages.reports.description}</p>
         {data.length > 0 ? (
-          <pre>{JSON.stringify(data, null, 2)}</pre>
+          <pre style={{ overflowX: 'auto', maxWidth: '100%', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{JSON.stringify(data, null, 2)}</pre>
         ) : (
           <p>{STRINGS.emptyStates.noReports}</p>
         )}

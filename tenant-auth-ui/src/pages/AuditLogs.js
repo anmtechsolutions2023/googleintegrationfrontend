@@ -418,7 +418,7 @@ const AuditLogs = () => {
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 
-const containerStyle = { padding: '30px' }
+const containerStyle = { padding: 'clamp(16px, 4vw, 30px)' }
 const headerRowStyle = {
   display: 'flex',
   alignItems: 'center',
@@ -506,6 +506,7 @@ const tableWrapStyle = {
 }
 const tableStyle = {
   width: '100%',
+  minWidth: '760px',
   borderCollapse: 'collapse',
   textAlign: 'left',
 }

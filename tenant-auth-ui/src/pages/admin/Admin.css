@@ -260,8 +260,11 @@
 .badge-cancelled{ background: #e2e8f0; color: #4a5568; }
 .badge-system   { background: #e9d8fd; color: #44337a; }
 
-/* ── Buttons ── */
-.btn-primary {
+/* ── Buttons ──
+   Scoped under .admin-shell: these class names (.btn-primary, .btn-danger,
+   .btn-success, .btn-sm) also exist in MasterData.css. Scoping keeps admin's
+   styling confined to admin pages and prevents cross-section bleed. */
+.admin-shell .btn-primary {
   background: #4299e1;
   color: white;
   border: none;
@@ -274,10 +277,10 @@
   white-space: nowrap;
 }
 
-.btn-primary:hover:not(:disabled) { background: #3182ce; }
-.btn-primary:disabled { background: #a0aec0; cursor: not-allowed; }
+.admin-shell .btn-primary:hover:not(:disabled) { background: #3182ce; }
+.admin-shell .btn-primary:disabled { background: #a0aec0; cursor: not-allowed; }
 
-.btn-danger {
+.admin-shell .btn-danger {
   background: #fff5f5;
   color: #c53030;
   border: 1px solid #fc8181;
@@ -290,9 +293,9 @@
   white-space: nowrap;
 }
 
-.btn-danger:hover { background: #fed7d7; }
+.admin-shell .btn-danger:hover { background: #fed7d7; }
 
-.btn-outline {
+.admin-shell .btn-outline {
   background: white;
   color: #4a5568;
   border: 1px solid #e2e8f0;
@@ -305,9 +308,9 @@
   white-space: nowrap;
 }
 
-.btn-outline:hover { background: #f7fafc; }
+.admin-shell .btn-outline:hover { background: #f7fafc; }
 
-.btn-success {
+.admin-shell .btn-success {
   background: #f0fff4;
   color: #276749;
   border: 1px solid #9ae6b4;
@@ -320,9 +323,9 @@
   white-space: nowrap;
 }
 
-.btn-success:hover { background: #c6f6d5; }
+.admin-shell .btn-success:hover { background: #c6f6d5; }
 
-.btn-sm {
+.admin-shell .btn-sm {
   padding: 5px 10px;
   font-size: 0.78rem;
 }
@@ -361,7 +364,11 @@
   max-width: 640px;
 }
 
-.modal-header {
+/* Modal + form classes below are scoped under .admin-shell because the same
+   names (.modal-header/-body/-footer/-close, .form-group/-label/-input/etc.)
+   are defined globally in MasterData.css. Scoping confines admin's versions
+   and lets them win (higher specificity) over any bled-in global rules. */
+.admin-shell .modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -369,14 +376,14 @@
   border-bottom: 1px solid #e2e8f0;
 }
 
-.modal-title {
+.admin-shell .modal-title {
   font-size: 1rem;
   font-weight: 700;
   color: #2d3748;
   margin: 0;
 }
 
-.modal-close {
+.admin-shell .modal-close {
   background: none;
   border: none;
   font-size: 1.3rem;
@@ -388,27 +395,35 @@
   transition: background 0.15s;
 }
 
-.modal-close:hover { background: #f7fafc; color: #4a5568; }
+.admin-shell .modal-close:hover { background: #f7fafc; color: #4a5568; }
 
-.modal-body {
+.admin-shell .modal-body {
   padding: 18px 20px;
+  /* neutralize MasterData's global .modal-body height cap / flex behavior;
+     the admin .modal-panel handles scrolling itself */
+  max-height: none;
+  overflow: visible;
+  flex: none;
 }
 
-.modal-footer {
+.admin-shell .modal-footer {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
   padding: 14px 20px;
   border-top: 1px solid #e2e8f0;
   flex-wrap: wrap;
+  /* neutralize MasterData's global sticky footer + gray background */
+  position: static;
+  background: transparent;
 }
 
 /* ── Form elements inside modals ── */
-.form-group {
+.admin-shell .form-group {
   margin-bottom: 14px;
 }
 
-.form-label {
+.admin-shell .form-label {
   display: block;
   font-size: 0.85rem;
   font-weight: 600;
@@ -416,9 +431,9 @@
   margin-bottom: 6px;
 }
 
-.form-input,
-.form-textarea,
-.form-select {
+.admin-shell .form-input,
+.admin-shell .form-textarea,
+.admin-shell .form-select {
   width: 100%;
   padding: 9px 12px;
   border: 1px solid #e2e8f0;
@@ -431,15 +446,15 @@
   transition: border-color 0.2s;
 }
 
-.form-input:focus,
-.form-textarea:focus,
-.form-select:focus {
+.admin-shell .form-input:focus,
+.admin-shell .form-textarea:focus,
+.admin-shell .form-select:focus {
   outline: none;
   border-color: #4299e1;
   box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.12);
 }
 
-.form-textarea {
+.admin-shell .form-textarea {
   resize: vertical;
   min-height: 80px;
 }

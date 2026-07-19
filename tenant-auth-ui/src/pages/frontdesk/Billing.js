@@ -382,9 +382,10 @@ const Billing = () => {
       {settleOpen && (
         <div style={{
           position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500,
+          padding: 16, boxSizing: 'border-box'
         }}>
-          <div style={{ background: '#fff', borderRadius: 8, padding: 24, width: 360, boxShadow: '0 4px 24px rgba(0,0,0,0.15)' }}>
+          <div style={{ background: '#fff', borderRadius: 8, padding: 24, width: '100%', maxWidth: 360, maxHeight: 'calc(100vh - 32px)', overflowY: 'auto', boxSizing: 'border-box', boxShadow: '0 4px 24px rgba(0,0,0,0.15)' }}>
             <h3 style={{ margin: '0 0 16px', fontSize: 16 }}>Settle Bill</h3>
             <div className="fd-settle-form">
               <div>

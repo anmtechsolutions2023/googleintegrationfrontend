@@ -223,7 +223,9 @@
   margin-bottom: 16px;
 }
 
-.btn-secondary {
+/* Scoped under .onboarding-page — .btn-secondary also exists in MasterData.css
+   (global). Scoping prevents the two definitions from overriding each other. */
+.onboarding-page .btn-secondary {
   flex: 1;
   min-width: 120px;
   background: #ebf8ff;
@@ -237,11 +239,11 @@
   transition: background 0.2s;
 }
 
-.btn-secondary:hover {
+.onboarding-page .btn-secondary:hover {
   background: #bee3f8;
 }
 
-.btn-ghost {
+.onboarding-page .btn-ghost {
   flex: 1;
   min-width: 100px;
   background: none;
@@ -254,7 +256,7 @@
   transition: background 0.15s;
 }
 
-.btn-ghost:hover {
+.onboarding-page .btn-ghost:hover {
   background: #f7fafc;
 }
 

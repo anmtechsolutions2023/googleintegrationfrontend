@@ -42,9 +42,9 @@ const Reports = () => {
 
   return (
     <div className="fd-dashboard">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+      <div className="fd-reports-header">
         <h1>📈 POS Reports</h1>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <label style={{ fontSize: 13, color: '#7f8c8d' }}>Last</label>
           <select
             value={days}
@@ -88,12 +88,13 @@ const Reports = () => {
       </div>
 
       {/* Revenue trend table */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 32 }}>
+      <div className="fd-reports-2col">
         <div>
           <div className="fd-section-title">Revenue Trend (last {days} days)</div>
           {!trends.revenue || trends.revenue.length === 0 ? (
             <div className="fd-empty" style={{ padding: '20px 0' }}>No revenue data yet.</div>
           ) : (
+            <div className="fd-table-scroll">
             <table className="fd-table">
               <thead>
                 <tr><th>Date</th><th>Bills</th><th>Revenue</th></tr>
@@ -108,6 +109,7 @@ const Reports = () => {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
 
@@ -116,6 +118,7 @@ const Reports = () => {
           {!trends.orders || trends.orders.length === 0 ? (
             <div className="fd-empty" style={{ padding: '20px 0' }}>No order data yet.</div>
           ) : (
+            <div className="fd-table-scroll">
             <table className="fd-table">
               <thead>
                 <tr><th>Date</th><th>Orders</th></tr>
@@ -129,6 +132,7 @@ const Reports = () => {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       </div>
@@ -138,6 +142,7 @@ const Reports = () => {
       {recentOrders.length === 0 ? (
         <div className="fd-empty">No recent orders.</div>
       ) : (
+        <div className="fd-table-scroll">
         <table className="fd-table">
           <thead>
             <tr><th>Order No</th><th>Type</th><th>Status</th><th>Total</th><th>Created</th></tr>
@@ -154,6 +159,7 @@ const Reports = () => {
             ))}
           </tbody>
         </table>
+        </div>
       )}
     </div>
   )

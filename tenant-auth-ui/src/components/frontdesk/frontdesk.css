@@ -702,6 +702,37 @@
   }
 }
 
+/* ── Reports page ─────────────────────────────────────────────────────────── */
+.fd-reports-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.fd-reports-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+/* Each trend table scrolls horizontally instead of squishing */
+.fd-reports-2col .fd-table-scroll,
+.fd-table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 768px) {
+  .fd-reports-2col {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+}
+
 /* ── Order rounds timeline (Tables / KDS / Billing) ──────────────────────── */
 .fd-rounds {
   display: flex;
