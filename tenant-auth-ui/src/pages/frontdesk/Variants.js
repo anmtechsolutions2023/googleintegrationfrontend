@@ -14,7 +14,7 @@ const VARIANT_CONFIG = {
     { name: 'Code', type: 'text', required: true, maxLength: 50 },
     { name: 'Description', type: 'textarea', maxLength: 255 },
     { name: 'SortOrder', label: 'Sort Order', type: 'number', default: 0 },
-    { name: 'Price', type: 'number', step: 0.0001 },
+    { name: 'Price', type: 'number', step: 0.0001, required: true, min: 0 },
     { name: 'Active', type: 'boolean', default: true },
   ],
   tableColumns: ['Name', 'Code', 'Description', 'SortOrder', 'Price', 'Active', 'CreatedBy', 'CreatedOn'],

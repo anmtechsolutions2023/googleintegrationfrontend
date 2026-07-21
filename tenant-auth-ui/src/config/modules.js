@@ -866,10 +866,9 @@ export const MODULES = {
       { name: 'Code', type: 'text', required: true, maxLength: 50 },
       { name: 'Description', type: 'textarea', maxLength: 255 },
       { name: 'SortOrder', label: 'Sort Order', type: 'number', default: 0 },
-      { name: 'Price', type: 'number', step: 0.0001 },
       { name: 'Active', type: 'boolean', default: true },
     ],
-    tableColumns: ['Name', 'Code', 'Description', 'SortOrder', 'Price', 'Active', 'CreatedBy', 'CreatedOn'],
+    tableColumns: ['Name', 'Code', 'Description', 'SortOrder', 'Active', 'CreatedBy', 'CreatedOn'],
     searchFields: ['Name', 'Code'],
   },
 
