@@ -353,7 +353,18 @@ const AdminApprovals = () => {
                 <tr key={r.id}>
                   <td style={{ fontWeight: 600 }}>{r.name}</td>
                   <td style={{ color: '#718096', fontSize: '0.85rem' }}>{r.email}</td>
-                  <td>{statusBadge(r.status)}</td>
+                  <td>
+                    {statusBadge(r.status)}
+                    {r.reviewed_by === 'system-auto' && (
+                      <span
+                        className="badge badge-auto"
+                        title="Auto-approved by the system (auto-approval is enabled)"
+                        style={{ marginLeft: 6 }}
+                      >
+                        ⚡ Auto
+                      </span>
+                    )}
+                  </td>
                   <td style={{ fontSize: '0.8rem', color: '#a0aec0', whiteSpace: 'nowrap' }}>
                     {r.requested_at
                       ? new Date(r.requested_at).toLocaleDateString()

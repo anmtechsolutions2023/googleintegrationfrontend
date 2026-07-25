@@ -21,6 +21,7 @@ const STRINGS = {
     settings: 'Settings',
     profile: 'Profile',
     masterData: 'Master Data',
+    masterSetup: 'Setup Wizard',
     frontDesk: 'Front Desk',
   },
 

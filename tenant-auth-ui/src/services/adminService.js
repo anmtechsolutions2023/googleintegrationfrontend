@@ -20,6 +20,10 @@ export const reopenOnboardingRequest = (id) =>
 export const getAdminUsers = () =>
   api.get(BASE.USERS);
 
+// Super-admin only: users across every tenant. `limit` is capped at 100 by the API.
+export const getAllAdminUsers = (params = { limit: 100 }) =>
+  api.get(`${BASE.USERS}/all`, { params });
+
 export const getUserRoles = (email) =>
   api.get(`${BASE.USERS}/${encodeURIComponent(email)}/roles`);
 
@@ -28,6 +32,10 @@ export const updateUserRoles = (email, roleIds) =>
 
 export const updateUserStatus = (email, status) =>
   api.put(`${BASE.USERS}/${encodeURIComponent(email)}/status`, { status });
+
+// Super-admin only: suspend/activate a user in any tenant (target in the body).
+export const updateUserStatusCrossTenant = (email, tenantId, status) =>
+  api.put(`${BASE.USERS}/all/status`, { email, tenantId, status });
 
 export const deleteUser = (email) =>
   api.delete(`${BASE.USERS}/${encodeURIComponent(email)}`);
@@ -64,15 +72,24 @@ export const updateFeature = (id, data) =>
 export const deleteFeature = (id) =>
   api.delete(`${BASE.FEATURES}/${id}`);
 
+// ── Application configuration (super-admin) ──
+export const getAppConfig = () =>
+  api.get(BASE.APP_CONFIG);
+
+export const updateAppConfig = (patch) =>
+  api.patch(BASE.APP_CONFIG, patch);
+
 export default {
   getOnboardingRequests,
   approveOnboardingRequest,
   rejectOnboardingRequest,
   reopenOnboardingRequest,
   getAdminUsers,
+  getAllAdminUsers,
   getUserRoles,
   updateUserRoles,
   updateUserStatus,
+  updateUserStatusCrossTenant,
   deleteUser,
   getRoles,
   createRole,
@@ -84,4 +101,6 @@ export default {
   createFeature,
   updateFeature,
   deleteFeature,
+  getAppConfig,
+  updateAppConfig,
 };

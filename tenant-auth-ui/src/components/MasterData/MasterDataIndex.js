@@ -1,30 +1,30 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { MODULES, MODULE_CATEGORIES } from '../../config/modules';
-import { STRINGS } from '../../constants';
-import { useAuth } from '../../context/AuthContext';
-import { hasCategoryAccess } from '../../utils/permissions';
-import './MasterData.css';
+import React from 'react'
+import { Link } from 'react-router-dom'
+import { MODULES, MODULE_CATEGORIES } from '../../config/modules'
+import { STRINGS } from '../../constants'
+import { useAuth } from '../../context/AuthContext'
+import { hasCategoryAccess } from '../../utils/permissions'
+import './MasterData.css'
 
 /**
  * MasterDataIndex Component
  * Landing page for master data section showing all available modules
  */
 const MasterDataIndex = () => {
-  const { user } = useAuth();
+  const { user } = useAuth()
 
   // Group modules by category
   const groupedModules = Object.entries(MODULES).reduce(
     (acc, [key, module]) => {
-      const category = module.category;
+      const category = module.category
       if (!acc[category]) {
-        acc[category] = [];
+        acc[category] = []
       }
-      acc[category].push({ key, ...module });
-      return acc;
+      acc[category].push({ key, ...module })
+      return acc
     },
-    {}
-  );
+    {},
+  )
 
   // Get category display info
   const getCategoryInfo = (categoryKey) => {
@@ -66,7 +66,7 @@ const MasterDataIndex = () => {
         icon: '🏢',
         color: '#1abc9c',
       },
-    };
+    }
     return (
       categoryMap[categoryKey] || {
         title: categoryKey,
@@ -74,8 +74,8 @@ const MasterDataIndex = () => {
         icon: '📁',
         color: '#95a5a6',
       }
-    );
-  };
+    )
+  }
 
   return (
     <div className="master-data-index">
@@ -86,11 +86,11 @@ const MasterDataIndex = () => {
 
       <div className="module-categories">
         {Object.entries(MODULE_CATEGORIES).map(([, categoryValue]) => {
-          const modules = groupedModules[categoryValue];
-          if (!modules || modules.length === 0) return null;
-          if (!hasCategoryAccess(user, categoryValue)) return null;
+          const modules = groupedModules[categoryValue]
+          if (!modules || modules.length === 0) return null
+          if (!hasCategoryAccess(user, categoryValue)) return null
 
-          const categoryInfo = getCategoryInfo(categoryValue);
+          const categoryInfo = getCategoryInfo(categoryValue)
 
           return (
             <div key={categoryValue} className="category-section">
@@ -127,7 +127,7 @@ const MasterDataIndex = () => {
                 ))}
               </div>
             </div>
-          );
+          )
         })}
       </div>
 
@@ -267,7 +267,7 @@ const MasterDataIndex = () => {
         }
       `}</style>
     </div>
-  );
-};
+  )
+}
 
-export default MasterDataIndex;
+export default MasterDataIndex

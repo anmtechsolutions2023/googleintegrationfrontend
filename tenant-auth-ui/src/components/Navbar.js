@@ -48,6 +48,10 @@ const Navbar = () => {
           <Link to={ROUTES.DASHBOARD}>{STRINGS.nav.home}</Link>
           <Link to={ROUTES.MASTER}>{STRINGS.nav.masterData}</Link>
 
+          {hasScope(user, [SCOPES.TENANT_ADMIN, SCOPES.TENANT_SUPER_ADMIN]) && (
+            <Link to={ROUTES.MASTER_SETUP}>{STRINGS.nav.masterSetup}</Link>
+          )}
+
           {hasScope(user, [SCOPES.REPORTS_READ, SCOPES.REPORTS_WRITE, SCOPES.TENANT_ADMIN]) && (
             <Link to={ROUTES.REPORTS}>{STRINGS.nav.reports}</Link>
           )}
@@ -149,6 +153,10 @@ const Navbar = () => {
         <div className="mobile-menu">
           <Link to={ROUTES.DASHBOARD} onClick={closeMobileMenu}>{STRINGS.nav.home}</Link>
           <Link to={ROUTES.MASTER} onClick={closeMobileMenu}>{STRINGS.nav.masterData}</Link>
+
+          {hasScope(user, [SCOPES.TENANT_ADMIN, SCOPES.TENANT_SUPER_ADMIN]) && (
+            <Link to={ROUTES.MASTER_SETUP} onClick={closeMobileMenu}>{STRINGS.nav.masterSetup}</Link>
+          )}
 
           {hasScope(user, [SCOPES.REPORTS_READ, SCOPES.REPORTS_WRITE, SCOPES.TENANT_ADMIN]) && (
             <Link to={ROUTES.REPORTS} onClick={closeMobileMenu}>{STRINGS.nav.reports}</Link>

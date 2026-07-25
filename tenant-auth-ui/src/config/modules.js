@@ -2,12 +2,12 @@
 // This enables scalable, consistent management of all data modules
 
 export const MODULE_CATEGORIES = {
+  ORGANIZATION: 'Organization',
+  CONTACTS: 'Contacts & Addresses',
   MASTER_DATA: 'Master Data',
   INVENTORY: 'Inventory',
   TRANSACTIONS: 'Transactions',
   PAYMENTS: 'Payments',
-  CONTACTS: 'Contacts & Addresses',
-  ORGANIZATION: 'Organization',
 }
 
 // Module definitions with all metadata
@@ -987,18 +987,18 @@ export const MODULES = {
         label: 'Address Line 1',
         type: 'text',
         required: true,
-        maxLength: 255,
+        maxLength: 50,
       },
       {
         name: 'AddressLine2',
         label: 'Address Line 2',
         type: 'text',
-        maxLength: 255,
+        maxLength: 50,
       },
-      { name: 'City', type: 'text', maxLength: 100 },
-      { name: 'State', type: 'text', maxLength: 100 },
-      { name: 'Pincode', type: 'text', maxLength: 20 },
-      { name: 'Landmark', type: 'text', maxLength: 255 },
+      { name: 'City', type: 'text', maxLength: 50 },
+      { name: 'State', type: 'text', maxLength: 50 },
+      { name: 'Pincode', type: 'text', maxLength: 50 },
+      { name: 'Landmark', type: 'text', maxLength: 50 },
       {
         name: 'ContactAddressTypeId',
         label: 'Address Type',
@@ -1010,7 +1010,6 @@ export const MODULES = {
         name: 'MapProviderLocationMapperId',
         label: 'Location mapper',
         type: 'select',
-        required: true,
         reference: 'mapProviderLocationMappers',
       },
       {

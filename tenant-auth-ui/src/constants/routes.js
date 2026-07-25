@@ -35,6 +35,9 @@ export const ROUTES = {
   MASTER: '/master',
   MASTER_MODULE: '/master/:moduleKey',
 
+  // First-time master-data setup wizard (transactional bootstrap)
+  MASTER_SETUP: '/master-setup',
+
   // Front Desk (POS)
   FRONTDESK: '/frontdesk',
   FRONTDESK_MODULE: '/frontdesk/:tab',

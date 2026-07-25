@@ -28,6 +28,7 @@ import Forbidden from './pages/Forbidden';
 import NotFound from './pages/NotFound';
 import AdminPage from './pages/AdminPage';
 import AuditLogs from './pages/AuditLogs';
+import MasterDataSetup from './pages/MasterDataSetup';
 import ReportsPage from './pages/ReportsPage';
 import OnboardingPage from './pages/OnboardingPage';
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -152,6 +153,18 @@ const AppRoutes = () => {
           <Route index element={<MasterDataIndex />} />
           <Route path=":moduleKey" element={<GenericCrudPage />} />
         </Route>
+
+        {/* First-time master-data setup wizard (tenant admins) */}
+        <Route
+          path={ROUTES.MASTER_SETUP}
+          element={
+            <ApprovedRoute>
+              <ScopeGuard requiredScopes={[SCOPES.TENANT_ADMIN, SCOPES.TENANT_SUPER_ADMIN]}>
+                <MasterDataSetup />
+              </ScopeGuard>
+            </ApprovedRoute>
+          }
+        />
 
         {/* Front Desk (POS) */}
         <Route

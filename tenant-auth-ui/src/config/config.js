@@ -33,6 +33,7 @@ export const ENDPOINTS = {
     ROLES: '/api/admin/roles',
     ONBOARDING: '/api/admin/onboarding',
     FEATURES: '/api/admin/features',
+    APP_CONFIG: '/api/admin/app-config',
   },
 
   // Reports endpoints
