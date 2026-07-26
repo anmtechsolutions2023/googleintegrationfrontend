@@ -102,6 +102,38 @@ export const isTenantAdmin = (user) => {
 };
 
 /**
+ * Check whether the user is blocked by the first-time tenancy setup gate.
+ *
+ * Mirrors requireTenantSetup on the backend exactly, so what the UI hides always
+ * matches what the API refuses:
+ *  - only a provisioned user can be gated (guests have no tenant to set up);
+ *  - only an EXPLICIT `setupCompleted === false` gates. A token minted before
+ *    this feature shipped carries no such claim and must keep working, or every
+ *    live session would be locked out the moment this deploys;
+ *  - super admins are exempt — they need cross-tenant access (including the
+ *    setup tracker in the admin panel) whatever their own tenant's state.
+ *
+ * @param {Object} user - Decoded JWT payload.
+ * @returns {boolean} - True when the user must finish the setup wizard first.
+ */
+export const isSetupPending = (user) =>
+  !!user?.tid &&
+  user.onboardingStatus === 'APPROVED' &&
+  user.setupCompleted === false &&
+  !isSuperAdmin(user);
+
+/**
+ * Whether the first-time setup wizard should still be offered to this user.
+ * Once a tenant is set up the entry point disappears for good — a completed or
+ * claimless token both resolve to false.
+ *
+ * @param {Object} user - Decoded JWT payload.
+ * @returns {boolean}
+ */
+export const canRunSetupWizard = (user) =>
+  user?.setupCompleted === false && isTenantAdmin(user);
+
+/**
  * Get user's display scopes (excluding system scopes)
  * Useful for showing user-friendly scope names
  *
@@ -125,6 +157,8 @@ export default {
   hasAllScopes,
   isSuperAdmin,
   isTenantAdmin,
+  isSetupPending,
+  canRunSetupWizard,
   getDisplayScopes,
   hasCategoryAccess,
   CATEGORY_READ_SCOPE,

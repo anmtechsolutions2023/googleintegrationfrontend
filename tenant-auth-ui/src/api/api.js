@@ -31,6 +31,18 @@ api.interceptors.response.use(
       window.location.href = `${ROUTES.LOGIN}?session=expired`;
     }
 
+    // The tenancy setup gate. Matched on the explicit `code` rather than the
+    // status alone, so ordinary scope 403s keep their existing behaviour.
+    // Covers the stale-tab case: a session opened before the gate applied, or
+    // one gated mid-session by a tenant switch.
+    if (
+      err.response?.status === HTTP_STATUS.FORBIDDEN &&
+      err.response?.data?.code === 'TENANT_SETUP_REQUIRED' &&
+      window.location.pathname !== ROUTES.MASTER_SETUP
+    ) {
+      window.location.href = ROUTES.MASTER_SETUP;
+    }
+
     return Promise.reject(err);
   }
 );

@@ -1,7 +1,7 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Forbidden from '../pages/Forbidden';
-import { hasScope } from '../utils/permissions';
+import { hasScope, isSetupPending } from '../utils/permissions';
 import { ROUTES } from '../constants/routes';
 import { SCOPES } from '../constants/scopes';
 
@@ -23,8 +23,14 @@ export const ScopeGuard = ({ requiredScopes, children }) => {
   return hasAccess ? children : <Forbidden />;
 };
 
-// New: only for provisioned (approved) users — guests are bounced to /onboarding
-export const ApprovedRoute = ({ children }) => {
+// New: only for provisioned (approved) users — guests are bounced to /onboarding.
+//
+// Also enforces the first-time tenancy setup gate. Until the tenant completes
+// the wizard, every route bounces to /master-setup except the three that opt out
+// via `allowDuringSetup` (Home, Audit Logs, and the wizard itself). Gating here
+// rather than per-route means any route added later inherits the block by
+// default — the safe direction to fail.
+export const ApprovedRoute = ({ children, allowDuringSetup = false }) => {
   const { user } = useAuth();
   const location = useLocation();
 
@@ -34,6 +40,10 @@ export const ApprovedRoute = ({ children }) => {
 
   if (!user.tid || user.onboardingStatus !== 'APPROVED') {
     return <Navigate to={ROUTES.ONBOARDING} replace />;
+  }
+
+  if (!allowDuringSetup && isSetupPending(user)) {
+    return <Navigate to={ROUTES.MASTER_SETUP} replace />;
   }
 
   return children;

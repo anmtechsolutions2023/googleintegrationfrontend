@@ -98,7 +98,9 @@ const AdminAllUsers = () => {
       u.user_email?.toLowerCase().includes(q) ||
       u.roles?.toLowerCase().includes(q) ||
       u.tenant_name?.toLowerCase().includes(q) ||
-      u.tenant_id?.toLowerCase().includes(q)
+      u.tenant_id?.toLowerCase().includes(q) ||
+      // Lets an admin type "incomplete" to find every tenant still to be set up.
+      (u.setup_status === 'COMPLETED' ? 'completed' : 'incomplete').includes(q)
     );
   });
 
@@ -114,7 +116,9 @@ const AdminAllUsers = () => {
       <p style={{ margin: '0 0 12px', fontSize: '0.85rem', color: '#718096' }}>
         Every user across all tenants. Suspending a user blocks their login until
         you re-activate them. Super admins cannot be suspended here, and you
-        cannot suspend your own account.
+        cannot suspend your own account. <strong>Tenancy Setup</strong> shows
+        whether that user's tenant has finished the first-time setup wizard — it
+        is a per-tenant value, so every member of a tenant shows the same badge.
       </p>
 
       <div className="admin-filter-bar">
@@ -137,6 +141,7 @@ const AdminAllUsers = () => {
               <tr>
                 <th>Email</th>
                 <th>Tenant</th>
+                <th>Tenancy Setup</th>
                 <th>Status</th>
                 <th>Roles</th>
                 <th>Flags</th>
@@ -147,6 +152,10 @@ const AdminAllUsers = () => {
               {filtered.map((u) => {
                 const isSuper = !!u.is_super_admin;
                 const isSelf = isSameUser(u.user_email, currentUser?.email);
+                // Per TENANT, so every row of a tenant shows the same badge. A
+                // tenant with no tenant_setup row reports PENDING from the API;
+                // treat anything that is not COMPLETED as incomplete.
+                const setupDone = u.setup_status === 'COMPLETED';
                 return (
                   <tr key={`${u.tenant_id}:${u.user_email}`}>
                     <td style={{ fontWeight: 500 }}>{u.user_email}</td>
@@ -157,6 +166,20 @@ const AdminAllUsers = () => {
                       <div style={{ fontSize: '0.68rem', color: '#a0aec0' }}>
                         {u.tenant_id}
                       </div>
+                    </td>
+                    <td>
+                      <span
+                        className={`badge ${setupDone ? 'badge-setup-done' : 'badge-setup-pending'}`}
+                        title={
+                          setupDone
+                            ? u.setup_completed_at
+                              ? `Completed ${new Date(u.setup_completed_at).toLocaleString()}`
+                              : 'Setup wizard completed'
+                            : 'This tenant has not completed the first-time setup wizard'
+                        }
+                      >
+                        {setupDone ? 'Completed' : 'Incomplete'}
+                      </span>
                     </td>
                     <td>
                       <span

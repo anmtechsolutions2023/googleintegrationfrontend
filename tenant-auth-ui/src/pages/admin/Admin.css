@@ -262,6 +262,10 @@
 .badge-auto     { background: #bee3f8; color: #2a4365; }
 /* Marks the row belonging to the signed-in admin (self-action rows). */
 .badge-self     { background: #fefcbf; color: #744210; }
+/* First-time tenancy setup tracker — green done, red outstanding. Reuses the
+   active/suspended colour tokens so the column reads as part of this table. */
+.badge-setup-done    { background: #c6f6d5; color: #22543d; }
+.badge-setup-pending { background: #fed7d7; color: #742a2a; }
 
 /* ── App Config toggle ── */
 .appconfig-card {

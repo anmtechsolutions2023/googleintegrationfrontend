@@ -95,6 +95,20 @@
   margin: 0 auto 0 12px;
 }
 
+/* Shown while the tenant has not finished the first-time setup wizard.
+   Same shape as .guest-badge, red instead of amber — this is a hard block, not
+   a "waiting on someone else" state. */
+.setup-badge {
+  font-size: 0.7rem;
+  background: #742a2a;
+  color: #fed7d7;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  margin: 0 auto 0 12px;
+}
+
 .guest-status-label {
   font-size: 0.78rem;
   color: #e67e22;

@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { SCOPES, MESSAGES, STRINGS, APP_CONFIG } from '../constants';
 import { ROUTES } from '../constants/routes';
-import { hasScope } from '../utils/permissions';
+import { hasScope, isSetupPending, canRunSetupWizard } from '../utils/permissions';
 import { toast } from 'react-toastify';
 import './Navbar.css';
 
@@ -16,6 +16,11 @@ const Navbar = () => {
   if (!user) return null;
 
   const isGuest = !user.tid || user.onboardingStatus !== 'APPROVED';
+  // Tenant has not finished the first-time wizard: collapse the menu to the only
+  // destinations the route guards and the API will actually allow.
+  const setupPending = isSetupPending(user);
+  // The wizard entry point disappears for good once setup is done.
+  const showSetupWizard = canRunSetupWizard(user);
 
   const handleLogout = () => {
     logout();
@@ -36,6 +41,48 @@ const Navbar = () => {
 
   const closeMobileMenu = () => setIsMobileMenuOpen(false);
 
+  // Single source for both the desktop bar and the mobile drawer — they used to
+  // be duplicated, which is exactly the kind of drift the setup gate cannot
+  // afford (a link left visible in one menu is a way around the gate).
+  //
+  // While setup is pending only Home and Audit Logs survive; the wizard has its
+  // own always-visible entry below, and Logout lives in the profile dropdown.
+  const renderNavLinks = (onClick) => (
+    <>
+      <Link to={ROUTES.DASHBOARD} onClick={onClick}>{STRINGS.nav.home}</Link>
+
+      {!setupPending && (
+        <Link to={ROUTES.MASTER} onClick={onClick}>{STRINGS.nav.masterData}</Link>
+      )}
+
+      {showSetupWizard && (
+        <Link to={ROUTES.MASTER_SETUP} onClick={onClick}>{STRINGS.nav.masterSetup}</Link>
+      )}
+
+      {!setupPending &&
+        hasScope(user, [SCOPES.REPORTS_READ, SCOPES.REPORTS_WRITE, SCOPES.TENANT_ADMIN]) && (
+        <Link to={ROUTES.REPORTS} onClick={onClick}>{STRINGS.nav.reports}</Link>
+      )}
+
+      {!setupPending && hasScope(user, [SCOPES.ADMIN_ACCESS]) && (
+        <Link to={ROUTES.ADMIN} onClick={onClick}>{STRINGS.nav.access}</Link>
+      )}
+
+      {!setupPending &&
+        hasScope(user, [
+          SCOPES.POS_ORDER_READ, SCOPES.POS_CONFIG_READ, SCOPES.POS_KITCHEN_READ,
+          SCOPES.POS_BILLING_READ, SCOPES.POS_CRM_READ, SCOPES.POS_OPS_READ,
+          SCOPES.POS_REPORTS_READ, SCOPES.TENANT_ADMIN,
+        ]) && (
+        <Link to={ROUTES.FRONTDESK} onClick={onClick}>{STRINGS.nav.frontDesk}</Link>
+      )}
+
+      {hasScope(user, [SCOPES.AUDIT_READ, SCOPES.ADMIN_ACCESS]) && (
+        <Link to={ROUTES.AUDIT} onClick={onClick}>{STRINGS.nav.auditLogs}</Link>
+      )}
+    </>
+  );
+
   return (
     <nav className="navbar">
       <div className="nav-logo" onClick={() => navigate(isGuest ? ROUTES.ONBOARDING : ROUTES.DASHBOARD)}>
@@ -43,36 +90,7 @@ const Navbar = () => {
       </div>
 
       {/* Desktop nav links — hidden for guests */}
-      {!isGuest && (
-        <div className="nav-links">
-          <Link to={ROUTES.DASHBOARD}>{STRINGS.nav.home}</Link>
-          <Link to={ROUTES.MASTER}>{STRINGS.nav.masterData}</Link>
-
-          {hasScope(user, [SCOPES.TENANT_ADMIN, SCOPES.TENANT_SUPER_ADMIN]) && (
-            <Link to={ROUTES.MASTER_SETUP}>{STRINGS.nav.masterSetup}</Link>
-          )}
-
-          {hasScope(user, [SCOPES.REPORTS_READ, SCOPES.REPORTS_WRITE, SCOPES.TENANT_ADMIN]) && (
-            <Link to={ROUTES.REPORTS}>{STRINGS.nav.reports}</Link>
-          )}
-
-          {hasScope(user, [SCOPES.ADMIN_ACCESS]) && (
-            <Link to={ROUTES.ADMIN}>{STRINGS.nav.access}</Link>
-          )}
-
-          {hasScope(user, [
-            SCOPES.POS_ORDER_READ, SCOPES.POS_CONFIG_READ, SCOPES.POS_KITCHEN_READ,
-            SCOPES.POS_BILLING_READ, SCOPES.POS_CRM_READ, SCOPES.POS_OPS_READ,
-            SCOPES.POS_REPORTS_READ, SCOPES.TENANT_ADMIN,
-          ]) && (
-            <Link to={ROUTES.FRONTDESK}>{STRINGS.nav.frontDesk}</Link>
-          )}
-
-          {hasScope(user, [SCOPES.AUDIT_READ, SCOPES.ADMIN_ACCESS]) && (
-            <Link to={ROUTES.AUDIT}>{STRINGS.nav.auditLogs}</Link>
-          )}
-        </div>
-      )}
+      {!isGuest && <div className="nav-links">{renderNavLinks()}</div>}
 
       {/* Mobile hamburger — only for provisioned users */}
       {!isGuest && (
@@ -90,6 +108,12 @@ const Navbar = () => {
       {/* Guest label */}
       {isGuest && (
         <span className="guest-badge">Pending Access</span>
+      )}
+
+      {/* Explains the collapsed menu — otherwise the missing entries just look
+          like a bug. */}
+      {!isGuest && setupPending && (
+        <span className="setup-badge">Setup Required</span>
       )}
 
       <div className="profile-zone">
@@ -113,8 +137,14 @@ const Navbar = () => {
               )}
             </div>
 
-            {/* Tenant switcher — approved users with multiple tenants only */}
-            {!isGuest && user.associatedTenants && user.associatedTenants.length > 1 && (
+            {!isGuest && setupPending && (
+              <p className="guest-status-label">Status: Setup incomplete</p>
+            )}
+
+            {/* Tenant switcher — approved users with multiple tenants only.
+                Hidden mid-setup: switching away from a half-configured tenant is
+                confusing, and the target may itself be unconfigured. */}
+            {!isGuest && !setupPending && user.associatedTenants && user.associatedTenants.length > 1 && (
               <>
                 <hr />
                 <p className="switcher-label">{STRINGS.labels.switchTenant}</p>
@@ -150,34 +180,7 @@ const Navbar = () => {
 
       {/* Mobile slide-down menu */}
       {isMobileMenuOpen && !isGuest && (
-        <div className="mobile-menu">
-          <Link to={ROUTES.DASHBOARD} onClick={closeMobileMenu}>{STRINGS.nav.home}</Link>
-          <Link to={ROUTES.MASTER} onClick={closeMobileMenu}>{STRINGS.nav.masterData}</Link>
-
-          {hasScope(user, [SCOPES.TENANT_ADMIN, SCOPES.TENANT_SUPER_ADMIN]) && (
-            <Link to={ROUTES.MASTER_SETUP} onClick={closeMobileMenu}>{STRINGS.nav.masterSetup}</Link>
-          )}
-
-          {hasScope(user, [SCOPES.REPORTS_READ, SCOPES.REPORTS_WRITE, SCOPES.TENANT_ADMIN]) && (
-            <Link to={ROUTES.REPORTS} onClick={closeMobileMenu}>{STRINGS.nav.reports}</Link>
-          )}
-
-          {hasScope(user, [SCOPES.ADMIN_ACCESS]) && (
-            <Link to={ROUTES.ADMIN} onClick={closeMobileMenu}>{STRINGS.nav.access}</Link>
-          )}
-
-          {hasScope(user, [
-            SCOPES.POS_ORDER_READ, SCOPES.POS_CONFIG_READ, SCOPES.POS_KITCHEN_READ,
-            SCOPES.POS_BILLING_READ, SCOPES.POS_CRM_READ, SCOPES.POS_OPS_READ,
-            SCOPES.POS_REPORTS_READ, SCOPES.TENANT_ADMIN,
-          ]) && (
-            <Link to={ROUTES.FRONTDESK} onClick={closeMobileMenu}>{STRINGS.nav.frontDesk}</Link>
-          )}
-
-          {hasScope(user, [SCOPES.AUDIT_READ, SCOPES.ADMIN_ACCESS]) && (
-            <Link to={ROUTES.AUDIT} onClick={closeMobileMenu}>{STRINGS.nav.auditLogs}</Link>
-          )}
-        </div>
+        <div className="mobile-menu">{renderNavLinks(closeMobileMenu)}</div>
       )}
       {isMobileMenuOpen && (
         <div className="mobile-menu-overlay" onClick={closeMobileMenu} />

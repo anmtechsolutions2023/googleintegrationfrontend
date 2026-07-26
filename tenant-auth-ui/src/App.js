@@ -68,11 +68,13 @@ const AppRoutes = () => {
         <Route path={ROUTES.FORBIDDEN} element={<Forbidden />} />
         <Route path={ROUTES.HOME} element={<Navigate to={ROUTES.DASHBOARD} replace />} />
 
-        {/* Audit logs — provisioned users with AUDIT:READ (or IAM admins) */}
+        {/* Audit logs — provisioned users with AUDIT:READ (or IAM admins).
+            allowDuringSetup: one of the three screens reachable before the
+            first-time setup wizard is finished. */}
         <Route
           path={ROUTES.AUDIT}
           element={
-            <ApprovedRoute>
+            <ApprovedRoute allowDuringSetup>
               <ScopeGuard requiredScopes={[SCOPES.AUDIT_READ, SCOPES.ADMIN_ACCESS]}>
                 <AuditLogs />
               </ScopeGuard>
@@ -91,10 +93,11 @@ const AppRoutes = () => {
         />
 
         {/* ── Approved (provisioned) users only ── */}
+        {/* Home — allowDuringSetup: reachable before the setup wizard is done. */}
         <Route
           path={ROUTES.DASHBOARD}
           element={
-            <ApprovedRoute>
+            <ApprovedRoute allowDuringSetup>
               <Dashboard />
             </ApprovedRoute>
           }
@@ -154,11 +157,13 @@ const AppRoutes = () => {
           <Route path=":moduleKey" element={<GenericCrudPage />} />
         </Route>
 
-        {/* First-time master-data setup wizard (tenant admins) */}
+        {/* First-time master-data setup wizard (tenant admins).
+            allowDuringSetup: this is the destination the gate redirects to, so
+            it must never be gated itself or the redirect would loop. */}
         <Route
           path={ROUTES.MASTER_SETUP}
           element={
-            <ApprovedRoute>
+            <ApprovedRoute allowDuringSetup>
               <ScopeGuard requiredScopes={[SCOPES.TENANT_ADMIN, SCOPES.TENANT_SUPER_ADMIN]}>
                 <MasterDataSetup />
               </ScopeGuard>
@@ -209,8 +214,16 @@ const AppRoutes = () => {
           <Route path="access-control" element={<ScopeGuard requiredScopes={[SCOPES.TENANT_ADMIN]}><AccessControl /></ScopeGuard>} />
         </Route>
 
-        {/* 404 */}
-        <Route path="*" element={<NotFound />} />
+        {/* 404 — wrapped so an unrecognised URL cannot be used to slip past the
+            setup gate. Unauthenticated visitors still land on Login as before. */}
+        <Route
+          path="*"
+          element={
+            <ApprovedRoute>
+              <NotFound />
+            </ApprovedRoute>
+          }
+        />
       </Routes>
     </>
   );

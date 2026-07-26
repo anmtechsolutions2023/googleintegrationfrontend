@@ -51,6 +51,32 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  /**
+   * Replaces the stored session with a server-issued token.
+   *
+   * Used when the backend hands back a refreshed token mid-session — currently
+   * after the first-time setup wizard succeeds, where the caller's token still
+   * says setupCompleted:false and would otherwise keep them gated until it
+   * expired. Unlike switchTenant this does NOT navigate; the caller decides
+   * where to go next.
+   *
+   * @param {string} token - Signed JWT from the API.
+   * @returns {Object|null} The decoded payload, or null if the token was unusable.
+   */
+  const applyToken = (token) => {
+    const payload = decodeToken(token);
+    if (!payload) {
+      logger.warn('applyToken received an undecodable token; session unchanged');
+      return null;
+    }
+    Cookies.set(APP_CONFIG.COOKIE_NAME, token, {
+      expires: APP_CONFIG.COOKIE_EXPIRY_HOURS / 24,
+      secure: false,
+    });
+    setUser(payload);
+    return payload;
+  };
+
   const logout = async () => {
     // 1. Attempt backend logout (don't block cleanup if it fails)
     try {
@@ -96,7 +122,7 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider
-      value={{ user, login, logout, loading, switchTenant }}
+      value={{ user, login, logout, loading, switchTenant, applyToken }}
     >
       {children}
     </AuthContext.Provider>

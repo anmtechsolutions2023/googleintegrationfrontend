@@ -1,6 +1,10 @@
 import React, { useMemo, useState } from 'react';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { bootstrapMasterData } from '../services/masterSetupService';
+import { useAuth } from '../context/AuthContext';
+import { isSetupPending } from '../utils/permissions';
+import { ROUTES } from '../constants/routes';
 import './MasterDataSetup.css';
 
 // ── Declarative step / group / field definitions ─────────────────────────────
@@ -93,12 +97,20 @@ const setVal = (obj, path, name, value) => {
 };
 
 const MasterDataSetup = () => {
+  const { user, applyToken } = useAuth() || {};
+  const navigate = useNavigate();
   const [stepIdx, setStepIdx] = useState(0);
   const [form, setForm] = useState({});
   const [includeItem, setIncludeItem] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
   const [showErrors, setShowErrors] = useState(false);
+
+  // The wizard runs once per tenant. A user who returns here by direct URL after
+  // completing it is sent to the dashboard; the backend also answers 409, so
+  // this is convenience rather than the actual enforcement.
+  const setupPending = isSetupPending(user);
+  const alreadyDone = user?.setupCompleted !== false;
 
   const step = STEPS[stepIdx];
   const isItemStep = step.key === 'item';
@@ -154,7 +166,13 @@ const MasterDataSetup = () => {
     setSubmitting(true);
     try {
       const res = await bootstrapMasterData(buildPayload());
-      const ids = res.data?.data ?? res.data ?? {};
+      const { setupToken, ...ids } = res.data?.data ?? res.data ?? {};
+
+      // Swap in the refreshed token BEFORE anything navigates. The token in hand
+      // still says setupCompleted:false, so without this the route guard would
+      // bounce the user straight back into the wizard they just finished.
+      if (setupToken) applyToken(setupToken);
+
       setResult(ids);
       toast.success('Master data created successfully.');
     } catch (err) {
@@ -164,17 +182,26 @@ const MasterDataSetup = () => {
     }
   };
 
+  if (alreadyDone && !result) {
+    return <Navigate to={ROUTES.DASHBOARD} replace />;
+  }
+
   // ── Success screen ─────────────────────────────────────────────────────────
   if (result) {
     return (
       <div className="mds-wrap">
         <div className="mds-card mds-success">
           <div className="mds-success-icon">✓</div>
-          <h2>Master data created</h2>
-          <p>Everything below was created in a single transaction.</p>
+          <h2>Tenancy setup complete</h2>
+          <p>
+            Everything below was created in a single transaction. The rest of the
+            application is now unlocked, and this wizard will not be shown again.
+          </p>
           <ReviewPanel form={form} includeItem={includeItem} />
-          <button className="mds-btn mds-btn-primary" onClick={() => { setResult(null); setForm({}); setStepIdx(0); }}>
-            Set up another
+          {/* No "set up another": the wizard runs once per tenant and the API
+              answers 409 on a second attempt. */}
+          <button className="mds-btn mds-btn-primary" onClick={() => navigate(ROUTES.DASHBOARD)}>
+            Continue to Home
           </button>
         </div>
       </div>
@@ -187,6 +214,19 @@ const MasterDataSetup = () => {
         <h1>Master Data Setup</h1>
         <p>Create your Organization, Branch and first Item together. It's all-or-nothing — if anything fails, nothing is saved.</p>
       </header>
+
+      {/* Why the rest of the menu is missing. Without this the collapsed
+          navigation just reads as a broken app. Not dismissible — there is
+          genuinely nothing else the user can do yet. */}
+      {setupPending && (
+        <div className="mds-gate-banner" role="alert">
+          <strong>Finish this setup to unlock the application.</strong>
+          <span>
+            Until your organization and branch exist, the only pages available are
+            Home, Audit Logs and signing out.
+          </span>
+        </div>
+      )}
 
       {/* Stepper */}
       <ol className="mds-stepper" aria-label="Progress">

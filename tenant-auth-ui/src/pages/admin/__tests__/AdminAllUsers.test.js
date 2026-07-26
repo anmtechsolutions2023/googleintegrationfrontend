@@ -188,3 +188,60 @@ describe('self-action protection', () => {
     );
   });
 });
+
+// ── Tenancy setup tracking column ────────────────────────────────────────────
+describe('tenancy setup column', () => {
+  const withSetup = (rows) =>
+    adminService.getAllAdminUsers.mockResolvedValue({ data: { data: rows } });
+
+  test('renders a green Completed badge for a set-up tenant', async () => {
+    withSetup([{ ...ACTIVE_USER, setup_status: 'COMPLETED' }]);
+    render(<AdminAllUsers />);
+
+    const badge = await screen.findByText('Completed');
+    expect(badge).toHaveClass('badge-setup-done');
+  });
+
+  test('renders a red Incomplete badge for a tenant still to be set up', async () => {
+    withSetup([{ ...ACTIVE_USER, setup_status: 'PENDING' }]);
+    render(<AdminAllUsers />);
+
+    const badge = await screen.findByText('Incomplete');
+    expect(badge).toHaveClass('badge-setup-pending');
+  });
+
+  test('treats a missing setup_status as incomplete', async () => {
+    // Defensive: an older API response, or a row the join could not resolve.
+    withSetup([ACTIVE_USER]);
+    render(<AdminAllUsers />);
+
+    const badge = await screen.findByText('Incomplete');
+    expect(badge).toHaveClass('badge-setup-pending');
+  });
+
+  test('adds the Tenancy Setup header without disturbing the existing columns', async () => {
+    withSetup([{ ...ACTIVE_USER, setup_status: 'COMPLETED' }]);
+    render(<AdminAllUsers />);
+    await screen.findByText('bob@test.com');
+
+    ['Email', 'Tenant', 'Tenancy Setup', 'Status', 'Roles', 'Flags', 'Actions'].forEach((h) =>
+      expect(screen.getByRole('columnheader', { name: h })).toBeInTheDocument()
+    );
+  });
+
+  test('search matches on setup state so pending tenants are easy to find', async () => {
+    withSetup([
+      { ...ACTIVE_USER, setup_status: 'COMPLETED' },
+      { ...SUSPENDED_USER, setup_status: 'PENDING' },
+    ]);
+    render(<AdminAllUsers />);
+    await screen.findByText('bob@test.com');
+
+    fireEvent.change(screen.getByPlaceholderText(/Search by email/i), {
+      target: { value: 'incomplete' },
+    });
+
+    expect(screen.getByText('carol@test.com')).toBeInTheDocument();
+    expect(screen.queryByText('bob@test.com')).not.toBeInTheDocument();
+  });
+});
