@@ -192,6 +192,10 @@ const STRINGS = {
       confirmSuspend: 'Suspend this user? They will lose access on next login.',
       confirmActivate: 'Restore access for this user?',
       confirmDelete: 'Permanently remove this user from the tenant?',
+      selfSuspendBlocked: 'You cannot suspend your own account.',
+      selfRemoveBlocked: 'You cannot remove your own account.',
+      selfActionsBlocked: 'You cannot suspend or remove your own account.',
+      selfBadge: 'You',
     },
 
     adminRoles: {

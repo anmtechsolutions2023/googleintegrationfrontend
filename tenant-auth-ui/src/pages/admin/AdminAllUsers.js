@@ -4,7 +4,16 @@ import {
   updateUserStatusCrossTenant,
 } from '../../services/adminService';
 import { toast } from 'react-toastify';
+import { STRINGS } from '../../constants';
+import { useAuth } from '../../context/AuthContext';
 import './Admin.css';
+
+const s = STRINGS.pages.adminUsers;
+
+// Mirrors the backend guard in admin.service.js. Compared case-insensitively
+// because the JWT claim and the listing row can differ in casing.
+const isSameUser = (a, b) =>
+  !!a && !!b && String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
 
 // ── Confirm Modal ──────────────────────────────────────────────
 const ConfirmModal = ({ message, onConfirm, onClose, danger }) => (
@@ -31,8 +40,10 @@ const ConfirmModal = ({ message, onConfirm, onClose, danger }) => (
 // The per-tenant Users page (AdminUsers) is scoped to the caller's tenant. This
 // page lists members of every tenant so a super admin can see all users and
 // suspend/activate any of them. Suspending sets is_active = 0, which blocks the
-// user's login. Super-admin rows expose no action (matches the backend guard).
+// user's login. Super-admin rows and the caller's own memberships expose no
+// suspend action (matches the backend guard).
 const AdminAllUsers = () => {
+  const { user: currentUser } = useAuth() || {};
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -57,6 +68,11 @@ const AdminAllUsers = () => {
     const nextActive = !u.is_active;
     const nextStatus = nextActive ? 'ACTIVE' : 'SUSPENDED';
     const tenantLabel = u.tenant_name || u.tenant_id;
+    // Suspending your own membership would revoke your own access on next login.
+    if (!nextActive && isSameUser(u.user_email, currentUser?.email)) {
+      toast.error(s.selfSuspendBlocked);
+      return;
+    }
     setConfirmData({
       message: nextActive
         ? `Activate ${u.user_email} in "${tenantLabel}"?\n\nThey will be able to log in again.`
@@ -97,7 +113,8 @@ const AdminAllUsers = () => {
 
       <p style={{ margin: '0 0 12px', fontSize: '0.85rem', color: '#718096' }}>
         Every user across all tenants. Suspending a user blocks their login until
-        you re-activate them. Super admins cannot be suspended here.
+        you re-activate them. Super admins cannot be suspended here, and you
+        cannot suspend your own account.
       </p>
 
       <div className="admin-filter-bar">
@@ -129,6 +146,7 @@ const AdminAllUsers = () => {
             <tbody>
               {filtered.map((u) => {
                 const isSuper = !!u.is_super_admin;
+                const isSelf = isSameUser(u.user_email, currentUser?.email);
                 return (
                   <tr key={`${u.tenant_id}:${u.user_email}`}>
                     <td style={{ fontWeight: 500 }}>{u.user_email}</td>
@@ -151,19 +169,32 @@ const AdminAllUsers = () => {
                       {u.roles || <span style={{ color: '#a0aec0' }}>None</span>}
                     </td>
                     <td style={{ fontSize: '0.78rem' }}>
+                      {isSelf ? (
+                        <span className="badge badge-self" style={{ marginRight: 4 }}>
+                          {s.selfBadge}
+                        </span>
+                      ) : null}
                       {u.is_admin ? (
                         <span className="badge badge-system" style={{ marginRight: 4 }}>Admin</span>
                       ) : null}
                       {isSuper ? (
                         <span className="badge badge-system">Super Admin</span>
                       ) : null}
-                      {!u.is_admin && !isSuper ? (
+                      {!isSelf && !u.is_admin && !isSuper ? (
                         <span style={{ color: '#a0aec0' }}>—</span>
                       ) : null}
                     </td>
                     <td>
-                      {isSuper ? (
-                        <span style={{ color: '#a0aec0', fontSize: '0.78rem' }}>Protected</span>
+                      {/* Super admins and your own active memberships expose no
+                          Suspend — matching the backend 403. Activate stays
+                          available so a suspended membership can be restored. */}
+                      {isSuper || (isSelf && !!u.is_active) ? (
+                        <span
+                          style={{ color: '#a0aec0', fontSize: '0.78rem' }}
+                          title={isSuper ? undefined : s.selfSuspendBlocked}
+                        >
+                          Protected
+                        </span>
                       ) : (
                         <div className="cell-actions">
                           <button

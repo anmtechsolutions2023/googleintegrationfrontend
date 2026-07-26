@@ -9,9 +9,16 @@ import {
 } from '../../services/adminService';
 import { toast } from 'react-toastify';
 import { STRINGS } from '../../constants';
+import { useAuth } from '../../context/AuthContext';
 import './Admin.css';
 
 const s = STRINGS.pages.adminUsers;
+
+// Mirrors the backend guard in admin.service.js: an admin may not suspend or
+// remove their own account. Emails are compared case-insensitively because the
+// JWT claim and the listing row can differ in casing for the same account.
+const isSameUser = (a, b) =>
+  !!a && !!b && String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
 
 // ── Edit Roles Modal ───────────────────────────────────────────
 const EditRolesModal = ({ user, allRoles, onClose, onDone }) => {
@@ -124,6 +131,7 @@ const ConfirmModal = ({ message, onConfirm, onClose, danger }) => (
 
 // ── Main Component ─────────────────────────────────────────────
 const AdminUsers = () => {
+  const { user: currentUser } = useAuth() || {};
   const [users, setUsers] = useState([]);
   const [allRoles, setAllRoles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -151,6 +159,11 @@ const AdminUsers = () => {
   const handleToggleStatus = (u) => {
     const nextActive = !u.is_active;
     const nextStatus = nextActive ? 'ACTIVE' : 'SUSPENDED';
+    // Suspending yourself would revoke your own access on next login.
+    if (!nextActive && isSameUser(u.user_email, currentUser?.email)) {
+      toast.error(s.selfSuspendBlocked);
+      return;
+    }
     setConfirmData({
       message: nextActive ? s.confirmActivate : s.confirmSuspend,
       danger: !nextActive,
@@ -168,6 +181,10 @@ const AdminUsers = () => {
   };
 
   const handleDelete = (u) => {
+    if (isSameUser(u.user_email, currentUser?.email)) {
+      toast.error(s.selfRemoveBlocked);
+      return;
+    }
     setConfirmData({
       message: `${s.confirmDelete}\n\n${u.user_email}`,
       danger: true,
@@ -224,7 +241,9 @@ const AdminUsers = () => {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((u) => (
+              {filtered.map((u) => {
+                const isSelf = isSameUser(u.user_email, currentUser?.email);
+                return (
                 <tr key={u.user_email}>
                   <td style={{ fontWeight: 500 }}>{u.user_email}</td>
                   <td>
@@ -238,13 +257,18 @@ const AdminUsers = () => {
                     {u.roles || <span style={{ color: '#a0aec0' }}>None</span>}
                   </td>
                   <td style={{ fontSize: '0.78rem' }}>
+                    {isSelf ? (
+                      <span className="badge badge-self" style={{ marginRight: 4 }}>
+                        {s.selfBadge}
+                      </span>
+                    ) : null}
                     {u.is_admin ? (
                       <span className="badge badge-system" style={{ marginRight: 4 }}>Admin</span>
                     ) : null}
                     {u.is_super_admin ? (
                       <span className="badge badge-system">Super Admin</span>
                     ) : null}
-                    {!u.is_admin && !u.is_super_admin ? (
+                    {!isSelf && !u.is_admin && !u.is_super_admin ? (
                       <span style={{ color: '#a0aec0' }}>—</span>
                     ) : null}
                   </td>
@@ -256,22 +280,47 @@ const AdminUsers = () => {
                       >
                         Roles
                       </button>
-                      <button
-                        className={`btn-sm ${u.is_active ? 'btn-danger' : 'btn-success'}`}
-                        onClick={() => handleToggleStatus(u)}
-                      >
-                        {u.is_active ? 'Suspend' : 'Activate'}
-                      </button>
-                      <button
-                        className="btn-danger btn-sm"
-                        onClick={() => handleDelete(u)}
-                      >
-                        Remove
-                      </button>
+                      {/* Your own row exposes no Suspend/Remove — matching the
+                          backend 403 and the super-admin rows on All Users.
+                          Activate stays available if you were suspended. */}
+                      {u.is_active ? (
+                        !isSelf && (
+                          <button
+                            className="btn-danger btn-sm"
+                            onClick={() => handleToggleStatus(u)}
+                          >
+                            Suspend
+                          </button>
+                        )
+                      ) : (
+                        <button
+                          className="btn-success btn-sm"
+                          onClick={() => handleToggleStatus(u)}
+                        >
+                          Activate
+                        </button>
+                      )}
+                      {!isSelf && (
+                        <button
+                          className="btn-danger btn-sm"
+                          onClick={() => handleDelete(u)}
+                        >
+                          Remove
+                        </button>
+                      )}
+                      {isSelf && (
+                        <span
+                          style={{ color: '#a0aec0', fontSize: '0.78rem' }}
+                          title={s.selfActionsBlocked}
+                        >
+                          Protected
+                        </span>
+                      )}
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

@@ -15,6 +15,13 @@ jest.mock('react-toastify', () => ({
   toast: { error: jest.fn(), success: jest.fn() },
 }));
 
+// The signed-in admin. Individual tests reassign this to exercise self-action
+// guards; by default the caller is nobody in the listing.
+let mockCurrentUser = { email: 'admin@test.com' };
+jest.mock('../../../context/AuthContext', () => ({
+  useAuth: () => ({ user: mockCurrentUser }),
+}));
+
 const ACTIVE_USER = {
   user_email: 'bob@test.com',
   status: 'ACTIVE',
@@ -39,6 +46,7 @@ const MOCK_ROLES = [
 ];
 
 beforeEach(() => {
+  mockCurrentUser = { email: 'admin@test.com' };
   adminService.getAdminUsers.mockResolvedValue({
     data: { data: [ACTIVE_USER, SUSPENDED_USER] },
   });
@@ -164,4 +172,86 @@ test('shows empty state when no users are returned', async () => {
   await waitFor(() =>
     expect(screen.getByText('No users found in this tenant.')).toBeInTheDocument()
   );
+});
+
+// ── Self-action guards (mirror of the backend 403) ───────────────────────────
+describe('self-action protection', () => {
+  const SELF_ACTIVE = { ...ACTIVE_USER, user_email: 'admin@test.com' };
+
+  test('own row renders no Suspend or Remove button, only a Protected marker', async () => {
+    adminService.getAdminUsers.mockResolvedValue({ data: { data: [SELF_ACTIVE] } });
+
+    render(<AdminUsers />);
+    await waitFor(() => screen.getByText('admin@test.com'));
+
+    expect(screen.queryByRole('button', { name: 'Suspend' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Remove' })).not.toBeInTheDocument();
+    expect(screen.getByText('Protected')).toBeInTheDocument();
+    expect(screen.getByText('You')).toBeInTheDocument();
+  });
+
+  test('other rows keep their buttons when the list also contains your own row', async () => {
+    adminService.getAdminUsers.mockResolvedValue({
+      data: { data: [SELF_ACTIVE, ACTIVE_USER] },
+    });
+
+    render(<AdminUsers />);
+    await waitFor(() => screen.getByText('admin@test.com'));
+
+    // Exactly one Suspend/Remove pair — bob's row, not the caller's.
+    expect(screen.getAllByRole('button', { name: 'Suspend' })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: 'Remove' })).toHaveLength(1);
+    expect(screen.getByText('Protected')).toBeInTheDocument();
+  });
+
+  test('own row keeps the Roles button enabled', async () => {
+    adminService.getAdminUsers.mockResolvedValue({ data: { data: [SELF_ACTIVE] } });
+
+    render(<AdminUsers />);
+    await waitFor(() => screen.getByText('admin@test.com'));
+
+    expect(screen.getByRole('button', { name: 'Roles' })).toBeEnabled();
+  });
+
+  test('other users keep Suspend and Remove and show no Protected marker', async () => {
+    render(<AdminUsers />);
+    await waitFor(() => screen.getByText('bob@test.com'));
+
+    expect(screen.getByRole('button', { name: 'Suspend' })).toBeEnabled();
+    screen.getAllByRole('button', { name: 'Remove' }).forEach((b) =>
+      expect(b).toBeEnabled()
+    );
+    expect(screen.queryByText('You')).not.toBeInTheDocument();
+    expect(screen.queryByText('Protected')).not.toBeInTheDocument();
+  });
+
+  test('matches self case-insensitively', async () => {
+    mockCurrentUser = { email: 'Admin@Test.com' };
+    adminService.getAdminUsers.mockResolvedValue({ data: { data: [SELF_ACTIVE] } });
+
+    render(<AdminUsers />);
+    await waitFor(() => screen.getByText('admin@test.com'));
+
+    expect(screen.queryByRole('button', { name: 'Suspend' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Remove' })).not.toBeInTheDocument();
+    expect(screen.getByText('Protected')).toBeInTheDocument();
+  });
+
+  test('own row can still be re-activated when suspended', async () => {
+    const selfSuspended = { ...SUSPENDED_USER, user_email: 'admin@test.com' };
+    adminService.getAdminUsers.mockResolvedValue({ data: { data: [selfSuspended] } });
+
+    render(<AdminUsers />);
+    await waitFor(() => screen.getByText('admin@test.com'));
+
+    const activate = screen.getByRole('button', { name: 'Activate' });
+    expect(activate).toBeEnabled();
+
+    fireEvent.click(activate);
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+
+    await waitFor(() =>
+      expect(adminService.updateUserStatus).toHaveBeenCalledWith('admin@test.com', 'ACTIVE')
+    );
+  });
 });

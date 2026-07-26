@@ -11,6 +11,12 @@ jest.mock('react-toastify', () => ({
   toast: { error: jest.fn(), success: jest.fn() },
 }));
 
+// The signed-in super admin. Reassigned by the self-action tests.
+let mockCurrentUser = { email: 'root@other.com' };
+jest.mock('../../../context/AuthContext', () => ({
+  useAuth: () => ({ user: mockCurrentUser }),
+}));
+
 const ACTIVE_USER = {
   user_email: 'bob@test.com',
   tenant_id: 't-100',
@@ -45,6 +51,7 @@ const SUPER_USER = {
 };
 
 beforeEach(() => {
+  mockCurrentUser = { email: 'root@other.com' };
   adminService.getAllAdminUsers.mockResolvedValue({
     data: { data: [ACTIVE_USER, SUSPENDED_USER, SUPER_USER] },
   });
@@ -121,4 +128,63 @@ test('shows empty state when no users are returned', async () => {
   await waitFor(() =>
     expect(screen.getByText('No users found.')).toBeInTheDocument()
   );
+});
+
+// ── Self-action guards (mirror of the backend 403) ───────────────────────────
+// A super admin can appear as an ordinary member of another tenant, so the
+// existing "super admins are protected" rule does not cover every self row.
+describe('self-action protection', () => {
+  const SELF_ACTIVE = { ...ACTIVE_USER, user_email: 'root@other.com', is_super_admin: 0 };
+
+  test('own active membership renders no Suspend, only a Protected marker', async () => {
+    adminService.getAllAdminUsers.mockResolvedValue({ data: { data: [SELF_ACTIVE] } });
+
+    render(<AdminAllUsers />);
+    await waitFor(() => screen.getByText('root@other.com'));
+
+    expect(screen.queryByRole('button', { name: 'Suspend' })).not.toBeInTheDocument();
+    expect(screen.getByText('Protected')).toBeInTheDocument();
+    expect(screen.getByText('You')).toBeInTheDocument();
+  });
+
+  test('other users keep Suspend enabled', async () => {
+    render(<AdminAllUsers />);
+    await waitFor(() => screen.getByText('bob@test.com'));
+
+    expect(screen.getByRole('button', { name: 'Suspend' })).toBeEnabled();
+    expect(screen.queryByText('You')).not.toBeInTheDocument();
+  });
+
+  test('matches self case-insensitively', async () => {
+    mockCurrentUser = { email: 'Root@Other.com' };
+    adminService.getAllAdminUsers.mockResolvedValue({ data: { data: [SELF_ACTIVE] } });
+
+    render(<AdminAllUsers />);
+    await waitFor(() => screen.getByText('root@other.com'));
+
+    expect(screen.queryByRole('button', { name: 'Suspend' })).not.toBeInTheDocument();
+    expect(screen.getByText('Protected')).toBeInTheDocument();
+  });
+
+  test('own membership can still be re-activated when suspended', async () => {
+    const selfSuspended = { ...SUSPENDED_USER, user_email: 'root@other.com' };
+    adminService.getAllAdminUsers.mockResolvedValue({ data: { data: [selfSuspended] } });
+
+    render(<AdminAllUsers />);
+    await waitFor(() => screen.getByText('root@other.com'));
+
+    const activate = screen.getByRole('button', { name: 'Activate' });
+    expect(activate).toBeEnabled();
+
+    fireEvent.click(activate);
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+
+    await waitFor(() =>
+      expect(adminService.updateUserStatusCrossTenant).toHaveBeenCalledWith(
+        'root@other.com',
+        't-200',
+        'ACTIVE'
+      )
+    );
+  });
 });
