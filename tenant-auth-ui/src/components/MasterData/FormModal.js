@@ -2,6 +2,24 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { MODULES } from '../../config/modules'
 import './MasterData.css'
 
+// Render one part of a `derived` field's read-only summary. `format` decides the
+// presentation: a tax-included flag becomes a coloured badge, everything else is
+// shown as text with an em-dash fallback for missing values.
+const renderDerivedPart = (part, raw) => {
+  if (part.format === 'taxIncluded') {
+    const included = raw === true || raw === 1 || raw === '1'
+    return (
+      <span className={`tax-badge ${included ? 'tax-badge-in' : 'tax-badge-out'}`}>
+        {included ? '✓ Included' : '✗ Not included'}
+      </span>
+    )
+  }
+  if (raw === undefined || raw === null || String(raw).trim() === '') {
+    return <span className="derived-summary-muted">—</span>
+  }
+  return String(raw)
+}
+
 /**
  * FormModal Component
  * A dynamic form modal that generates fields based on module configuration
@@ -102,6 +120,10 @@ const FormModal = ({
 
     fields.forEach((field) => {
       const value = formData[field.name]
+
+      // Derived fields are display-only mirrors of another record's value — the
+      // user cannot type into them, so there is nothing here to validate.
+      if (field.type === 'derived') return
 
       // Required validation
       if (field.required) {
@@ -243,6 +265,69 @@ const FormModal = ({
     const hasError = !!errors[field.name]
 
     switch (field.type) {
+      // Read-only value that belongs to another record and is only mirrored here
+      // — e.g. a menu item's price, which is owned by the master item. The user
+      // picks the source record (`derive.from`) and this shows what will be
+      // stored, so there is no second dropdown to keep in sync by hand.
+      case 'derived': {
+        const { from, reference, valueField, summary } = field.derive || {}
+        const sourceId = formData[from]
+        const sourceRow = (referenceData[reference] || []).find(
+          (opt) => (opt.id || opt.Id) === sourceId,
+        )
+
+        // Rich, multi-value read-only summary (e.g. price + tax group + whether
+        // tax is included) rendered as a small card instead of a lone input.
+        if (Array.isArray(summary) && summary.length) {
+          if (!sourceId) {
+            return (
+              <div className="derived-summary derived-summary-empty">
+                {field.placeholder ||
+                  `Select ${field.derivedFromLabel || from} first to see its cost details.`}
+              </div>
+            )
+          }
+          return (
+            <div className="derived-summary">
+              <div className="derived-summary-grid">
+                {summary.map((part) => (
+                  <div className="derived-summary-item" key={part.valueField}>
+                    <span className="derived-summary-label">{part.label}</span>
+                    <span className="derived-summary-value">
+                      {renderDerivedPart(part, sourceRow ? sourceRow[part.valueField] : undefined)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )
+        }
+
+        // Fall back to the value already on the record (edit mode) so the field
+        // is not blank before reference data finishes loading.
+        const derivedValue = sourceRow?.[valueField] ?? (sourceId ? undefined : value)
+        const display =
+          derivedValue === undefined || derivedValue === null || derivedValue === ''
+            ? ''
+            : String(derivedValue)
+        return (
+          <input
+            type="text"
+            id={field.name}
+            className="form-input"
+            value={display}
+            readOnly
+            disabled
+            aria-readonly="true"
+            placeholder={
+              sourceId
+                ? field.emptyText || 'Not set on the selected record'
+                : field.placeholder || `Select ${field.derivedFromLabel || from} first`
+            }
+            title={field.hint}
+          />
+        )
+      }
       case 'boolean':
         return (
           <div className="form-checkbox-group">
@@ -566,6 +651,9 @@ const FormModal = ({
                   </label>
                 )}
                 {renderField(field)}
+                {field.hint && !errors[field.name] && (
+                  <div className="form-hint">{field.hint}</div>
+                )}
                 {errors[field.name] && (
                   <div className="form-error">{errors[field.name]}</div>
                 )}

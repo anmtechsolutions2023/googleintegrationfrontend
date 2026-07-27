@@ -96,6 +96,15 @@ export const updateOrder = async (id, data) => {
   return toObject(res.data)
 }
 export const deleteOrder = async (id) => api.delete(`/api/pos/orders/${id}`)
+
+// Move items or whole rounds between tables (keep-as-served — the server
+// preserves each line's priced snapshot). Returns { undo, createdOrderId, ... };
+// POST the `undo` payload straight back here to reverse the move.
+export const transferOrder = async (payload) => {
+  const res = await api.post('/api/pos/orders/transfer', payload)
+  return toObject(res.data)
+}
+
 export const fireKot = async (orderId) => {
   const res = await api.post(`/api/pos/orders/${orderId}/fire-kot`)
   return toObject(res.data)
@@ -260,6 +269,35 @@ export const getReports = async (params = {}) => {
   return toObject(res.data)
 }
 
+// ── Variants (item options: Small/Large, Extra cheese, …) ───────────────────
+// Master list. A variant's Price is a flat surcharge on the item it is added
+// to; the server resolves it at order time so the client never sets the price.
+export const getVariants = async (params = {}) => {
+  const res = await api.get('/api/pos/variants', {
+    params: { limit: MAX_LIMIT, ...params },
+  })
+  return toArray(res.data)
+}
+
+// ── Pricing ─────────────────────────────────────────────────────────────────
+// Server-side tax calculation over the master-data chain
+// costinfo → taxgroup → taxgrouptaxtypemapper → TaxTypes, honouring each cost
+// record's IsTaxIncluded flag.
+//
+// Stateless — stores nothing — so it is safe to call on every cart change. The
+// server is the only place that knows the rounding and component-allocation
+// rules, which is why the cart does not add up tax itself.
+//
+// @param {Array<{costInfoId:string, quantity:number, discount?:Object, ref?:string}>} lines
+// @param {Object|null} discount - Document-level discount, applied BEFORE tax.
+// @returns {Promise<{lines:Array, totals:Object}>}
+export const quotePricing = async (lines, discount = null) => {
+  const body = { lines }
+  if (discount) body.discount = discount
+  const res = await api.post('/api/pricing/quote', body)
+  return toObject(res.data)
+}
+
 // ── Dashboard aggregate (derived from orders, bills, tables, kots) ────────────
 export const getDashboardStats = async () => {
   const [orders, bills, tables, kots] = await Promise.allSettled([
@@ -296,7 +334,7 @@ const posService = {
   getTables, createTable, updateTable, deleteTable,
   getItemMeta, createItemMeta, updateItemMeta, deleteItemMeta,
   getCustomers, createCustomer, updateCustomer, deleteCustomer,
-  getOrders, getOrder, createOrder, updateOrder, deleteOrder, fireKot,
+  getOrders, getOrder, createOrder, updateOrder, deleteOrder, transferOrder, fireKot,
   getKots, createKot, updateKot, markKotReady, deleteKot,
   getBills, getBill, createBill, updateBill, settleBill, deleteBill,
   getOnlineOrders, createOnlineOrder, updateOnlineOrder, deleteOnlineOrder,
@@ -304,6 +342,8 @@ const posService = {
   getTokens, createToken, updateToken, deleteToken,
   getExpenses, createExpense, updateExpense, deleteExpense,
   getStaff, createStaff, updateStaff, deleteStaff,
+  getVariants,
+  quotePricing,
   getDashboardStats,
   getReports,
   genericGet, genericPost, genericPut, genericDelete,

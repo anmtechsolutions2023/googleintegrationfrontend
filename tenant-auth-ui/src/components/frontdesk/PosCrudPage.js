@@ -35,8 +35,10 @@ const SYSTEM_FIELDS = [
   'createdAt', 'updatedAt', 'createdOn', 'updatedOn',
   'CreatedBy', 'UpdatedBy', 'createdBy', 'updatedBy',
   'DeletedAt', 'deletedAt', 'DeletedBy', 'deletedBy',
-  // Derived, read-only expansion fields returned by GET (never sent on write).
-  'CostInfoAmount',
+  // Read-only expansion fields returned by GET's joins. An edit form is seeded
+  // from a GET response, so without this they would be echoed back and rejected
+  // as unknown keys by the write schemas.
+  'CostInfoAmount', 'FoodTypeName', 'FoodTypeIsVeg',
 ]
 
 const stripSystemFields = (data) => {
@@ -95,8 +97,10 @@ const PosCrudPage = ({ moduleConfig, writeScopes }) => {
   useEffect(() => {
     const refs = [...new Set(
       (moduleConfig.fields || [])
-        .filter((f) => (f.type === 'select' || f.type === 'multiselect') && f.reference)
-        .map((f) => f.reference)
+        // `derived` fields read their value out of a reference row too, so their
+        // reference must be loaded even when no <select> points at it.
+        .map((f) => (f.type === 'derived' ? f.derive?.reference : (f.type === 'select' || f.type === 'multiselect') && f.reference))
+        .filter(Boolean)
     )]
     if (refs.length === 0) return
     let cancelled = false
@@ -210,8 +214,19 @@ const PosCrudPage = ({ moduleConfig, writeScopes }) => {
     return payload
   }
 
+  // A `derived` field mirrors a value owned by another record. Drop the column
+  // it stands in for so the server resolves it from the source of truth — on
+  // edit the form still holds the OLD id, which would otherwise pin the stale
+  // value even after the user picks a different source record.
+  const stripDerivedTargets = (payload) => {
+    (moduleConfig.fields || [])
+      .filter((f) => f.type === 'derived' && f.derive?.owns)
+      .forEach((f) => { delete payload[f.derive.owns] })
+    return payload
+  }
+
   const handleSubmit = async (formData) => {
-    const payload = parseJsonFields(stripSystemFields(formData))
+    const payload = parseJsonFields(stripDerivedTargets(stripSystemFields(formData)))
     if (!payload) return
     setFormLoading(true)
     try {

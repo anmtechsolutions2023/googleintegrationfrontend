@@ -3,7 +3,7 @@ import { toast } from 'react-toastify'
 import posService from '../../services/posService'
 import { APP_CONFIG } from '../../constants'
 import RoundsTimeline from '../../components/frontdesk/RoundsTimeline'
-import { buildTableRounds } from '../../utils/posRounds'
+import { buildTableRounds, itemVariants } from '../../utils/posRounds'
 
 const { MAX_LIMIT } = APP_CONFIG.PAGINATION
 
@@ -131,7 +131,18 @@ const Kitchen = () => {
                 <ul className="fd-kds-items">
                   {items.length > 0 ? items.map((item, i) => (
                     <li key={i}>
-                      {item.name || item.Name || item.ItemName || JSON.stringify(item)} × {item.qty || item.Qty || item.quantity || 1}
+                      <div className="kot-item-main">
+                        {item.name || item.Name || item.ItemName || JSON.stringify(item)} × {item.qty || item.Qty || item.quantity || 1}
+                      </div>
+                      {/* Chosen options are cooking instructions — the kitchen
+                          needs these more than anyone. */}
+                      {itemVariants(item).length > 0 && (
+                        <div className="kot-item-variants">
+                          {itemVariants(item).map((v, vi) => (
+                            <span className="ci-variant-chip" key={v.id || vi}>{v.name}</span>
+                          ))}
+                        </div>
+                      )}
                     </li>
                   )) : (
                     <li style={{ color: '#aaa', fontStyle: 'italic' }}>No item details</li>

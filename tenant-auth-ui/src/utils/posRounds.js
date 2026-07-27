@@ -21,6 +21,20 @@ export const itemLabel = (item) =>
 export const itemQty = (item) =>
   Number(item?.qty ?? item?.Qty ?? item?.quantity ?? item?.Quantity ?? 1)
 
+// Options chosen for a line, as the order snapshotted them. Orders placed before
+// variants shipped simply have none, so callers get an empty list rather than
+// having to guard.
+export const itemVariants = (item) => {
+  const raw = item?.variants ?? item?.Variants
+  if (!Array.isArray(raw)) return []
+  return raw
+    .filter(Boolean)
+    .map((v) => (typeof v === 'string'
+      ? { id: v, name: v, price: 0 }
+      : { id: v.id ?? v.Id, name: v.name ?? v.Name ?? '', price: Number(v.price ?? v.Price) || 0 }))
+    .filter((v) => v.name)
+}
+
 const orderTime = (o) => new Date(o?.CreatedOn || o?.createdAt || 0).getTime()
 
 // An order still belongs to the live session until it is closed/settled.
