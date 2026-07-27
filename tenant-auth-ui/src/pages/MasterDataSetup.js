@@ -99,6 +99,7 @@ const setVal = (obj, path, name, value) => {
 const MasterDataSetup = () => {
   const { user, applyToken } = useAuth() || {};
   const navigate = useNavigate();
+  const [started, setStarted] = useState(false);
   const [stepIdx, setStepIdx] = useState(0);
   const [form, setForm] = useState({});
   const [includeItem, setIncludeItem] = useState(true);
@@ -138,7 +139,12 @@ const MasterDataSetup = () => {
     setShowErrors(false);
     setStepIdx((i) => Math.min(i + 1, STEPS.length - 1));
   };
-  const goBack = () => { setShowErrors(false); setStepIdx((i) => Math.max(i - 1, 0)); };
+  const goBack = () => {
+    setShowErrors(false);
+    // From the first step, step back to the welcome screen rather than dead-ending.
+    if (stepIdx === 0) { setStarted(false); return; }
+    setStepIdx((i) => Math.max(i - 1, 0));
+  };
 
   // Coerce number-typed fields and drop empty optional values before sending.
   const buildPayload = () => {
@@ -202,6 +208,51 @@ const MasterDataSetup = () => {
               answers 409 on a second attempt. */}
           <button className="mds-btn mds-btn-primary" onClick={() => navigate(ROUTES.DASHBOARD)}>
             Continue to Home
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Welcome / intro screen ───────────────────────────────────────────────────
+  // Shown first so the user lands on a focused "let's set up your tenancy" screen
+  // instead of an immediate form. "Begin setup" enters the step-by-step wizard.
+  if (!started) {
+    return (
+      <div className="mds-wrap">
+        <div className="mds-card mds-intro">
+          <div className="mds-intro-icon">🚀</div>
+          <h1>Setup Wizard</h1>
+          <p className="mds-intro-lead">
+            Let's set up your tenancy. This one-time wizard creates your
+            Organization, Branch and (optionally) a first Item together — it's
+            all-or-nothing, so nothing is saved unless every step succeeds.
+          </p>
+
+          {setupPending && (
+            <div className="mds-gate-banner" role="alert">
+              <strong>Finish this setup to unlock the application.</strong>
+              <span>
+                Until your organization and branch exist, the only pages available
+                are Home, Audit Logs and signing out.
+              </span>
+            </div>
+          )}
+
+          <ol className="mds-intro-steps">
+            {STEPS.map((s) => (
+              <li key={s.key}>
+                <span className="mds-intro-step-title">{s.title}</span>
+                {s.optional && <span className="mds-intro-step-tag">optional</span>}
+              </li>
+            ))}
+          </ol>
+
+          <button
+            className="mds-btn mds-btn-primary mds-intro-cta"
+            onClick={() => setStarted(true)}
+          >
+            Begin setup
           </button>
         </div>
       </div>
@@ -288,7 +339,7 @@ const MasterDataSetup = () => {
       </div>
 
       <div className="mds-actions">
-        <button className="mds-btn mds-btn-ghost" onClick={goBack} disabled={stepIdx === 0 || submitting}>
+        <button className="mds-btn mds-btn-ghost" onClick={goBack} disabled={submitting}>
           Back
         </button>
         {isReview ? (

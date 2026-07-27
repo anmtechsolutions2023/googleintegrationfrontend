@@ -45,6 +45,15 @@ const typeInto = (labelText, value) => {
   fireEvent.change(input, { target: { value } });
 };
 
+// The wizard now opens on a "Setup Wizard" welcome screen; "Begin setup" enters
+// the step flow. Most tests care about the steps, so they start the wizard first.
+const beginSetup = () =>
+  fireEvent.click(screen.getByRole('button', { name: /Begin setup/i }));
+const renderWizard = () => {
+  render(<MasterDataSetup />);
+  beginSetup();
+};
+
 beforeEach(() => {
   navigatedTo = null;
   setUser();
@@ -52,14 +61,22 @@ beforeEach(() => {
 
 afterEach(() => jest.clearAllMocks());
 
-test('renders the first (Organization) step', () => {
+test('shows the Setup Wizard welcome screen first, before any form fields', () => {
   render(<MasterDataSetup />);
+  expect(screen.getByRole('heading', { name: /Setup Wizard/i })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: /Begin setup/i })).toBeInTheDocument();
+  // No form field yet — the user lands on a focused intro, not the Organization step.
+  expect(screen.queryByLabelText(/Organization Name/i)).not.toBeInTheDocument();
+});
+
+test('renders the first (Organization) step after Begin setup', () => {
+  renderWizard();
   expect(screen.getByRole('heading', { name: /Master Data Setup/i })).toBeInTheDocument();
   expect(screen.getByLabelText(/Organization Name/i)).toBeInTheDocument();
 });
 
 test('blocks Next and shows a Required error when a mandatory field is empty', () => {
-  render(<MasterDataSetup />);
+  renderWizard();
   fireEvent.click(screen.getByRole('button', { name: 'Next' }));
   // still on Organization step, and the required marker error is shown
   expect(screen.getByText('Required')).toBeInTheDocument();
@@ -67,7 +84,7 @@ test('blocks Next and shows a Required error when a mandatory field is empty', (
 });
 
 test('advances to the Branch step once the required field is filled', () => {
-  render(<MasterDataSetup />);
+  renderWizard();
   typeInto('Organization Name', 'ANM Tech');
   fireEvent.click(screen.getByRole('button', { name: 'Next' }));
   // Branch step shows the Branch Name field and the Address group
@@ -76,7 +93,7 @@ test('advances to the Branch step once the required field is filled', () => {
 });
 
 test('item step can be skipped via the toggle', () => {
-  render(<MasterDataSetup />);
+  renderWizard();
   // Step 1 → 2
   typeInto('Organization Name', 'ANM Tech');
   fireEvent.click(screen.getByRole('button', { name: 'Next' }));
@@ -102,7 +119,7 @@ test('does not collect location details and omits locationMapper from the payloa
   masterSetupService.bootstrapMasterData.mockResolvedValue({
     data: { data: { organization: 'org-1', branch: 'br-1' } },
   });
-  render(<MasterDataSetup />);
+  renderWizard();
   typeInto('Organization Name', 'ANM Tech');
   fireEvent.click(screen.getByRole('button', { name: 'Next' }));
 
@@ -146,7 +163,7 @@ test('submitting from Review calls the bootstrap API and shows the id map', asyn
   masterSetupService.bootstrapMasterData.mockResolvedValue({
     data: { data: { organization: 'org-1', branch: 'br-1' } },
   });
-  render(<MasterDataSetup />);
+  renderWizard();
   typeInto('Organization Name', 'ANM Tech');
   fireEvent.click(screen.getByRole('button', { name: 'Next' }));
   typeInto('Branch Name', 'Main');
@@ -177,7 +194,7 @@ test('item step hides the Unit of Measure section and sends UnitName as hardcode
   masterSetupService.bootstrapMasterData.mockResolvedValue({
     data: { data: { organization: 'org-1', branch: 'br-1', item: 'it-1' } },
   });
-  render(<MasterDataSetup />);
+  renderWizard();
   typeInto('Organization Name', 'ANM Tech');
   fireEvent.click(screen.getByRole('button', { name: 'Next' }));
   typeInto('Branch Name', 'Main');
@@ -209,6 +226,7 @@ test('item step hides the Unit of Measure section and sends UnitName as hardcode
 describe('setup gate behaviour', () => {
   // Fills every required field and submits, so gate assertions stay readable.
   const completeWizard = () => {
+    beginSetup();
     typeInto('Organization Name', 'ANM Tech');
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
     typeInto('Branch Name', 'Main');

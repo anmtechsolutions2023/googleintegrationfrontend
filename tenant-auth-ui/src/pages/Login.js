@@ -12,6 +12,7 @@ import {
 } from '../constants';
 import { ROUTES } from '../constants/routes';
 import { peekRedirect, clearRedirect } from '../utils/redirectStore';
+import { isSetupPending } from '../utils/permissions';
 
 const Login = () => {
   const { login } = useAuth();
@@ -39,6 +40,12 @@ const Login = () => {
           // Unprovisioned user — send to onboarding holding page
           toast.info('Your access request is pending review.');
           navigate(ROUTES.ONBOARDING, { replace: true });
+        } else if (isSetupPending(payload)) {
+          // First-time tenant admin (e.g. just auto-approved into a fresh tenant):
+          // land them on the setup wizard so they focus on setting up their
+          // tenancy, not on Home (which is reachable during setup but not the goal).
+          toast.success(MESSAGES.success.welcome);
+          navigate(ROUTES.MASTER_SETUP, { replace: true });
         } else {
           toast.success(MESSAGES.success.welcome);
           // Don't bounce approved users back to /onboarding if that's where they came from
