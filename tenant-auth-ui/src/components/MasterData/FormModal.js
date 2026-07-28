@@ -45,6 +45,7 @@ const FormModal = ({
   referenceData = {},
   moduleKey = null,
   onQuickCreate = null,
+  onOpenDrawer = null,
   fieldUpdates = null,
   onFieldUpdatesApplied = null,
   elevated = false,
@@ -350,10 +351,13 @@ const FormModal = ({
         // reference-loaded data; falls back to referenceData for reference selects.
         const inlineOptions = Array.isArray(field.options) ? field.options : null
         const options = inlineOptions || referenceData[field.reference] || []
+        // A field with a guided "Set up" drawer doesn't also need the "+"
+        // quick-create — the drawer supersedes it.
         const canQuickCreate =
           typeof onQuickCreate === 'function' &&
           field.reference &&
-          MODULES[field.reference]
+          MODULES[field.reference] &&
+          !field.drawer
         return (
           <div style={{ display: 'flex', gap: '6px', alignItems: 'stretch' }}>
             <select
@@ -434,6 +438,23 @@ const FormModal = ({
                 }}
               >
                 +
+              </button>
+            )}
+            {/* Guided builder launcher (e.g. Cost Info): opens a drawer that
+                creates the record and pushes its id back into this select. */}
+            {field.drawer && typeof onOpenDrawer === 'function' && (
+              <button
+                type="button"
+                onClick={() => onOpenDrawer(field.name, field.drawer, value)}
+                disabled={loading}
+                title={value ? `Edit ${field.label || field.name}` : `Set up ${field.label || field.name}`}
+                style={{
+                  padding: '0 12px', whiteSpace: 'nowrap', background: '#4457c7', color: '#fff',
+                  border: '1px solid #3a49ab', borderRadius: '4px', cursor: loading ? 'not-allowed' : 'pointer',
+                  fontSize: '13px', fontWeight: 600, flexShrink: 0,
+                }}
+              >
+                {value ? 'Edit' : 'Set up'}
               </button>
             )}
           </div>

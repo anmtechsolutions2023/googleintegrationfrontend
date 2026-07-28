@@ -7,6 +7,7 @@ import { MESSAGES, STRINGS, APP_CONFIG } from '../../constants'
 import DataTable from './DataTable'
 import FormModal from './FormModal'
 import ConfirmDialog from './ConfirmDialog'
+import CostInfoDrawer from './CostInfoDrawer'
 import { useAuth } from '../../context/AuthContext'
 import { hasScope, CATEGORY_READ_SCOPE, CATEGORY_WRITE_SCOPE } from '../../utils/permissions'
 import './MasterData.css'
@@ -555,6 +556,23 @@ const GenericCrudPage = () => {
     setPendingFieldUpdate(null)
   }, [])
 
+  // Guided-builder drawer (e.g. Cost Info) launched from a select field. When a
+  // value is already chosen it opens on that record for viewing/editing.
+  const [costDrawer, setCostDrawer] = useState({ open: false, fieldName: '', costInfoId: null })
+  const handleOpenDrawer = useCallback((fieldName, drawerKey, currentValue) => {
+    if (drawerKey === 'costInfo') {
+      setCostDrawer({ open: true, fieldName, costInfoId: currentValue || null })
+    }
+  }, [])
+  const handleCostInfoSaved = useCallback(async (savedId) => {
+    // Refresh the costInfos options and (re)select the saved record — new or edited.
+    await refreshSingleReference('costInfos')
+    if (savedId && costDrawer.fieldName) {
+      setPendingFieldUpdate({ [costDrawer.fieldName]: String(savedId) })
+    }
+    setCostDrawer({ open: false, fieldName: '', costInfoId: null })
+  }, [refreshSingleReference, costDrawer.fieldName])
+
   // Submit the quick-create form: create the record, refresh the dropdown, auto-select
   const handleQuickCreateSubmit = useCallback(
     async (formData) => {
@@ -848,8 +866,18 @@ const GenericCrudPage = () => {
         loading={formLoading}
         referenceData={referenceData}
         onQuickCreate={handleQuickCreate}
+        onOpenDrawer={handleOpenDrawer}
         fieldUpdates={pendingFieldUpdate}
         onFieldUpdatesApplied={handleFieldUpdatesApplied}
+      />
+
+      {/* Guided Cost Info drawer — creates a costInfo and feeds its id back into
+          the launching select (same path as quick-create). */}
+      <CostInfoDrawer
+        open={costDrawer.open}
+        costInfoId={costDrawer.costInfoId}
+        onClose={() => setCostDrawer({ open: false, fieldName: '', costInfoId: null })}
+        onSaved={handleCostInfoSaved}
       />
 
       {/* Quick-create nested modal — no recursive quick-create (onQuickCreate=null) */}

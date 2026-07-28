@@ -791,6 +791,8 @@ export const MODULES = {
         type: 'select',
         required: true,
         reference: 'costInfos',
+        // Adds a "Set up" launcher next to the select → guided Cost Info drawer.
+        drawer: 'costInfo',
       },
       { name: 'SKU', type: 'text', maxLength: 100 },
       { name: 'Barcode', type: 'text', maxLength: 100 },
