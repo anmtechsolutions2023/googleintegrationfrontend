@@ -8,6 +8,7 @@ jest.mock('../../../services/posService', () => ({
   default: {
     getTables: jest.fn(), getFloors: jest.fn(), getItemMeta: jest.fn(),
     getOrders: jest.fn(), getItemDetail: jest.fn(), getVariants: jest.fn(),
+    getPaymentModes: jest.fn(),
     getKots: jest.fn(),
     quotePricing: jest.fn(),
     createOrder: jest.fn(), updateOrder: jest.fn(), updateTable: jest.fn(),
@@ -24,6 +25,13 @@ const CI_WATER = 'aaaaaaaa-0000-0000-0000-000000000002';
 
 const VAR_LARGE = 'vvvvvvvv-0000-0000-0000-000000000001';
 const VAR_CHEESE = 'vvvvvvvv-0000-0000-0000-000000000002';
+
+const MODE_CASH = 'mmmmmmmm-0000-0000-0000-000000000001';
+const MODE_CARD = 'mmmmmmmm-0000-0000-0000-000000000002';
+const PAYMENT_MODES = [
+  { Id: MODE_CASH, Type: 'Cash' },
+  { Id: MODE_CARD, Type: 'Card' },
+];
 
 const VARIANTS = [
   { Id: VAR_LARGE, Name: 'Large', Price: 30 },
@@ -106,6 +114,7 @@ beforeEach(() => {
   posService.getOrders.mockResolvedValue([]);
   posService.getItemMeta.mockResolvedValue(MENU);
   posService.getVariants.mockResolvedValue(VARIANTS);
+  posService.getPaymentModes.mockResolvedValue(PAYMENT_MODES);
   posService.getItemDetail.mockImplementation(async (id) => ({
     Id: id, Name: id === 'item-m1' ? 'Masala Dosa' : 'Water',
   }));
@@ -337,12 +346,12 @@ describe('Billing — settle sends every round and lets the server total it', ()
     await renderBilling();
     selectTable('T1');
     fireEvent.click(screen.getByRole('button', { name: /Settle Bill/i }));
-    await screen.findByText(/Confirm & Settle/i);
+    await screen.findByText(/Settle & Post|Save Partial/i);
   };
 
   test('sends OrderIds for every round, not just the first', async () => {
     await openSettle();
-    fireEvent.click(screen.getByRole('button', { name: /Confirm & Settle/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Settle & Post|Save Partial/i }));
 
     await waitFor(() => expect(posService.createBill).toHaveBeenCalled());
     const [payload] = posService.createBill.mock.calls[0];
@@ -352,7 +361,7 @@ describe('Billing — settle sends every round and lets the server total it', ()
 
   test('does not compute totals locally — the server owns them', async () => {
     await openSettle();
-    fireEvent.click(screen.getByRole('button', { name: /Confirm & Settle/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Settle & Post|Save Partial/i }));
 
     await waitFor(() => expect(posService.createBill).toHaveBeenCalled());
     const [payload] = posService.createBill.mock.calls[0];
@@ -364,12 +373,15 @@ describe('Billing — settle sends every round and lets the server total it', ()
   test('settles for the amount the server calculated', async () => {
     await openSettle();
     fireEvent.change(screen.getByLabelText(/Discount/i), { target: { value: '30' } });
-    fireEvent.click(screen.getByRole('button', { name: /Confirm & Settle/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Settle & Post|Save Partial/i }));
 
     await waitFor(() => expect(posService.settleBill).toHaveBeenCalled());
     const [, settlePayload] = posService.settleBill.mock.calls[0];
+    // One tender row per payment — this is what becomes a paymentbreakup.
+    expect(settlePayload.Tenders).toHaveLength(1);
     // 141.60 is discount-before-tax; the old flow would have paid 147.
-    expect(settlePayload.Payments[0].amount).toBe(141.6);
+    expect(settlePayload.Tenders[0].amount).toBe(141.6);
+    expect(settlePayload.Tenders[0].paymentModeId).toBe(MODE_CASH);
     expect(settlePayload.Discount).toBe(30);
   });
 
@@ -456,13 +468,13 @@ describe('Billing — settle preview updates with the discount', () => {
     await openSettle();
     // No discount → payable is the full 118.
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: /Confirm & Settle ₹118\.00/ })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Settle & Post ₹118\.00/ })).toBeInTheDocument()
     );
 
     // ₹20 off, before tax: (100−20) + 18% = 94.40.
     fireEvent.change(screen.getByLabelText(/Discount/i), { target: { value: '20' } });
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: /Confirm & Settle ₹94\.40/ })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Settle & Post ₹94\.40/ })).toBeInTheDocument()
     );
     expect(screen.getByText('−₹20.00')).toBeInTheDocument();
   });
@@ -474,7 +486,7 @@ describe('Billing — settle preview updates with the discount', () => {
     fireEvent.change(screen.getByLabelText(/Discount/i), { target: { value: '10' } });
 
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: /Confirm & Settle ₹106\.20/ })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Settle & Post ₹106\.20/ })).toBeInTheDocument()
     );
     // The quote must have been asked for a PERCENT discount, not a flat amount.
     await waitFor(() => {
@@ -488,10 +500,10 @@ describe('Billing — settle preview updates with the discount', () => {
     fireEvent.click(screen.getByRole('button', { name: '%', exact: true }));
     fireEvent.change(screen.getByLabelText(/Discount/i), { target: { value: '10' } });
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: /Confirm & Settle ₹106\.20/ })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Settle & Post ₹106\.20/ })).toBeInTheDocument()
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /Confirm & Settle/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Settle & Post|Save Partial/i }));
     await waitFor(() => expect(posService.createBill).toHaveBeenCalled());
     const [payload] = posService.createBill.mock.calls[0];
     // 10% of the 100 subtotal = ₹10 sent as a flat amount the bill understands.
@@ -617,5 +629,102 @@ describe('Billing — order snapshot', () => {
     expect(line.taxComponents).toHaveLength(2);
     expect(payload.TaxAmount).toBe(18);
     expect(payload.Total).toBe(118);
+  });
+});
+
+
+describe('Billing — tenders (split payment)', () => {
+  const ORDERS = [
+    { Id: 'o1', TableId: 't1', Status: 'Active', SubTotal: 100, TaxAmount: 18, Total: 118, CreatedOn: '2026-07-01 10:00:00', Items: [] },
+  ];
+
+  const openSettle = async () => {
+    posService.getTables.mockResolvedValue([{ Id: 't1', Name: 'T1', Status: 'Occupied' }]);
+    posService.getOrders.mockResolvedValue(ORDERS);
+    posService.createBill.mockResolvedValue({ Id: 'b1', Total: 118, TransactionNo: 'INV-0042', BalanceDue: 0 });
+    posService.settleBill.mockResolvedValue({ Total: 118, TransactionNo: 'INV-0042', BalanceDue: 0 });
+    posService.updateOrder.mockResolvedValue({});
+    posService.updateTable.mockResolvedValue({});
+    await renderBilling();
+    selectTable('T1');
+    fireEvent.click(screen.getByRole('button', { name: /Settle Bill/i }));
+    await screen.findByText(/Payments/i);
+  };
+
+  test('seeds one tender for the full payable — one-tap settle', async () => {
+    await openSettle();
+    const amounts = screen.getAllByLabelText('Amount');
+    expect(amounts).toHaveLength(1);
+    expect(Number(amounts[0].value)).toBeGreaterThan(0);
+  });
+
+  test('adds a second tender row for a split payment', async () => {
+    await openSettle();
+    fireEvent.click(screen.getByRole('button', { name: /Add payment/i }));
+    expect(screen.getAllByLabelText('Amount')).toHaveLength(2);
+  });
+
+  test('explains and blocks settle when the tenant has no payment modes', async () => {
+    posService.getPaymentModes.mockResolvedValue([]);
+    await openSettle();
+    expect(screen.getByText(/No payment modes set up/i)).toBeInTheDocument();
+    // Add payment is disabled (not a silent dead button) and settle is blocked.
+    expect(screen.getByRole('button', { name: /Add payment/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Settle & Post|Save Partial/i })).toBeDisabled();
+  });
+
+  test('shows a reference field only for card, not cash', async () => {
+    await openSettle();
+    expect(screen.queryByLabelText('Reference number')).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getAllByLabelText('Payment mode')[0], { target: { value: MODE_CARD } });
+    expect(screen.getByLabelText('Reference number')).toBeInTheDocument();
+  });
+
+  test('blocks settling a card payment with no reference, and says why', async () => {
+    await openSettle();
+    fireEvent.change(screen.getAllByLabelText('Payment mode')[0], { target: { value: MODE_CARD } });
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/reference number/i);
+    expect(screen.getByRole('button', { name: /Settle & Post/i })).toBeDisabled();
+  });
+
+  test('allows settling once the reference is entered', async () => {
+    await openSettle();
+    fireEvent.change(screen.getAllByLabelText('Payment mode')[0], { target: { value: MODE_CARD } });
+    fireEvent.change(screen.getByLabelText('Reference number'), { target: { value: 'AUTH-1' } });
+
+    expect(screen.getByRole('button', { name: /Settle & Post/i })).toBeEnabled();
+  });
+
+  test('warns that a short tender records only a partial payment', async () => {
+    await openSettle();
+    fireEvent.change(screen.getAllByLabelText('Amount')[0], { target: { value: '50' } });
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/still due/i);
+    // Not blocked — partial settlement is legitimate, just labelled honestly.
+    expect(screen.getByRole('button', { name: /Save Partial/i })).toBeEnabled();
+  });
+
+  test('posts every tender to the settle endpoint', async () => {
+    await openSettle();
+    fireEvent.change(screen.getAllByLabelText('Amount')[0], { target: { value: '100' } });
+    fireEvent.click(screen.getByRole('button', { name: /Add payment/i }));
+    const amounts = screen.getAllByLabelText('Amount');
+    fireEvent.change(amounts[1], { target: { value: '18' } });
+    fireEvent.click(screen.getByRole('button', { name: /Settle & Post|Save Partial/i }));
+
+    await waitFor(() => expect(posService.settleBill).toHaveBeenCalled());
+    const [, payload] = posService.settleBill.mock.calls[0];
+    expect(payload.Tenders).toHaveLength(2);
+    expect(payload.Tenders.map((t) => t.amount)).toEqual([100, 18]);
+  });
+
+  test('shows the invoice number after posting to the ledger', async () => {
+    await openSettle();
+    fireEvent.click(screen.getByRole('button', { name: /Settle & Post/i }));
+    // The invoice number is the customer-facing artefact, so it headlines.
+    expect(await screen.findByText('INV-0042')).toBeInTheDocument();
+    expect(screen.getByText(/Posted to ledger/i)).toBeInTheDocument();
   });
 });

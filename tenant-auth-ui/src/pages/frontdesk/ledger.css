@@ -1,0 +1,103 @@
+/* Accounting ledger — the accountant's view.
+   Deliberately calmer than the till: this is a record, not a workflow. */
+
+.fd-ledger { max-width: 1200px; }
+.fd-ledger h1 { font-size: 22px; color: #2c3e50; margin: 0 0 4px; }
+.fd-ledger-lead { font-size: 13px; color: #7f8c8d; margin: 0 0 18px; }
+
+.fd-ledger-filters {
+  display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 16px;
+}
+.fd-ledger-filters select {
+  padding: 8px 12px; border: 1px solid #d0d4da; border-radius: 6px; font-size: 14px;
+}
+
+.fd-ledger-table { width: 100%; border-collapse: collapse; background: #fff; }
+.fd-ledger-table th {
+  background: #f8f9fa; padding: 12px 14px; text-align: left; font-size: 11px;
+  font-weight: 700; color: #5a6c7d; text-transform: uppercase; letter-spacing: 0.5px;
+  border-bottom: 1px solid #e1e5eb; white-space: nowrap;
+}
+.fd-ledger-table td {
+  padding: 12px 14px; font-size: 13px; color: #2c3e50; border-bottom: 1px solid #f0f3f5;
+}
+.fd-ledger-table .num { text-align: right; }
+.fd-ledger-table .strong { font-weight: 700; }
+.fd-ledger-table tr.is-clickable { cursor: pointer; }
+.fd-ledger-table tr.is-clickable:hover { background: #f8f9fa; }
+/* Invoice numbers are the identifier people quote to each other — monospace so
+   digits line up when scanning a column of them. */
+.fd-ledger-no { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 600; color: #0f3460; }
+.muted { color: #95a5a6; }
+.small { font-size: 11px; }
+
+.fd-ledger-status {
+  display: inline-block; padding: 2px 9px; border-radius: 12px;
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;
+}
+.fd-ledger-status.settled        { background: #d4edda; color: #155724; }
+.fd-ledger-status.partially_paid { background: #fff3cd; color: #856404; }
+.fd-ledger-status.refunded       { background: #f8d7da; color: #721c24; }
+.fd-ledger-status.cancelled      { background: #e2e8f0; color: #4a5568; }
+.fd-ledger-status.draft          { background: #e7f1ff; color: #1c4587; }
+
+/* ── Invoice view ───────────────────────────────────────────────────────── */
+.fd-invoice-view {
+  background: #fff; border-radius: 10px; padding: 22px; width: 100%;
+  max-width: 560px; max-height: calc(100vh - 32px); overflow-y: auto;
+  box-sizing: border-box; box-shadow: 0 4px 24px rgba(0,0,0,0.18);
+}
+.fd-invoice-head {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  border-bottom: 1px solid #e1e5eb; padding-bottom: 12px; margin-bottom: 12px;
+}
+.fd-invoice-head h3 {
+  margin: 2px 0 0; font-size: 20px; color: #0f3460;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.fd-invoice-meta {
+  display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px;
+  color: #7f8c8d; margin-bottom: 16px;
+}
+
+.fd-invoice-lines { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
+.fd-invoice-lines th {
+  font-size: 10px; text-transform: uppercase; color: #7f8c8d; letter-spacing: 0.4px;
+  text-align: left; padding: 6px 8px; border-bottom: 1px solid #e1e5eb;
+}
+.fd-invoice-lines td {
+  padding: 8px; font-size: 13px; color: #2c3e50; border-bottom: 1px solid #f6f8f9;
+  vertical-align: top;
+}
+.fd-invoice-lines .num { text-align: right; white-space: nowrap; }
+.fd-invoice-variants { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+
+.fd-invoice-totals { border-top: 1px solid #e1e5eb; padding-top: 10px; }
+.fd-invoice-totals > div {
+  display: flex; justify-content: space-between; padding: 3px 0; font-size: 13px; color: #2c3e50;
+}
+.fd-invoice-totals .sub { font-size: 11px; color: #7f8c8d; padding-left: 10px; }
+.fd-invoice-totals .grand {
+  font-weight: 700; font-size: 16px; border-top: 1px solid #e1e5eb;
+  margin-top: 6px; padding-top: 8px;
+}
+
+.fd-invoice-section {
+  font-size: 11px; font-weight: 700; text-transform: uppercase; color: #7f8c8d;
+  letter-spacing: 0.5px; margin: 16px 0 6px;
+}
+.fd-invoice-history { list-style: none; padding: 0; margin: 0; }
+.fd-invoice-history li {
+  display: flex; justify-content: space-between; padding: 4px 0;
+  font-size: 12px; color: #2c3e50; border-bottom: 1px solid #f6f8f9;
+}
+.fd-invoice-tenders .refunded { color: #c0392b; }
+
+.fd-invoice-actions { display: flex; gap: 8px; margin-top: 18px; }
+.fd-invoice-actions .fd-btn { flex: 1; }
+
+@media print {
+  .fd-modal-backdrop { position: static; background: none; padding: 0; }
+  .fd-invoice-view { box-shadow: none; max-height: none; max-width: 100%; }
+  .fd-invoice-actions, .fd-invoice-section + .fd-invoice-history { display: none; }
+}

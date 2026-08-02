@@ -52,7 +52,8 @@ import Tokens from './pages/frontdesk/Tokens';
 import OnlineOrders from './pages/frontdesk/OnlineOrders';
 import Tracking from './pages/frontdesk/Tracking';
 import Inventory from './pages/frontdesk/Inventory';
-import Reports from './pages/frontdesk/Reports';
+import Reports from './pages/frontdesk/Reports'
+import Ledger from './pages/frontdesk/Ledger';
 import AccessControl from './pages/frontdesk/AccessControl';
 
 const AppRoutes = () => {
@@ -211,6 +212,9 @@ const AppRoutes = () => {
           <Route path="tracking"       element={<ScopeGuard requiredScopes={[SCOPES.POS_OPS_READ,     SCOPES.TENANT_ADMIN]}><Tracking /></ScopeGuard>} />
           <Route path="inventory"      element={<ScopeGuard requiredScopes={[SCOPES.INVENTORY_READ,   SCOPES.TENANT_ADMIN]}><Inventory /></ScopeGuard>} />
           <Route path="reports"        element={<ScopeGuard requiredScopes={[SCOPES.POS_REPORTS_READ, SCOPES.TENANT_ADMIN]}><Reports /></ScopeGuard>} />
+          {/* Accounting ledger — gated on TRANSACTIONS scopes: a ledger
+              document IS the transaction record. */}
+          <Route path="ledger"         element={<ScopeGuard requiredScopes={[SCOPES.TRANSACTIONS_READ, SCOPES.TRANSACTIONS_WRITE, SCOPES.TENANT_ADMIN]}><Ledger /></ScopeGuard>} />
           <Route path="access-control" element={<ScopeGuard requiredScopes={[SCOPES.TENANT_ADMIN]}><AccessControl /></ScopeGuard>} />
         </Route>
 

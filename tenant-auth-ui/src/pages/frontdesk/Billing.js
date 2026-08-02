@@ -67,7 +67,11 @@ const Billing = () => {
   const [settleDiscount, setSettleDiscount] = useState(0)
   // How the discount value is interpreted: a flat ₹ amount or a % of the subtotal.
   const [settleDiscountType, setSettleDiscountType] = useState('amount')
-  const [settleMethod, setSettleMethod] = useState('Cash')
+  // Tender rows. Each becomes one paymentbreakup in the ledger, so the UI
+  // mirrors the data model exactly — no translation layer to get wrong.
+  const [paymentModes, setPaymentModes] = useState([])
+  const [tenders, setTenders] = useState([])
+  const [settledInvoice, setSettledInvoice] = useState(null)
   const [settling, setSettling] = useState(false)
   // Live discounted preview from the server (discount applied BEFORE tax), so the
   // payable the cashier sees matches the bill that will be raised.
@@ -85,18 +89,20 @@ const Billing = () => {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [t, f, m, orders, v, k] = await Promise.all([
+      const [t, f, m, orders, v, k, modes] = await Promise.all([
         posService.getTables(),
         posService.getFloors(),
         posService.getItemMeta(),
         posService.getOrders({ limit: MAX_LIMIT }),
         posService.getVariants(),
         posService.getKots({ limit: MAX_LIMIT }),
+        posService.getPaymentModes(),
       ])
       setTables(t)
       setFloors(f)
       setMenu(m)
       setVariants(v || [])
+      setPaymentModes(modes || [])
       setKots(Array.isArray(k) ? k : [])
       const open = orders.filter((o) => (o.Status || '').toLowerCase() !== 'closed')
       setActiveOrders(open)
@@ -347,6 +353,65 @@ const Billing = () => {
     }
   }, [settleQuote, sessionSummary, settleDiscount, settleDiscountType])
 
+  // ── Tenders ───────────────────────────────────────────────────────────────
+  // Balance due is the number a cashier actually works to, so it drives both
+  // the display and whether Settle is allowed.
+  const payable = Number(settleTotals.payable) || 0
+  const tendered = tenders.reduce((s, t) => s + (Number(t.amount) || 0), 0)
+  const balanceDue = Math.round((payable - tendered) * 100) / 100
+  const changeDue = balanceDue < 0 ? Math.abs(balanceDue) : 0
+
+  const modeName = (id) => {
+    const m = paymentModes.find((p) => (p.id || p.Id) === id)
+    return m ? (m.Type || m.type || '') : ''
+  }
+  // Card/UPI/Wallet must carry a reference or the takings cannot be reconciled.
+  const needsRef = (id) => ['card', 'upi', 'wallet'].includes(modeName(id).toLowerCase())
+  const missingRef = tenders.some((t) => needsRef(t.paymentModeId) && !String(t.refNo || '').trim())
+
+  const addTender = (amount) => {
+    const first = paymentModes[0]
+    if (!first) return
+    setTenders((prev) => [...prev, {
+      key: `t${Date.now()}${prev.length}`,
+      paymentModeId: first.id || first.Id,
+      amount: amount !== undefined ? amount : Math.max(0, balanceDue),
+      refNo: '',
+      // Auto-seeded rows track the payable; a manual edit pins them.
+      auto: amount !== undefined,
+    }])
+  }
+  const updateTender = (key, patch) =>
+    setTenders((prev) => prev.map((t) => (
+      t.key === key
+        // Editing the amount takes ownership of the row, so it stops tracking.
+        ? { ...t, ...patch, auto: patch.amount !== undefined ? false : t.auto }
+        : t
+    )))
+  const removeTender = (key) => setTenders((prev) => prev.filter((t) => t.key !== key))
+
+  // Seed one tender for the full payable the moment the modal opens — the
+  // common case is a single payment, and this makes it a one-tap settle.
+  useEffect(() => {
+    if (!settleOpen) { setTenders([]); return }
+    if (paymentModes.length === 0 || payable <= 0) return
+
+    setTenders((prev) => {
+      if (prev.length === 0) {
+        const first = paymentModes[0]
+        return [{ key: 't0', paymentModeId: first.id || first.Id, amount: payable, refNo: '', auto: true }]
+      }
+      // Keep a single untouched row in step with the payable — otherwise
+      // changing the discount leaves a stale amount and a phantom balance.
+      if (prev.length === 1 && prev[0].auto) {
+        return [{ ...prev[0], amount: payable }]
+      }
+      return prev
+    })
+    // Deliberately not keyed on `tenders`: re-seeding on every edit would fight
+    // the cashier mid-entry.
+  }, [settleOpen, paymentModes, payable])
+
   // Picking a table targets its latest round for KOT firing / context.
   useEffect(() => {
     if (!selectedTable) { setSelectedOrderId(null); return }
@@ -463,6 +528,8 @@ const Billing = () => {
   const handleSettleBill = async () => {
     if (!selectedTable) { toast.warn('Select a table first'); return }
     if (sessionRounds.length === 0) { toast.warn('No active order to settle'); return }
+    if (tenders.length === 0) { toast.warn('Add at least one payment'); return }
+    if (missingRef) { toast.warn('Enter a reference number for card, UPI and wallet payments'); return }
     setSettling(true)
     try {
       // The server recomputes the bill from every round it covers and applies
@@ -481,20 +548,38 @@ const Billing = () => {
         BranchDetailId: sessionRounds[0].order.BranchDetailId || null,
       })
       const billId = bill.id || bill.Id
-      const payable = Number(bill.Total) || 0
-      await posService.settleBill(billId, {
-        Payments: [{ method: settleMethod, amount: payable }],
+      // One tender per row — the server turns each into a paymentbreakup with
+      // its own instrument, and posts the whole thing as a ledger document.
+      const settled = await posService.settleBill(billId, {
+        Tenders: tenders.map((t) => ({
+          paymentModeId: t.paymentModeId,
+          amount: Number(t.amount) || 0,
+          refNo: String(t.refNo || '').trim() || null,
+        })),
         Discount: discount,
       })
-      // Close every round and free the table
-      await Promise.all(sessionRounds.map((r) => posService.updateOrder(r.orderId, { Status: 'Closed' })))
-      await posService.updateTable(selectedTable, { Status: 'Available', CurrentOrderId: null })
-      toast.success('Bill settled successfully')
+
+      const fullySettled = !(Number(settled?.BalanceDue) > 0)
+      if (fullySettled) {
+        // Close every round and free the table
+        await Promise.all(sessionRounds.map((r) => posService.updateOrder(r.orderId, { Status: 'Closed' })))
+        await posService.updateTable(selectedTable, { Status: 'Available', CurrentOrderId: null })
+      }
+
+      // The invoice number is the customer-facing artefact, so it headlines the
+      // confirmation rather than a generic success toast.
+      setSettledInvoice({
+        transactionNo: settled?.TransactionNo || null,
+        total: Number(settled?.Total) || payable,
+        balanceDue: Number(settled?.BalanceDue) || 0,
+        tenders: tenders.map((t) => ({ mode: modeName(t.paymentModeId), amount: Number(t.amount) || 0, refNo: t.refNo })),
+      })
+      toast.success(fullySettled ? 'Bill settled and posted to ledger' : 'Partial payment recorded')
       setSettleOpen(false)
       setSettleDiscount(0)
       setSettleDiscountType('amount')
-      setSelectedOrderId(null)
-      setSelectedTable('')
+      setTenders([])
+      if (fullySettled) { setSelectedOrderId(null); setSelectedTable('') }
       await load()
     } catch (e) {
       toast.error(e?.response?.data?.message || 'Failed to settle bill')
@@ -827,6 +912,43 @@ const Billing = () => {
         </div>
       )}
 
+      {/* Posted-to-ledger confirmation. The invoice number is the
+          customer-facing artefact, so it leads. */}
+      {settledInvoice && (
+        <div className="fd-modal-backdrop" role="dialog" aria-label="Bill settled">
+          <div className="fd-invoice-modal">
+            <div className="fd-invoice-tick">✓</div>
+            <h3>{settledInvoice.balanceDue > 0 ? 'Partial payment recorded' : 'Posted to ledger'}</h3>
+            {settledInvoice.transactionNo && (
+              <div className="fd-invoice-no">
+                <span>Invoice</span>
+                <strong>{settledInvoice.transactionNo}</strong>
+              </div>
+            )}
+            <div className="fd-invoice-total">₹{money(settledInvoice.total)}</div>
+            <ul className="fd-invoice-tenders">
+              {settledInvoice.tenders.map((t, i) => (
+                <li key={i}>
+                  <span>{t.mode}</span>
+                  <span>
+                    ₹{money(t.amount)}
+                    {t.refNo ? <em> · ref {t.refNo}</em> : null}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            {settledInvoice.balanceDue > 0 && (
+              <div className="fd-settle-warn" role="alert">
+                ₹{money(settledInvoice.balanceDue)} still outstanding on this bill.
+              </div>
+            )}
+            <button className="fd-btn fd-btn-success" onClick={() => setSettledInvoice(null)}>
+              Done
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Settle Bill modal */}
       {settleOpen && (
         <div style={{
@@ -842,17 +964,83 @@ const Billing = () => {
             <BillSummary rounds={sessionRounds} title="Bill" defaultOpenBreakup />
 
             <div className="fd-settle-form" style={{ marginTop: 16 }}>
-              <div>
-                <label htmlFor="settle-method">Payment Method</label>
-                <select
-                  id="settle-method"
-                  value={settleMethod}
-                  onChange={(e) => setSettleMethod(e.target.value)}
-                >
-                  {['Cash', 'Card', 'UPI', 'Wallet'].map((m) => (
-                    <option key={m} value={m}>{m}</option>
-                  ))}
-                </select>
+              {/* ── Tenders ────────────────────────────────────────────────
+                  One row per way the customer paid. Each becomes a
+                  paymentbreakup in the ledger, so a split settlement is
+                  recorded rather than flattened into a single "paid". */}
+              <div className="fd-tenders">
+                <div className="fd-tenders-head">
+                  <label>Payments</label>
+                  <button
+                    type="button" className="fd-link-btn"
+                    onClick={() => addTender()}
+                    disabled={paymentModes.length === 0}
+                  >
+                    + Add payment
+                  </button>
+                </div>
+
+                {paymentModes.length === 0 ? (
+                  <div className="fd-tender-empty fd-tender-nomodes" role="alert">
+                    No payment modes set up for this outlet. Add Cash / Card / UPI under{' '}
+                    <b>Master Data → Payment Modes</b>, then reopen Settle.
+                  </div>
+                ) : tenders.length === 0 ? (
+                  <div className="fd-tender-empty">No payment added yet.</div>
+                ) : null}
+
+                {tenders.map((t) => (
+                  <div className="fd-tender-row" key={t.key}>
+                    <select
+                      aria-label="Payment mode"
+                      value={t.paymentModeId}
+                      onChange={(e) => updateTender(t.key, { paymentModeId: e.target.value })}
+                    >
+                      {paymentModes.map((m) => (
+                        <option key={m.id || m.Id} value={m.id || m.Id}>{m.Type || m.type}</option>
+                      ))}
+                    </select>
+                    <input
+                      type="number" min="0" step="0.01"
+                      aria-label="Amount"
+                      value={t.amount}
+                      onChange={(e) => updateTender(t.key, { amount: e.target.value })}
+                    />
+                    {/* Reference only appears where reconciliation needs it, so
+                        the cash path stays two taps. */}
+                    {needsRef(t.paymentModeId) && (
+                      <input
+                        type="text"
+                        aria-label="Reference number"
+                        placeholder="Ref no."
+                        value={t.refNo || ''}
+                        onChange={(e) => updateTender(t.key, { refNo: e.target.value })}
+                      />
+                    )}
+                    <button
+                      type="button" className="fd-tender-remove"
+                      aria-label="Remove payment"
+                      onClick={() => removeTender(t.key)}
+                    >×</button>
+                  </div>
+                ))}
+
+                {/* Quick tender — the biggest speed win on a real till. */}
+                {paymentModes.length > 0 && (
+                <div className="fd-quick-tender">
+                  <button type="button" onClick={() => { setTenders([]); addTender(payable) }}>
+                    Exact ₹{money(payable)}
+                  </button>
+                  {[500, 1000, 2000]
+                    .filter((n) => n > payable)
+                    .slice(0, 2)
+                    .map((n) => (
+                      <button key={n} type="button" onClick={() => { setTenders([]); addTender(n) }}>
+                        ₹{n}
+                      </button>
+                    ))}
+                </div>
+                )}
               </div>
               <div>
                 <label htmlFor="settle-discount">Discount</label>
@@ -922,12 +1110,42 @@ const Billing = () => {
               <div className="fd-settle-payable-row fd-settle-payable-grand">
                 <span>Amount Payable</span><span>₹{money(settleTotals.payable)}</span>
               </div>
-              <div className="fd-settle-pay-method">via {settleMethod}</div>
+              {/* Balance due is the hero: red while short, green when covered.
+                  Cashiers work to this number, so it gets the emphasis. */}
+              <div className={`fd-settle-balance ${balanceDue > 0 ? 'is-short' : 'is-ok'}`}>
+                <div className="fd-settle-payable-row">
+                  <span>Tendered</span><span>₹{money(tendered)}</span>
+                </div>
+                <div className="fd-settle-payable-row fd-settle-balance-row">
+                  <span>{balanceDue > 0 ? 'Balance Due' : changeDue > 0 ? 'Change' : 'Balance Due'}</span>
+                  <span>₹{money(balanceDue > 0 ? balanceDue : changeDue)}</span>
+                </div>
+              </div>
             </div>
 
+            {/* Say WHY settling is blocked rather than showing a mute button. */}
+            {missingRef && (
+              <div className="fd-settle-warn" role="alert">
+                Enter a reference number for card, UPI and wallet payments.
+              </div>
+            )}
+            {balanceDue > 0 && tenders.length > 0 && (
+              <div className="fd-settle-warn" role="alert">
+                ₹{money(balanceDue)} still due — settling now records a partial payment.
+              </div>
+            )}
+
             <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
-              <button className="fd-btn fd-btn-success" onClick={handleSettleBill} disabled={settling}>
-                {settling ? 'Settling...' : `Confirm & Settle ₹${money(settleTotals.payable)}`}
+              <button
+                className="fd-btn fd-btn-success"
+                onClick={handleSettleBill}
+                disabled={settling || tenders.length === 0 || missingRef}
+              >
+                {settling
+                  ? 'Settling...'
+                  : balanceDue > 0
+                    ? `Save Partial ₹${money(tendered)}`
+                    : `Settle & Post ₹${money(settleTotals.payable)}`}
               </button>
               <button className="fd-btn fd-btn-outline" onClick={() => setSettleOpen(false)} disabled={settling}>
                 Cancel

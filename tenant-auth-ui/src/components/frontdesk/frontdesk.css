@@ -1340,3 +1340,74 @@
 /* KOT status past pending: round is locked from deletion. */
 .fd-round-kot.busy { background: #d6eaf8; color: #21618c; }
 .fd-round-nodel { font-size: 11px; font-weight: 700; color: #95a5a6; font-style: italic; }
+
+/* ── Tenders (settle modal) ───────────────────────────────────────────────
+   One row per payment. Mirrors paymentbreakup so the UI and the ledger stay
+   in step without a translation layer. */
+.fd-tenders { display: flex; flex-direction: column; gap: 6px; }
+.fd-tenders-head {
+  display: flex; justify-content: space-between; align-items: center;
+}
+.fd-link-btn {
+  background: none; border: none; color: #2980b9; cursor: pointer;
+  font-size: 12px; font-weight: 600; padding: 0;
+}
+.fd-tender-empty { font-size: 12px; color: #95a5a6; padding: 4px 0; }
+.fd-tender-row { display: flex; gap: 6px; align-items: center; }
+.fd-tender-row select { flex: 0 0 90px; }
+.fd-tender-row input[type="number"] { flex: 1; min-width: 70px; }
+.fd-tender-row input[type="text"] { flex: 1; min-width: 80px; }
+.fd-tender-remove {
+  flex: 0 0 26px; height: 26px; border: 1px solid #e1e5eb; border-radius: 4px;
+  background: #fff; color: #e74c3c; cursor: pointer; font-size: 15px; line-height: 1;
+}
+.fd-quick-tender { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.fd-quick-tender button {
+  padding: 4px 10px; border: 1px solid #d0d4da; border-radius: 14px;
+  background: #f8f9fa; font-size: 12px; cursor: pointer; color: #2c3e50;
+}
+.fd-quick-tender button:hover { border-color: #3498db; background: #eaf4fc; }
+
+/* Balance due — the number a cashier works to, so it gets the emphasis. */
+.fd-settle-balance { margin-top: 8px; padding-top: 8px; border-top: 1px dashed #d0d4da; }
+.fd-settle-balance-row { font-weight: 700; font-size: 16px; }
+.fd-settle-balance.is-short .fd-settle-balance-row { color: #c0392b; }
+.fd-settle-balance.is-ok    .fd-settle-balance-row { color: #1e8449; }
+
+/* Why an action is blocked, rather than a mute disabled button. */
+.fd-settle-warn {
+  margin-top: 10px; padding: 7px 10px; border-radius: 6px;
+  background: #fff3cd; color: #856404; font-size: 12px;
+  border-left: 3px solid #e0a800;
+}
+
+/* ── Posted-to-ledger confirmation ───────────────────────────────────────── */
+.fd-invoice-modal {
+  background: #fff; border-radius: 10px; padding: 24px; width: 100%;
+  max-width: 360px; box-sizing: border-box; text-align: center;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.18);
+}
+.fd-invoice-tick {
+  width: 44px; height: 44px; margin: 0 auto 10px; border-radius: 50%;
+  background: #d4edda; color: #155724; font-size: 22px;
+  display: flex; align-items: center; justify-content: center;
+}
+.fd-invoice-modal h3 { margin: 0 0 12px; font-size: 15px; color: #2c3e50; }
+.fd-invoice-no {
+  display: flex; flex-direction: column; gap: 2px; margin-bottom: 10px;
+}
+.fd-invoice-no span { font-size: 11px; color: #7f8c8d; text-transform: uppercase; letter-spacing: 0.5px; }
+.fd-invoice-no strong { font-size: 20px; color: #0f3460; letter-spacing: 0.5px; }
+.fd-invoice-total { font-size: 24px; font-weight: 700; color: #2c3e50; margin-bottom: 12px; }
+.fd-invoice-tenders { list-style: none; padding: 0; margin: 0 0 16px; text-align: left; }
+.fd-invoice-tenders li {
+  display: flex; justify-content: space-between; padding: 4px 0;
+  border-bottom: 1px solid #f0f3f5; font-size: 13px; color: #2c3e50;
+}
+.fd-invoice-tenders em { color: #95a5a6; font-style: normal; font-size: 11px; }
+
+/* Settle: no payment modes configured for the tenant. */
+.fd-tender-nomodes {
+  background: #fbf0da; border: 1px solid #f0d9a8; color: #7a5b12;
+  border-radius: 8px; padding: 9px 12px; font-size: 12.5px; line-height: 1.5;
+}

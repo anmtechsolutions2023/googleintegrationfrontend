@@ -34,6 +34,7 @@ const NAV_ITEMS = [
   // Analytics & Admin
   { group: 'Analytics & Admin', items: [
     { path: '/frontdesk/reports',        label: 'Reports',        icon: '📈', scopes: [SCOPES.POS_REPORTS_READ, SCOPES.TENANT_ADMIN] },
+    { path: '/frontdesk/ledger',         label: 'Ledger',         icon: '📒', scopes: [SCOPES.TRANSACTIONS_READ, SCOPES.TRANSACTIONS_WRITE, SCOPES.TENANT_ADMIN] },
     { path: '/frontdesk/access-control', label: 'Access Control', icon: '🔐', scopes: [SCOPES.TENANT_ADMIN] },
   ]},
 ]

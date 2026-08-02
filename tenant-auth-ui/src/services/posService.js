@@ -279,6 +279,28 @@ export const getVariants = async (params = {}) => {
   return toArray(res.data)
 }
 
+// ── Payment modes (tender types) ────────────────────────────────────────────
+export const getPaymentModes = async () => {
+  const res = await api.get('/api/paymentmodes', { params: { limit: MAX_LIMIT } })
+  return toArray(res.data)
+}
+
+// ── Accounting ledger ───────────────────────────────────────────────────────
+// Settled bills as numbered documents. Read-only: a settled document is
+// corrected by refund, never by editing.
+export const getLedgerDocuments = async (params = {}) => {
+  const res = await api.get('/api/ledger/documents', { params })
+  return toArray(res.data)
+}
+export const getLedgerDocument = async (id) => {
+  const res = await api.get(`/api/ledger/documents/${id}`)
+  return toObject(res.data)
+}
+export const refundLedgerDocument = async (id, Reason) => {
+  const res = await api.post(`/api/ledger/documents/${id}/refund`, { Reason })
+  return toObject(res.data)
+}
+
 // ── Pricing ─────────────────────────────────────────────────────────────────
 // Server-side tax calculation over the master-data chain
 // costinfo → taxgroup → taxgrouptaxtypemapper → TaxTypes, honouring each cost
@@ -343,6 +365,8 @@ const posService = {
   getExpenses, createExpense, updateExpense, deleteExpense,
   getStaff, createStaff, updateStaff, deleteStaff,
   getVariants,
+  getPaymentModes,
+  getLedgerDocuments, getLedgerDocument, refundLedgerDocument,
   quotePricing,
   getDashboardStats,
   getReports,
