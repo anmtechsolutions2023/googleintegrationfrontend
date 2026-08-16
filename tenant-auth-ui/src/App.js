@@ -54,6 +54,11 @@ import Tracking from './pages/frontdesk/Tracking';
 import Inventory from './pages/frontdesk/Inventory';
 import Reports from './pages/frontdesk/Reports'
 import Ledger from './pages/frontdesk/Ledger';
+import Finance from './pages/frontdesk/Finance';
+import CashSessions from './pages/frontdesk/CashSessions';
+import Assets from './pages/frontdesk/Assets';
+import AssetCategories from './pages/frontdesk/AssetCategories';
+import ExpenseCategories from './pages/frontdesk/ExpenseCategories';
 import AccessControl from './pages/frontdesk/AccessControl';
 
 const AppRoutes = () => {
@@ -215,6 +220,16 @@ const AppRoutes = () => {
           {/* Accounting ledger — gated on TRANSACTIONS scopes: a ledger
               document IS the transaction record. */}
           <Route path="ledger"         element={<ScopeGuard requiredScopes={[SCOPES.TRANSACTIONS_READ, SCOPES.TRANSACTIONS_WRITE, SCOPES.TENANT_ADMIN]}><Ledger /></ScopeGuard>} />
+          {/* Financial reporting reads the same documents as the ledger, so it
+              shares the ledger's scopes rather than the operational POS ones. */}
+          <Route path="finance"        element={<ScopeGuard requiredScopes={[SCOPES.TRANSACTIONS_READ, SCOPES.TRANSACTIONS_WRITE, SCOPES.TENANT_ADMIN]}><Finance /></ScopeGuard>} />
+          {/* The drawer belongs to whoever takes the money. */}
+          <Route path="cash-sessions"  element={<ScopeGuard requiredScopes={[SCOPES.POS_BILLING_READ, SCOPES.POS_BILLING_WRITE, SCOPES.TENANT_ADMIN]}><CashSessions /></ScopeGuard>} />
+          <Route path="assets"         element={<ScopeGuard requiredScopes={[SCOPES.ASSET_READ, SCOPES.ASSET_WRITE, SCOPES.TENANT_ADMIN]}><Assets /></ScopeGuard>} />
+          <Route path="asset-categories"   element={<ScopeGuard requiredScopes={[SCOPES.ASSET_READ, SCOPES.ASSET_WRITE, SCOPES.TENANT_ADMIN]}><AssetCategories /></ScopeGuard>} />
+          {/* Reading categories is open to anyone who can raise an expense —
+              they have to pick one. Writing is gated inside the page. */}
+          <Route path="expense-categories" element={<ScopeGuard requiredScopes={[SCOPES.POS_OPS_READ, SCOPES.POS_OPS_WRITE, SCOPES.EXPENSE_APPROVE, SCOPES.TENANT_ADMIN]}><ExpenseCategories /></ScopeGuard>} />
           <Route path="access-control" element={<ScopeGuard requiredScopes={[SCOPES.TENANT_ADMIN]}><AccessControl /></ScopeGuard>} />
         </Route>
 

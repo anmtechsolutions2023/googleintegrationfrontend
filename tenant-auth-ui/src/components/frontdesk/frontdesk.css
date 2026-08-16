@@ -250,21 +250,72 @@
 .fd-table-card.reserved .table-status { color: #636e72; }
 
 /* ── Billing screen ──────────────────────── */
+/* ── Billing workspace ───────────────────────────────────────────────────────
+   A till screen, so it CLAIMS THE VIEWPORT instead of stacking cards down a
+   page. The old layout capped at 1300px, top-aligned everything and capped the
+   menu grid at 480px, which left roughly two thirds of a laptop screen empty
+   while the menu scrolled inside a box. Here the page is a fixed-height column:
+   the bar, then one region that fills whatever is left. Only the menu grid and
+   the order list scroll, so the totals and the primary action never move. */
 .fd-billing {
-  max-width: 1300px;
+  max-width: 1600px;
+  height: calc(100vh - 150px);
+  min-height: 520px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
-.fd-billing h1 {
+.fd-billing-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.fd-billing-bar h1 {
   font-size: 22px;
   color: #2c3e50;
-  margin: 0 0 20px;
+  margin: 0;
 }
+
+.fd-billing-bar-table { display: flex; align-items: center; gap: 10px; }
+
+/* Which table is being served, stated once, where the eye starts. */
+.fd-table-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  border: 1px solid #e1e5eb;
+  border-left-width: 4px;
+  border-radius: 8px;
+  padding: 7px 14px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+.fd-table-chip .dot { width: 9px; height: 9px; border-radius: 50%; background: #b2bec3; }
+.fd-table-chip .name { font-weight: 700; color: #2c3e50; font-size: 15px; }
+.fd-table-chip .rounds {
+  font-size: 12px; color: #7f8c8d; padding-left: 8px;
+  border-left: 1px solid #e1e5eb;
+}
+.fd-table-chip.occupied { border-left-color: #e67e22; }
+.fd-table-chip.occupied .dot { background: #e67e22; }
+.fd-table-chip.reserved { border-left-color: #7f8c8d; }
+.fd-table-chip.reserved .dot { background: #7f8c8d; }
+.fd-table-chip.free { border-left-color: #27ae60; }
+.fd-table-chip.free .dot { background: #27ae60; }
+
+.fd-btn-sm { padding: 6px 12px; font-size: 12px; }
 
 .fd-billing-layout {
   display: grid;
-  grid-template-columns: 1fr 360px;
-  gap: 20px;
-  align-items: start;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: 16px;
+  flex: 1;
+  min-height: 0; /* lets the children scroll rather than stretching the page */
 }
 
 .fd-menu-panel {
@@ -272,6 +323,37 @@
   border-radius: 8px;
   padding: 16px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.fd-menu-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.fd-menu-panel-title { font-size: 14px; font-weight: 600; color: #2c3e50; }
+
+/* Resuming someone else's running order is a state change, so it is announced
+   rather than left for the cashier to infer from a populated panel. */
+.fd-session-resumed {
+  background: #eef6fd;
+  border-left: 3px solid #2980b9;
+  border-radius: 4px;
+  padding: 7px 10px;
+  margin-bottom: 10px;
+  font-size: 12px;
+  color: #1c5a85;
+  line-height: 1.45;
+}
+.fd-session-loading {
+  padding: 7px 10px;
+  margin-bottom: 10px;
+  font-size: 12px;
+  color: #7f8c8d;
 }
 
 .fd-menu-search {
@@ -284,22 +366,36 @@
   box-sizing: border-box;
 }
 
+/* Fills the panel and scrolls inside it. The old max-height:480px meant the
+   grid stopped short on any screen taller than a laptop, which is what left the
+   dead band under the menu. Cards are sized for a finger first (min 140px wide,
+   ~72px tall) and simply pack more columns on a desktop. */
 .fd-menu-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  grid-auto-rows: min-content;
   gap: 10px;
-  max-height: 480px;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  align-content: start;
+  padding-right: 4px;
 }
 
 .fd-menu-item-card {
   border: 1px solid #e1e5eb;
-  border-radius: 6px;
-  padding: 10px;
+  border-radius: 8px;
+  padding: 12px 10px;
+  min-height: 76px;   /* comfortably tappable, still dense on desktop */
   cursor: pointer;
   transition: all 0.15s ease;
   background: #fff;
 }
+.fd-menu-item-card:focus-visible {
+  outline: 2px solid #2980b9;
+  outline-offset: 2px;
+}
+.fd-menu-item-card:active { transform: scale(0.98); }
 
 .fd-menu-item-card:hover {
   border-color: #3498db;
@@ -449,13 +545,25 @@
 .food-type-badge.nonveg { background: #fde8e8; color: #c0392b; }
 
 /* Cart / order panel */
+/* Full height, with ONE internal scroller. The totals and the primary action
+   are pinned below it, so they never drift down the page as an order grows —
+   the two things a cashier reaches for stay in the same place all shift. */
 .fd-cart-panel {
   background: #fff;
   border-radius: 8px;
   padding: 16px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.08);
-  position: sticky;
-  top: 20px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.fd-cart-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  margin: -4px -4px 0;
+  padding: 4px 4px 0;
 }
 
 .fd-cart-panel h3 {
@@ -485,10 +593,11 @@
   font-size: 14px;
 }
 
+/* The panel scrolls as a whole now, so this no longer needs its own scroller
+   and its own height cap — nesting two made the cart feel cramped inside a
+   mostly empty column. */
 .fd-cart-items {
-  min-height: 160px;
-  max-height: 300px;
-  overflow-y: auto;
+  min-height: 80px;
   margin-bottom: 12px;
 }
 
@@ -576,11 +685,172 @@
   color: #2c3e50;
 }
 
+/* Shown when the pricing quote failed. Deliberately loud: the total above it is
+   missing tax, while the bill that gets raised will not be. */
+.fd-cart-totals .total-row.tax-unavailable {
+  display: block;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 4px;
+  border-left: 3px solid #e67e22;
+  background: #fdf3e7;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #a04000;
+}
+
+/* Ranked, not four identical bars: one primary, a pair of follow-ups, and the
+   rare stuff as plain links. */
 .fd-cart-actions {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  flex-shrink: 0;
+  padding-top: 12px;
+  margin-top: 4px;
+  border-top: 1px solid #eef1f5;
 }
+
+.fd-btn-lg {
+  padding: 14px 16px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.fd-cart-actions-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.fd-cart-actions-row .fd-btn { min-height: 44px; }
+
+.fd-cart-actions-minor {
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+  padding-top: 2px;
+}
+.fd-cart-actions-minor .fd-link-btn { font-size: 12px; }
+.fd-cart-actions-minor .fd-link-btn:disabled {
+  color: #b2bec3;
+  cursor: not-allowed;
+  text-decoration: none;
+}
+
+/* Narrow screens (portrait tablet): the order rail stops being a column and
+   sits under the menu, and the page returns to normal document flow — a fixed
+   viewport height only helps when there are two columns to fill. */
+@media (max-width: 900px) {
+  .fd-billing { height: auto; min-height: 0; }
+  .fd-billing-layout { grid-template-columns: 1fr; }
+  .fd-menu-grid { max-height: 46vh; }
+  .fd-cart-panel { position: static; }
+  .fd-cart-scroll { overflow: visible; }
+}
+
+/* ── Floor plan picker ───────────────────────────────────────────────────────
+   The first screen of Billing, not an empty state. It replaces a dashed box
+   that pointed at a dropdown in the opposite corner: two interactions and no
+   information, in the largest space on the page. Here the same space answers
+   who is free, who is running and how big their bill is, and picking is one
+   tap. Cards are 44px+ in both directions for a till tablet. */
+.fd-floorplan {
+  background: #fff;
+  border-radius: 8px;
+  padding: 20px 22px 24px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.fd-floorplan.is-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+  color: #7f8c8d;
+  font-size: 13px;
+}
+.fd-floorplan.is-empty strong { color: #2c3e50; font-size: 16px; }
+.fd-floorplan-icon { font-size: 30px; }
+
+.fd-floorplan-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+.fd-floorplan-head h2 { font-size: 17px; color: #2c3e50; margin: 0; }
+
+.fd-floorplan-legend {
+  display: flex;
+  gap: 14px;
+  font-size: 12px;
+  color: #7f8c8d;
+}
+.fd-floorplan-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.fd-floorplan-legend .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.fd-floorplan-legend .dot.free { background: #27ae60; }
+.fd-floorplan-legend .dot.occupied { background: #e67e22; }
+.fd-floorplan-legend .dot.reserved { background: #7f8c8d; }
+
+.fd-floorplan-group + .fd-floorplan-group { margin-top: 22px; }
+.fd-floorplan-group h3 {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  color: #95a5a6;
+  margin: 0 0 10px;
+}
+
+.fd-floorplan-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.fd-tablecard {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  min-height: 88px;
+  padding: 12px 14px;
+  border: 1px solid #e1e5eb;
+  border-left: 4px solid #27ae60;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+}
+.fd-tablecard:hover { border-color: #3498db; box-shadow: 0 3px 10px rgba(52,152,219,0.16); }
+.fd-tablecard:focus-visible { outline: 2px solid #2980b9; outline-offset: 2px; }
+.fd-tablecard:active { transform: scale(0.985); }
+
+.fd-tablecard-name { font-size: 16px; font-weight: 700; color: #2c3e50; }
+.fd-tablecard-status {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.5px; color: #27ae60;
+}
+.fd-tablecard-seats { font-size: 11px; color: #b2bec3; margin-top: auto; }
+
+/* A running table leads with its money — that is what someone walking up to
+   this screen is usually looking for. */
+.fd-tablecard-session { display: flex; flex-direction: column; gap: 1px; }
+.fd-tablecard-session .rounds { font-size: 11px; color: #a0682a; font-weight: 600; }
+.fd-tablecard-session .total { font-size: 15px; font-weight: 700; color: #2c3e50; }
+
+.fd-tablecard.occupied { border-left-color: #e67e22; background: #fffaf3; }
+.fd-tablecard.reserved { border-left-color: #7f8c8d; background: #f7f8f9; }
+.fd-tablecard.reserved .fd-tablecard-status { color: #7f8c8d; }
 
 /* ── Kitchen (KDS) board ─────────────────── */
 .fd-kitchen {
@@ -605,11 +875,17 @@
   border-left: 4px solid #e67e22;
   box-shadow: 0 1px 4px rgba(0,0,0,0.08);
   padding: 16px;
+  cursor: pointer;
 }
 
 .fd-kds-card.status-ready {
   border-left-color: #27ae60;
   opacity: 0.7;
+}
+
+.fd-kds-card.status-cancelled {
+  border-left-color: #b2bec3;
+  opacity: 0.6;
 }
 
 .fd-kds-header {
@@ -619,15 +895,47 @@
   margin-bottom: 10px;
 }
 
-.fd-kds-header .kot-no {
+/* The round is the headline: a cook needs to know which pass of this table the
+   ticket is, not its reference number. */
+.fd-kds-header .kot-round {
   font-weight: 700;
   color: #2c3e50;
   font-size: 15px;
 }
 
-.fd-kds-header .kot-table {
+.fd-kds-header .kot-round .kot-orderno {
+  font-weight: 600;
+  color: #7f8c8d;
+  font-size: 13px;
+}
+
+/* Ticket number and table — reference, so they sit under the headline. */
+.fd-kds-submeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 8px;
   font-size: 12px;
   color: #7f8c8d;
+}
+
+.fd-kds-submeta .kot-no {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.fd-kds-items .kot-item-qty {
+  font-weight: 700;
+  color: #e67e22;
+  margin-right: 4px;
+}
+
+.fd-kds-times {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 11px;
+  color: #7f8c8d;
+  margin-bottom: 10px;
 }
 
 .fd-kds-status {
@@ -639,9 +947,9 @@
   letter-spacing: 0.5px;
 }
 
-.fd-kds-status.pending  { background: #ffeaa7; color: #e67e22; }
-.fd-kds-status.fired    { background: #fad7a0; color: #d35400; }
-.fd-kds-status.ready    { background: #d5f5e3; color: #1e8449; }
+.fd-kds-status.pending   { background: #ffeaa7; color: #e67e22; }
+.fd-kds-status.ready     { background: #d5f5e3; color: #1e8449; }
+.fd-kds-status.cancelled { background: #f2f3f4; color: #7f8c8d; }
 
 .fd-kds-items {
   list-style: none;
@@ -875,6 +1183,28 @@
 
 .fd-round {
   position: relative;
+}
+
+/* The round the clicked kitchen ticket belongs to. Without this, every tile on a
+   three-round table opened an identical three-round list with no indication of
+   which one you had tapped. */
+.fd-round.is-highlighted {
+  background: #eef6fd;
+  border-left: 3px solid #2980b9;
+  border-radius: 4px;
+  margin-left: -10px;
+  padding: 6px 8px 6px 10px;
+}
+
+.fd-round-thisticket {
+  background: #2980b9;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 2px 6px;
+  border-radius: 8px;
 }
 
 .fd-round-header {
@@ -1379,6 +1709,89 @@
   margin-top: 10px; padding: 7px 10px; border-radius: 6px;
   background: #fff3cd; color: #856404; font-size: 12px;
   border-left: 3px solid #e0a800;
+}
+
+/* Informational rather than blocking — settling is still allowed. */
+.fd-settle-warn.is-soft {
+  background: #eef4fb; color: #33608f; border-left-color: #5b8fc7;
+}
+
+/* ── Discount: whole bill vs per item ────────────────────────────────────── */
+.fd-discount-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.fd-discount-mode {
+  display: inline-flex;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.fd-discount-mode button {
+  border: none;
+  background: #fff;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.fd-discount-mode button + button { border-left: 1px solid #cbd5e1; }
+.fd-discount-mode button.is-active { background: #2c3e50; color: #fff; }
+
+.fd-item-discounts {
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 6px;
+  margin-bottom: 10px;
+  max-height: 190px;
+  overflow-y: auto;
+}
+.fd-item-discount-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 2px;
+}
+.fd-item-discount-row + .fd-item-discount-row { border-top: 1px solid #f1f5f9; }
+.fd-item-discount-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: #334155;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fd-item-discount-row input { width: 74px; flex-shrink: 0; }
+.fd-item-discount-row .fd-discount-toggle button {
+  font-size: 12px; padding: 0 8px; min-width: 28px;
+  /* Tall enough to hit on a till's touchscreen — the row's default line box
+     left these a few pixels high and they read as decoration, not buttons. */
+  min-height: 30px;
+}
+/* What the row's ₹/% actually took off. Fixed width so the inputs above and
+   below it stay on one vertical line as figures appear and disappear. */
+.fd-item-discount-off {
+  flex-shrink: 0;
+  width: 68px;
+  text-align: right;
+  font-size: 11px;
+  font-weight: 600;
+  color: #b45309;
+  font-variant-numeric: tabular-nums;
+}
+
+/* What a tax rate is made of, under the rate itself. */
+.fd-bill-gst-parts {
+  display: block;
+  font-size: 10px;
+  color: #94a3b8;
+  white-space: nowrap;
 }
 
 /* ── Posted-to-ledger confirmation ───────────────────────────────────────── */

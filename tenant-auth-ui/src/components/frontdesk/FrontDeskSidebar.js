@@ -23,8 +23,17 @@ const NAV_ITEMS = [
     { path: '/frontdesk/variants', label: 'Variants',      icon: '🧩', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
     { path: '/frontdesk/floors',   label: 'Floors',        icon: '🏢', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
     { path: '/frontdesk/staff',    label: 'Staff',         icon: '👤', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
-    { path: '/frontdesk/expenses',  label: 'Expenses',       icon: '💸', scopes: [SCOPES.POS_OPS_READ,    SCOPES.TENANT_ADMIN] },
     { path: '/frontdesk/inventory', label: 'Inventory',      icon: '📦', scopes: [SCOPES.INVENTORY_READ,  SCOPES.TENANT_ADMIN] },
+    { path: '/frontdesk/expense-categories', label: 'Expense Categories', icon: '🏷️', scopes: [SCOPES.POS_OPS_READ, SCOPES.EXPENSE_APPROVE, SCOPES.TENANT_ADMIN] },
+    { path: '/frontdesk/asset-categories',   label: 'Asset Categories',   icon: '🏷️', scopes: [SCOPES.ASSET_READ,   SCOPES.ASSET_WRITE,     SCOPES.TENANT_ADMIN] },
+  ]},
+  // Money in, money out, and what is left. Separated from Operations because
+  // these read the accounting ledger rather than the POS tables.
+  { group: 'Finance', items: [
+    { path: '/frontdesk/finance',       label: 'Finance',       icon: '💰', scopes: [SCOPES.TRANSACTIONS_READ, SCOPES.TRANSACTIONS_WRITE, SCOPES.TENANT_ADMIN] },
+    { path: '/frontdesk/expenses',      label: 'Expenses',      icon: '💸', scopes: [SCOPES.POS_OPS_READ,      SCOPES.TENANT_ADMIN] },
+    { path: '/frontdesk/cash-sessions', label: 'Cash Sessions', icon: '🧮', scopes: [SCOPES.POS_BILLING_READ,  SCOPES.POS_BILLING_WRITE, SCOPES.TENANT_ADMIN] },
+    { path: '/frontdesk/assets',        label: 'Asset Register', icon: '🏗️', scopes: [SCOPES.ASSET_READ,       SCOPES.ASSET_WRITE, SCOPES.TENANT_ADMIN] },
   ]},
   // CRM tabs
   { group: 'CRM', items: [

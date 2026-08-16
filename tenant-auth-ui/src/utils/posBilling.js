@@ -97,9 +97,18 @@ export const summarizeSession = (rounds) => {
   roundSummaries.forEach((r) =>
     r.lines.forEach((l) => {
       const key = `${l.name}|${l.rate}|${l.isTaxIncluded}`
+      // `rate` and `components` are copied from the first line of the group, not
+      // accumulated — the group key already pins the rate, so every line in it
+      // carries the same one. Components ride along so the bill can show what a
+      // rate is MADE OF (18% = CGST 9 + SGST 9), which is the difference between
+      // a surprising number and a visible tax-group setup.
       const e =
         itemMap.get(key) ||
-        { name: l.name, rate: l.rate, isTaxIncluded: l.isTaxIncluded, qty: 0, net: 0, tax: 0, gross: 0 }
+        {
+          name: l.name, rate: l.rate, isTaxIncluded: l.isTaxIncluded,
+          components: (l.components || []).map((c) => ({ name: c.name, rate: num(c.rate) })),
+          qty: 0, net: 0, tax: 0, gross: 0,
+        }
       e.qty += l.qty
       e.net += l.net
       e.tax += l.tax
@@ -128,6 +137,23 @@ export const estimateAfterDiscount = (session, discount) => {
   const taxable = session.subTotal - d
   const tax = taxable * blendedRate
   return { discount: d, taxable, tax, total: taxable + tax }
+}
+
+// What the customer is actually asked for, and the adjustment that got there.
+//
+// MUST match applyRoundOff in the backend's modules/ledger/ledger.service.js —
+// nearest rupee, computed in paise. The ledger rounds the payable because a till
+// cannot hand over paise, and it books the difference as RoundOff. While the
+// settle screen quoted the UNROUNDED gross, "Exact" tendered ₹638.88 against a
+// ₹639.00 invoice and the sale posted PARTIALLY_PAID, 12 paise short, with no
+// way for the cashier to see or collect the difference.
+export const roundPayable = (gross) => {
+  const grossPaise = Math.round(num(gross) * 100)
+  const payablePaise = Math.round(grossPaise / 100) * 100
+  return {
+    payable: payablePaise / 100,
+    roundOff: (payablePaise - grossPaise) / 100,
+  }
 }
 
 export const billMoney = (n) => num(n).toFixed(2)

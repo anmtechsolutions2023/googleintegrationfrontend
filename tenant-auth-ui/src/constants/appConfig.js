@@ -14,12 +14,15 @@ export const APP_CONFIG = {
   POST_LOGIN_REDIRECT_KEY: 'postLoginRedirect',
 
   // Toast Notifications
+  // Every message — success or failure — lands top-right. ERROR_POSITION is the
+  // same value on purpose: Login.js passes it explicitly, so leaving it at
+  // 'top-center' would make one screen disagree with the rest of the app.
   TOAST: {
     DEFAULT_DURATION_MS: 3000,
     ERROR_DURATION_MS: 5000,
     SUCCESS_DURATION_MS: 3000,
-    POSITION: 'bottom-right',
-    ERROR_POSITION: 'top-center',
+    POSITION: 'top-right',
+    ERROR_POSITION: 'top-right',
     THEME: 'colored',
   },
 

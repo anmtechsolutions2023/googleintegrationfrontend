@@ -4,9 +4,9 @@ import TransferSheet from '../TransferSheet';
 
 // t1 = source (occupied), t2 = free (offered), t3 = occupied (not offered).
 const TABLES = [
-  { Id: 't1', Name: 'T1', FloorId: 'ground', Status: 'Occupied' },
-  { Id: 't2', Name: 'R4', FloorId: 'rooftop', Status: 'Available' },
-  { Id: 't3', Name: 'R5', FloorId: 'rooftop', Status: 'Occupied' },
+  { Id: 't1', Name: 'T1', FloorId: 'ground', Status: 'occupied' },
+  { Id: 't2', Name: 'R4', FloorId: 'rooftop', Status: 'free' },
+  { Id: 't3', Name: 'R5', FloorId: 'rooftop', Status: 'occupied' },
 ];
 const FLOORS = [
   { Id: 'ground', Name: 'Ground' },

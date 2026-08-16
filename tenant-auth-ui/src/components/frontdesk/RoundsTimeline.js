@@ -26,9 +26,13 @@ const lineTaxAmount = (it) => Number(it?.taxAmount ?? 0)
 // is hidden and replaced with an "In kitchen" marker.
 const isRoundFired = (r) => /fired/i.test(String(r?.status || ''))
 
+// `highlightOrderId` (KDS) marks the round the clicked ticket belongs to. A
+// table with three rounds shows three tiles, and every one of them opened the
+// same three-round list — with nothing saying which round you had tapped.
 const RoundsTimeline = ({
   rounds, emptyMessage = 'No active orders for this table.',
   showPricing = false, onDeleteRound = null, kotStatusByOrder = {},
+  highlightOrderId = null,
 }) => {
   if (!rounds || rounds.length === 0) {
     return <div className="fd-empty">{emptyMessage}</div>
@@ -43,11 +47,13 @@ const RoundsTimeline = ({
         // Deletable while nothing is cooking: not fired, or KOT still pending.
         const deletable = !hasKot || kotStatus === 'pending'
         const kotLabel = hasKot ? `KOT · ${kotStatus}` : (isRoundFired(r) ? 'KOT fired' : null)
+        const highlighted = !!highlightOrderId && r.orderId === highlightOrderId
         return (
-          <div key={r.orderId || idx} className="fd-round">
+          <div key={r.orderId || idx} className={`fd-round${highlighted ? ' is-highlighted' : ''}`}>
             <div className="fd-round-header">
               <span className="fd-round-badge">Round {r.round}</span>
               <span className="fd-round-orderno">{r.orderNo || `Order #${r.round}`}</span>
+              {highlighted && <span className="fd-round-thisticket">this ticket</span>}
               {onDeleteRound && kotLabel && (
                 <span className={`fd-round-kot ${hasKot && !deletable ? 'busy' : ''}`}>{kotLabel}</span>
               )}

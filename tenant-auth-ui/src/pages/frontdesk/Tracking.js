@@ -2,13 +2,17 @@ import React, { useEffect, useState, useCallback } from 'react'
 import { toast } from 'react-toastify'
 import posService from '../../services/posService'
 import { APP_CONFIG } from '../../constants'
+import { normalizeStatus, statusLabel } from '../../utils/posStatus'
 
 const { MAX_LIMIT } = APP_CONFIG.PAGINATION
 
-const STAGES = ['New', 'Accepted', 'Processing', 'Out for Delivery', 'Delivered', 'Cancelled']
+// Canonical lowercase values, matching the API enum and the DDL default ('new').
+// These are written to the server as well as shown, so they are stored values,
+// not labels — statusLabel() handles the display side.
+const STAGES = ['new', 'accepted', 'processing', 'out for delivery', 'delivered', 'cancelled']
 
 const stageIndex = (status) => {
-  const s = (status || '').toLowerCase()
+  const s = normalizeStatus(status)
   if (s === 'new' || !s)           return 0
   if (s === 'accepted')            return 1
   if (s === 'processing')          return 2
@@ -35,7 +39,7 @@ const ProgressBar = ({ status }) => {
           }}>
             {cancelled ? '✕' : i <= idx ? '✓' : i + 1}
           </div>
-          <div style={{ fontSize: 10, color: '#7f8c8d', marginLeft: 4, marginRight: 4, whiteSpace: 'nowrap' }}>{stage}</div>
+          <div style={{ fontSize: 10, color: '#7f8c8d', marginLeft: 4, marginRight: 4, whiteSpace: 'nowrap' }}>{statusLabel(stage)}</div>
           {i < 4 && (
             <div style={{ flex: 1, height: 2, background: i < idx ? '#27ae60' : '#e1e5eb', minWidth: 8 }} />
           )}
@@ -71,7 +75,7 @@ const Tracking = () => {
     const nextStatus = STAGES[Math.min(idx + 1, 4)]
     try {
       await posService.updateOnlineOrder(id, { Status: nextStatus })
-      toast.success(`Order moved to: ${nextStatus}`)
+      toast.success(`Order moved to: ${statusLabel(nextStatus)}`)
       load()
     } catch { toast.error('Failed to update order status') }
   }
@@ -127,7 +131,7 @@ const Tracking = () => {
                 {!cancelled && idx < 4 && (
                   <div style={{ marginTop: 12 }}>
                     <button className="fd-btn fd-btn-success" onClick={() => handleAdvance(o)}>
-                      Advance → {STAGES[Math.min(idx + 1, 4)]}
+                      Advance → {statusLabel(STAGES[Math.min(idx + 1, 4)])}
                     </button>
                   </div>
                 )}

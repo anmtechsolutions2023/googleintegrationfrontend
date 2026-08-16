@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import { toast } from 'react-toastify'
 import posService from '../../services/posService'
+import { statusLabel } from '../../utils/posStatus'
 import { APP_CONFIG } from '../../constants'
 
 const { MAX_LIMIT } = APP_CONFIG.PAGINATION
@@ -8,7 +9,7 @@ const { MAX_LIMIT } = APP_CONFIG.PAGINATION
 const statusBadge = (status) => {
   const s = (status || 'pending').toLowerCase()
   const cls = s === 'served' || s === 'completed' ? 'active' : s === 'called' ? 'pending' : 'pending'
-  return <span className={`fd-badge fd-badge-${cls}`}>{status || 'Pending'}</span>
+  return <span className={`fd-badge fd-badge-${cls}`}>{statusLabel(status || 'waiting')}</span>
 }
 
 const Tokens = () => {
@@ -41,7 +42,7 @@ const Tokens = () => {
       const nextNumber = tokens.length > 0
         ? Math.max(...tokens.map((t) => t.TokenNumber || 0)) + 1
         : 1
-      await posService.createToken({ TokenNumber: nextNumber, Status: 'Waiting' })
+      await posService.createToken({ TokenNumber: nextNumber, Status: 'waiting' })
       toast.success(`Token #${nextNumber} issued`)
       load()
     } catch {
@@ -54,7 +55,7 @@ const Tokens = () => {
   const handleCall = async (token) => {
     const id = token.id || token.Id
     try {
-      await posService.updateToken(id, { Status: 'Called' })
+      await posService.updateToken(id, { Status: 'called' })
       toast.info(`Calling Token #${token.TokenNumber}`)
       load()
     } catch { toast.error('Failed to update token') }
@@ -63,7 +64,7 @@ const Tokens = () => {
   const handleServe = async (token) => {
     const id = token.id || token.Id
     try {
-      await posService.updateToken(id, { Status: 'Served' })
+      await posService.updateToken(id, { Status: 'served' })
       toast.success(`Token #${token.TokenNumber} served`)
       load()
     } catch { toast.error('Failed to update token') }

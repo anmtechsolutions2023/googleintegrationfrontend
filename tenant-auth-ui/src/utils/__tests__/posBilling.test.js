@@ -2,6 +2,7 @@ import {
   summarizeRound,
   summarizeSession,
   estimateAfterDiscount,
+  roundPayable,
 } from '../posBilling'
 
 // A round as buildTableRounds() produces it.
@@ -97,5 +98,30 @@ describe('estimateAfterDiscount', () => {
     const est = estimateAfterDiscount(session, 500)
     expect(est.discount).toBe(100)
     expect(est.total).toBe(0)
+  })
+})
+
+// Must agree with applyRoundOff in the backend's ledger.service.js, to the
+// paisa. When the two disagreed the invoice asked for more than the till
+// collected and the sale posted PARTIALLY_PAID over a rounding difference.
+describe('roundPayable', () => {
+  it('rounds up to the nearest rupee and reports what it added', () => {
+    expect(roundPayable(638.88)).toEqual({ payable: 639, roundOff: 0.12 })
+  })
+
+  it('rounds down and reports the deduction as negative', () => {
+    expect(roundPayable(638.4)).toEqual({ payable: 638, roundOff: -0.4 })
+  })
+
+  it('leaves a whole-rupee payable alone', () => {
+    expect(roundPayable(726)).toEqual({ payable: 726, roundOff: 0 })
+  })
+
+  it('rounds a half-paisa boundary the way the ledger does', () => {
+    expect(roundPayable(638.5)).toEqual({ payable: 639, roundOff: 0.5 })
+  })
+
+  it('treats a missing total as zero rather than NaN', () => {
+    expect(roundPayable(undefined)).toEqual({ payable: 0, roundOff: 0 })
   })
 })

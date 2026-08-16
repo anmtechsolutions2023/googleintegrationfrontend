@@ -212,6 +212,31 @@ export const updateExpense = async (id, data) => {
 }
 export const deleteExpense = async (id) => api.delete(`/api/pos/expenses/${id}`)
 
+// Expense lifecycle: draft --approve--> approved --settle--> settled.
+// These are state MOVES, not field edits, which is why each is its own POST
+// rather than a Status on the update body — the server refuses a Status sent
+// through the CRUD path precisely so the approval gate cannot be skipped.
+export const approveExpense = async (id) => {
+  const res = await api.post(`/api/pos/expenses/${id}/approve`)
+  return toObject(res.data)
+}
+export const rejectExpense = async (id) => {
+  const res = await api.post(`/api/pos/expenses/${id}/reject`)
+  return toObject(res.data)
+}
+/** Settling is the only step that posts to the ledger. */
+export const settleExpense = async (id, PaymentModeId) => {
+  const res = await api.post(`/api/pos/expenses/${id}/settle`, PaymentModeId ? { PaymentModeId } : {})
+  return toObject(res.data)
+}
+
+// ── Expense categories (master) ─────────────────────────────────────────────
+// Spend reports group by category id, never by whatever spelling was typed.
+export const getExpenseCategories = async (params = {}) => {
+  const res = await api.get('/api/expense-categories', { params: { limit: MAX_LIMIT, ...params } })
+  return toArray(res.data)
+}
+
 // ── Staff ──────────────────────────────────────────────────────────────────────
 export const getStaff = async (params = {}) => {
   const res = await api.get('/api/pos/staff', { params })
@@ -301,6 +326,90 @@ export const refundLedgerDocument = async (id, Reason) => {
   return toObject(res.data)
 }
 
+// ── Financial reports ───────────────────────────────────────────────────────
+// Every report shares ONE query contract — preset | fromDate/toDate, bucket,
+// branchId — because daily, last-3, weekend-only and custom are the same query
+// with different bounds, not seven different reports. Mirrors the server's
+// utils/dateRange resolver exactly; sending anything outside its whitelist is
+// rejected by Joi rather than silently ignored.
+//
+// @param {Object} range - { preset, fromDate, toDate, bucket, branchId, ... }
+const ledgerReport = (name) => async (range = {}) => {
+  const res = await api.get(`/api/ledger/reports/${name}`, { params: range })
+  return toObject(res.data)
+}
+
+/** Earned, collected, spent and what is left — the daily cash-flow question. */
+export const getFinanceOverview = ledgerReport('overview')
+/** Invoiced vs collected vs outstanding, plus a bucketed trend. */
+export const getSalesReport = ledgerReport('sales')
+/** Quantity sold, revenue and discount PER PRODUCT. */
+export const getProductReport = ledgerReport('products')
+/** Unbilled rounds (operational) and unpaid documents (financial). */
+export const getPendingReport = ledgerReport('pending')
+/** Tender mix — the Z-report. Refunds and expenses net out. */
+export const getTenderReport = ledgerReport('tenders')
+/** Money in / out / net per asset account. */
+export const getCashFlowReport = ledgerReport('cashflow')
+/** Spend by category, from settled expense documents only. */
+export const getExpenseReport = ledgerReport('expenses')
+// Revenue by floor and by table, read from the venue snapshot frozen on each
+// round — so a rearranged floor plan cannot rewrite last month's numbers.
+export const getVenueReport = ledgerReport('venue')
+// What was given away, split into per-dish decisions and bill-wide reductions.
+export const getDiscountReport = ledgerReport('discounts')
+
+// ── Cash sessions (till shifts) ─────────────────────────────────────────────
+// One session per cashier per shift. Expected cash is DERIVED by the server
+// from the ledger — the client never computes or sends it, or the variance
+// would mean nothing.
+export const getCashSessions = async (params = {}) => {
+  const res = await api.get('/api/pos/cash-sessions', { params })
+  return toArray(res.data)
+}
+export const getCashSession = async (id) => {
+  const res = await api.get(`/api/pos/cash-sessions/${id}`)
+  return toObject(res.data)
+}
+/** Live expected cash for an open till — the mid-shift check. */
+export const getCashSessionSummary = async (id) => {
+  const res = await api.get(`/api/pos/cash-sessions/${id}/summary`)
+  return toObject(res.data)
+}
+export const openCashSession = async (data) => {
+  const res = await api.post('/api/pos/cash-sessions/open', data)
+  return toObject(res.data)
+}
+/** Only CountedCash is sent. Expected and Variance come back from the server. */
+export const closeCashSession = async (id, data) => {
+  const res = await api.post(`/api/pos/cash-sessions/${id}/close`, data)
+  return toObject(res.data)
+}
+
+// ── Asset register ──────────────────────────────────────────────────────────
+export const getAssets = async (params = {}) => {
+  const res = await api.get('/api/assets', { params })
+  return toArray(res.data)
+}
+export const getAssetSummary = async () => {
+  const res = await api.get('/api/assets/summary')
+  return toObject(res.data)
+}
+export const createAsset = async (data) => {
+  const res = await api.post('/api/assets', data)
+  return toObject(res.data)
+}
+export const updateAsset = async (id, data) => {
+  const res = await api.put(`/api/assets/${id}`, data)
+  return toObject(res.data)
+}
+export const deleteAsset = async (id) => api.delete(`/api/assets/${id}`)
+
+export const getAssetCategories = async (params = {}) => {
+  const res = await api.get('/api/asset-categories', { params: { limit: MAX_LIMIT, ...params } })
+  return toArray(res.data)
+}
+
 // ── Pricing ─────────────────────────────────────────────────────────────────
 // Server-side tax calculation over the master-data chain
 // costinfo → taxgroup → taxgrouptaxtypemapper → TaxTypes, honouring each cost
@@ -320,34 +429,32 @@ export const quotePricing = async (lines, discount = null) => {
   return toObject(res.data)
 }
 
-// ── Dashboard aggregate (derived from orders, bills, tables, kots) ────────────
+// ── Dashboard aggregate ──────────────────────────────────────────────────────
+// Reads the server's aggregation (GET /api/pos/reports) and flattens it for the
+// KPI cards, rather than re-deriving the numbers in the browser.
+//
+// The old implementation fanned out to four list endpoints and aggregated here,
+// and every one of its figures was wrong in a different way:
+//   - Pending KOTs compared `k.Status !== 'Ready'` with strict !== against a
+//     server that only ever writes 'ready', so the count only ever went up.
+//   - Every KPI was computed over a single page capped at 100 rows.
+//   - "Today" was a UTC date boundary, off by 5h30m for an IST outlet.
+//   - Revenue summed pos_bill.Total, the source the backend abandoned as
+//     unreliable in favour of the ledger.
+//   - Promise.allSettled turned a 403 into "₹0" with no error shown at all.
+// Sharing the Reports page's endpoint also means the two screens cannot disagree.
 export const getDashboardStats = async () => {
-  const [orders, bills, tables, kots] = await Promise.allSettled([
-    getOrders({ limit: MAX_LIMIT }),
-    getBills({ limit: MAX_LIMIT }),
-    getTables({ limit: MAX_LIMIT }),
-    getKots({ limit: MAX_LIMIT }),
-  ])
-  const safeValue = (settled) => (settled.status === 'fulfilled' ? settled.value : [])
-  const ordersData = safeValue(orders)
-  const billsData  = safeValue(bills)
-  const tablesData = safeValue(tables)
-  const kotsData   = safeValue(kots)
-
-  const todayStr = new Date().toISOString().slice(0, 10)
-  const todayOrders = ordersData.filter((o) => (o.CreatedOn || o.createdAt || '').slice(0, 10) === todayStr)
-  const todayBills  = billsData.filter((b) => (b.CreatedOn || b.createdAt || '').slice(0, 10) === todayStr)
-  const revenue     = todayBills.reduce((sum, b) => sum + (Number(b.Total) || 0), 0)
-  const occupied    = tablesData.filter((t) => t.Status === 'Occupied').length
-  const pendingKots = kotsData.filter((k) => k.Status !== 'Ready' && k.Status !== 'Delivered').length
+  const summary = await getReports()
+  const today = summary?.today || {}
+  const tables = summary?.tables || {}
 
   return {
-    todayOrders: todayOrders.length,
-    todayRevenue: revenue,
-    totalTables: tablesData.length,
-    occupiedTables: occupied,
-    pendingKots,
-    recentOrders: ordersData.slice(0, 5),
+    todayOrders: Number(today.orders) || 0,
+    todayRevenue: Number(today.revenue) || 0,
+    totalTables: Number(tables.total) || 0,
+    occupiedTables: Number(tables.occupied) || 0,
+    pendingKots: Number(today.pendingKots) || 0,
+    recentOrders: (summary?.recentOrders || []).slice(0, 5),
   }
 }
 
@@ -363,10 +470,17 @@ const posService = {
   getFeedback, createFeedback, updateFeedback, deleteFeedback,
   getTokens, createToken, updateToken, deleteToken,
   getExpenses, createExpense, updateExpense, deleteExpense,
+  approveExpense, rejectExpense, settleExpense, getExpenseCategories,
   getStaff, createStaff, updateStaff, deleteStaff,
   getVariants,
   getPaymentModes,
   getLedgerDocuments, getLedgerDocument, refundLedgerDocument,
+  getFinanceOverview, getSalesReport, getProductReport, getPendingReport,
+  getTenderReport, getCashFlowReport, getExpenseReport,
+  getVenueReport, getDiscountReport,
+  getCashSessions, getCashSession, getCashSessionSummary,
+  openCashSession, closeCashSession,
+  getAssets, getAssetSummary, createAsset, updateAsset, deleteAsset, getAssetCategories,
   quotePricing,
   getDashboardStats,
   getReports,

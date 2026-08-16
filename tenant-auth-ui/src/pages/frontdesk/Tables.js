@@ -8,22 +8,20 @@ import FormModal from '../../components/MasterData/FormModal'
 import ConfirmDialog from '../../components/MasterData/ConfirmDialog'
 import RoundsTimeline from '../../components/frontdesk/RoundsTimeline'
 import { buildTableRounds } from '../../utils/posRounds'
+import { TABLE_STATUSES, statusLabel } from '../../utils/posStatus'
 
 const { MAX_LIMIT } = APP_CONFIG.PAGINATION
-
-// Canonical table statuses — single source of truth for both the Create/Edit
-// dropdown and the occupancy-view color coding below. Must match the backend
-// enum in postable.schemas.js / config/constants.js (POS_TABLE_STATUSES).
-const TABLE_STATUSES = ['Available', 'Occupied', 'Reserved']
 
 const TABLE_FIELDS = [
   { name: 'Name', type: 'text', required: true, maxLength: 50 },
   { name: 'Capacity', type: 'number', min: 1 },
   {
+    // Values are the canonical lowercase enum the API validates against; the
+    // dropdown shows them Title Case.
     name: 'Status',
     type: 'select',
-    default: 'Available',
-    options: TABLE_STATUSES.map((s) => ({ value: s, label: s })),
+    default: 'free',
+    options: TABLE_STATUSES.map((s) => ({ value: s, label: statusLabel(s) })),
   },
   { name: 'Active', type: 'boolean', default: true },
 ]
@@ -236,7 +234,7 @@ const Tables = () => {
                       <div className="table-cap">Capacity: {t.Capacity}</div>
                     )}
                     {t.Status && (
-                      <div className="table-status">{t.Status}</div>
+                      <div className="table-status">{statusLabel(t.Status)}</div>
                     )}
                     {canWrite && (
                       <div style={{ display: 'flex', gap: 4, marginTop: 8 }}>
@@ -292,7 +290,7 @@ const Tables = () => {
                     <tr key={tid}>
                       <td>{t.Name}</td>
                       <td>{t.Capacity ?? '—'}</td>
-                      <td>{t.Status || '—'}</td>
+                      <td>{statusLabel(t.Status)}</td>
                       <td>{floor?.Name || t.FloorId || '—'}</td>
                       <td>
                         <span className={`fd-badge ${t.Active ? 'fd-badge-active' : 'fd-badge-closed'}`}>
@@ -343,7 +341,7 @@ const Tables = () => {
             <div className="fd-modal-header">
               <h3>
                 🪑 {detailTable.Name || detailTable.name}
-                {detailTable.Status ? ` (${detailTable.Status})` : ''}
+                {detailTable.Status ? ` (${statusLabel(detailTable.Status)})` : ''}
               </h3>
               <button className="fd-modal-close" onClick={() => setDetailTableId(null)}>✕</button>
             </div>

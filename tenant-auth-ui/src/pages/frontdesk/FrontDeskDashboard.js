@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { toast } from 'react-toastify'
 import posService from '../../services/posService'
+import { normalizeStatus, statusLabel } from '../../utils/posStatus'
 
 const FrontDeskDashboard = () => {
   const [stats, setStats]   = useState(null)
@@ -18,10 +19,13 @@ const FrontDeskDashboard = () => {
 
   const fmt = (n) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n)
 
+  // Statuses are stored lowercase; the badge renders them Title Case. Matching
+  // on the raw value is what broke the Pending KOTs count, so every read here
+  // normalizes first.
   const statusBadge = (status) => {
-    const s = (status || '').toLowerCase()
-    const cls = s === 'active' ? 'active' : s === 'closed' ? 'closed' : 'pending'
-    return <span className={`fd-badge fd-badge-${cls}`}>{status || '—'}</span>
+    const s = normalizeStatus(status)
+    const cls = s === 'open' || s === 'fired' ? 'active' : s === 'closed' ? 'closed' : 'pending'
+    return <span className={`fd-badge fd-badge-${cls}`}>{statusLabel(status)}</span>
   }
 
   return (
@@ -55,6 +59,7 @@ const FrontDeskDashboard = () => {
           <thead>
             <tr>
               <th>Order No</th>
+              <th>Table</th>
               <th>Type</th>
               <th>Status</th>
               <th>Total</th>
@@ -65,7 +70,10 @@ const FrontDeskDashboard = () => {
             {stats.recentOrders.map((o) => (
               <tr key={o.id || o.Id}>
                 <td>{o.OrderNo || '—'}</td>
-                <td>{o.OrderType || '—'}</td>
+                {/* Joined server-side. This column used to be absent, so a
+                    cashier could not tell which table a round belonged to. */}
+                <td>{o.TableName || '—'}</td>
+                <td>{statusLabel(o.OrderType)}</td>
                 <td>{statusBadge(o.Status)}</td>
                 <td>{o.Total != null ? fmt(o.Total) : '—'}</td>
                 <td>{o.CreatedOn ? new Date(o.CreatedOn).toLocaleString() : '—'}</td>

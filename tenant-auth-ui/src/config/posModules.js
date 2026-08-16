@@ -83,23 +83,42 @@ export const POS_MODULES = {
     searchFields: ['Name', 'Phone', 'Email'],
   },
 
-  posExpenses: {
-    key: 'posExpenses',
-    name: 'Expenses',
-    endpoint: '/api/pos/expenses',
-    icon: '💸',
-    category: POS_CATEGORIES.OPERATIONS,
-    displayField: 'Category',
+  // NOTE: expenses no longer use the generic CRUD screen. They have an approval
+  // lifecycle (draft → approved → settled) where Status moves through dedicated
+  // endpoints, which a field-driven form cannot express — see pages/frontdesk/
+  // Expenses.js. This entry remains only as the reference-data source for
+  // category lookups elsewhere.
+
+  expenseCategories: {
+    key: 'expenseCategories',
+    name: 'Expense Categories',
+    endpoint: '/api/expense-categories',
+    icon: '🏷️',
+    category: POS_CATEGORIES.CONFIG,
+    displayField: 'Name',
     fields: [
-      { name: 'Category', type: 'text', required: true, maxLength: 100 },
-      { name: 'Description', type: 'textarea', maxLength: 500 },
-      { name: 'Amount', type: 'number', required: true, min: 0, step: 0.01 },
-      { name: 'ExpenseDate', label: 'Expense Date', type: 'date' },
-      { name: 'BranchDetailId', label: 'Branch', type: 'select', reference: 'branchDetails' },
+      { name: 'Name', type: 'text', required: true, maxLength: 100 },
+      // Which EXPENSE-kind account the spend books against.
+      { name: 'AccountTypeBaseId', label: 'Account', type: 'select', reference: 'accountTypeBases' },
       { name: 'Active', type: 'boolean', default: true },
     ],
-    tableColumns: ['Category', 'Amount', 'ExpenseDate', 'Description', 'BranchDetailId', 'Active', 'CreatedOn'],
-    searchFields: ['Category', 'Description'],
+    tableColumns: ['Name', 'AccountName', 'Active', 'CreatedOn'],
+    searchFields: ['Name'],
+  },
+
+  assetCategories: {
+    key: 'assetCategories',
+    name: 'Asset Categories',
+    endpoint: '/api/asset-categories',
+    icon: '🏷️',
+    category: POS_CATEGORIES.CONFIG,
+    displayField: 'Name',
+    fields: [
+      { name: 'Name', type: 'text', required: true, maxLength: 100 },
+      { name: 'Active', type: 'boolean', default: true },
+    ],
+    tableColumns: ['Name', 'Active', 'CreatedOn'],
+    searchFields: ['Name'],
   },
 
   posFeedback: {

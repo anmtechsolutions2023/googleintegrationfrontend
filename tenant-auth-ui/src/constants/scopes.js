@@ -36,6 +36,13 @@ export const SCOPES = {
   POS_OPS_READ:       'POS_OPS:READ',
   POS_OPS_WRITE:      'POS_OPS:WRITE',
   POS_REPORTS_READ:   'POS_REPORTS:READ',
+
+  // Approving an expense commits money, so it is deliberately NOT POS_OPS:WRITE
+  // — the person who raises a claim should not be able to approve it.
+  EXPENSE_APPROVE:    'EXPENSE:APPROVE',
+  // The asset register is finance-owned reference data, not floor operations.
+  ASSET_READ:         'ASSET:READ',
+  ASSET_WRITE:        'ASSET:WRITE',
 }
 
 export default SCOPES

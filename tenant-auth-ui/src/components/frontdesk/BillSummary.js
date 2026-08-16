@@ -65,7 +65,18 @@ const BillSummary = ({ rounds, title = 'Bill Summary', defaultOpenBreakup = fals
                       {it.isTaxIncluded && <span className="tax-flag incl">incl.</span>}
                     </td>
                     <td>₹{money(it.net)}</td>
-                    <td>{it.rate ? `${it.rate}%` : '—'}</td>
+                    {/* The rate is the SUM of the group's components, which is
+                        why a "GST 5%" group entered as CGST 5 + SGST 5 charges
+                        10%. Showing the make-up alongside it turns that from an
+                        unexplained number into a visible setup choice. */}
+                    <td>
+                      {it.rate ? `${it.rate}%` : '—'}
+                      {it.rate > 0 && it.components?.length > 1 && (
+                        <span className="fd-bill-gst-parts">
+                          {it.components.map((c) => `${c.name} ${c.rate}`).join(' + ')}
+                        </span>
+                      )}
+                    </td>
                     <td>₹{money(it.tax)}</td>
                     <td>₹{money(it.gross)}</td>
                   </tr>

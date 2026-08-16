@@ -124,32 +124,56 @@ describe('posService generic helpers', () => {
 })
 
 // ── getDashboardStats ─────────────────────────────────────────────────────────
+// The dashboard reads the server's aggregation instead of re-deriving the
+// numbers from four list endpoints in the browser. That old approach got every
+// figure wrong in a different way — most visibly Pending KOTs, which compared
+// `Status !== 'Ready'` against a server that only writes 'ready', so the count
+// went up forever and never came back down.
 describe('posService.getDashboardStats', () => {
-  test('returns zeroed stats when all endpoints fail', async () => {
+  const summary = {
+    today: { orders: 4, revenue: 2500, pendingKots: 1 },
+    tables: { total: 2, occupied: 1 },
+    recentOrders: [
+      { Id: 'o1', OrderNo: 'ORD-0002', Status: 'fired', TableName: 'T1' },
+      { Id: 'o2', OrderNo: 'ORD-0001', Status: 'closed', TableName: 'T1' },
+    ],
+  }
+
+  test('reads the aggregate off /api/pos/reports', async () => {
+    api.get.mockResolvedValue({ data: { data: summary } })
+    const stats = await posService.getDashboardStats()
+
+    expect(api.get).toHaveBeenCalledWith('/api/pos/reports', expect.anything())
+    expect(stats.todayOrders).toBe(4)
+    expect(stats.todayRevenue).toBe(2500)
+    expect(stats.totalTables).toBe(2)
+    expect(stats.occupiedTables).toBe(1)
+    expect(stats.pendingKots).toBe(1)
+    expect(stats.recentOrders).toHaveLength(2)
+  })
+
+  test('does not fan out to the paginated list endpoints', async () => {
+    // Those pages are capped at 100 rows, so counting over them under-reported
+    // the moment an outlet passed 100 orders in a day.
+    api.get.mockResolvedValue({ data: { data: summary } })
+    await posService.getDashboardStats()
+
+    expect(api.get.mock.calls.map(([url]) => url)).toEqual(['/api/pos/reports'])
+  })
+
+  test('surfaces a failure rather than rendering zeroes', async () => {
+    // Promise.allSettled used to turn a 403 into "Today's Revenue: ₹0" with no
+    // error at all — a number that looks like a fact but is an outage.
     api.get.mockRejectedValue(new Error('network error'))
+    await expect(posService.getDashboardStats()).rejects.toThrow('network error')
+  })
+
+  test('zeroes only what the server genuinely omitted', async () => {
+    api.get.mockResolvedValue({ data: { data: {} } })
     const stats = await posService.getDashboardStats()
     expect(stats.todayOrders).toBe(0)
     expect(stats.todayRevenue).toBe(0)
     expect(stats.pendingKots).toBe(0)
-  })
-
-  test('counts today orders correctly', async () => {
-    const today = new Date().toISOString()
-    api.get.mockImplementation((url) => {
-      if (url === '/api/pos/orders')
-        return ok({ data: [{ CreatedOn: today, Status: 'Active' }] })
-      if (url === '/api/pos/bills')
-        return ok({ data: [{ CreatedOn: today, SettledAt: today, Total: 500, Status: 'Settled' }] })
-      if (url === '/api/pos/tables')
-        return ok({ data: [{ Status: 'Occupied' }, { Status: 'Available' }] })
-      if (url === '/api/pos/kots')
-        return ok({ data: [{ Status: 'Pending' }] })
-      return ok({ data: [] })
-    })
-    const stats = await posService.getDashboardStats()
-    expect(stats.todayOrders).toBe(1)
-    expect(stats.totalTables).toBe(2)
-    expect(stats.occupiedTables).toBe(1)
-    expect(stats.pendingKots).toBe(1)
+    expect(stats.recentOrders).toEqual([])
   })
 })

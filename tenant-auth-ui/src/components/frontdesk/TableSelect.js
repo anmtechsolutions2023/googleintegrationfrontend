@@ -40,12 +40,17 @@ const TableSelect = ({ tables, floors = [], value, onChange, placeholder = '— 
 
   return (
     <div className="fd-tsel" ref={ref}>
+      {/* A stable name. Without it the control announces itself as whatever is
+          currently picked ("R4 Occupied"), so a screen-reader user hears a value
+          with no idea what it selects — and the label changes out from under
+          them on every choice. */}
       <button
         type="button"
         className="fd-tsel-trigger"
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-label="Table"
       >
         {selected ? (
           <span className={`fd-tsel-face ${selMeta.key}`}>

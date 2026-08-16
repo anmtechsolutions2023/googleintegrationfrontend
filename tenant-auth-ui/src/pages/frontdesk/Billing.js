@@ -5,9 +5,10 @@ import { APP_CONFIG } from '../../constants'
 import RoundsTimeline from '../../components/frontdesk/RoundsTimeline'
 import BillSummary from '../../components/frontdesk/BillSummary'
 import TransferSheet from '../../components/frontdesk/TransferSheet'
-import TableSelect from '../../components/frontdesk/TableSelect'
-import { buildTableRounds, formatRoundTime } from '../../utils/posRounds'
-import { summarizeSession, estimateAfterDiscount } from '../../utils/posBilling'
+import { tableStatusMeta } from '../../components/frontdesk/TableSelect'
+import FloorPlanPicker from '../../components/frontdesk/FloorPlanPicker'
+import { buildTableRounds, formatRoundTime, itemLabel } from '../../utils/posRounds'
+import { summarizeSession, estimateAfterDiscount, roundPayable } from '../../utils/posBilling'
 
 const { MAX_LIMIT } = APP_CONFIG.PAGINATION
 
@@ -22,9 +23,12 @@ const itemPrice = (meta) => {
   return 0
 }
 
+// Falls back to a placeholder rather than the raw ItemDetailId: a uuid on a cart
+// line, a printed bill and a kitchen ticket is worse than an honest "Unnamed
+// item", and it used to travel all the way to the cook.
 const itemName = (meta, detail) => {
-  if (detail) return detail.Name || detail.name || meta.ItemDetailId || ''
-  return meta.ItemDetailId || ''
+  if (detail) return detail.Name || detail.name || 'Unnamed item'
+  return 'Unnamed item'
 }
 
 // Effective tax rate for a menu row, straight off the server-resolved chain
@@ -38,10 +42,6 @@ const itemTaxRate = (meta) => Number(meta?.TaxBreakdown?.effectiveRate) || 0
 
 const money = (n) => (Number(n) || 0).toFixed(2)
 
-// Generate order number
-const nextOrderNo = () => `ORD-${Date.now().toString().slice(-6)}`
-const nextBillNo  = () => `BILL-${Date.now().toString().slice(-6)}`
-const nextKotNo   = () => `KOT-${Date.now().toString().slice(-6)}`
 
 const Billing = () => {
   const [tables, setTables]     = useState([])
@@ -61,12 +61,25 @@ const Billing = () => {
   const [menuSearch, setMenuSearch] = useState('')
   const [activeOrders, setActiveOrders] = useState([])
   const [selectedOrderId, setSelectedOrderId] = useState(null)
+  // True while the selected table's live rounds are being fetched.
+  const [sessionLoading, setSessionLoading] = useState(false)
 
   // settle bill modal
   const [settleOpen, setSettleOpen] = useState(false)
   const [settleDiscount, setSettleDiscount] = useState(0)
   // How the discount value is interpreted: a flat ₹ amount or a % of the subtotal.
   const [settleDiscountType, setSettleDiscountType] = useState('amount')
+  // Whether the cashier is discounting the bill as a whole or individual dishes.
+  // Both can apply at once — the toggle only decides which controls are shown.
+  const [discountMode, setDiscountMode] = useState('bill')
+  // Per-item discount DRAFTS, keyed "<orderId>#<lineIndex>" → { type, value },
+  // where value is the raw input string and may be empty.
+  //
+  // Empty drafts are kept rather than dropped: ₹/% is chosen BEFORE the number
+  // is typed, and deleting the entry the moment the value was blank reset the
+  // choice straight back to ₹ — the toggle looked dead. `activeLineDiscounts`
+  // is what leaves this component, so a blank draft still prices nothing.
+  const [lineDiscounts, setLineDiscounts] = useState({})
   // Tender rows. Each becomes one paymentbreakup in the ledger, so the UI
   // mirrors the data model exactly — no translation layer to get wrong.
   const [paymentModes, setPaymentModes] = useState([])
@@ -89,10 +102,13 @@ const Billing = () => {
   const load = useCallback(async () => {
     setLoading(true)
     try {
+      // Every list needs MAX_LIMIT explicitly: the API's default page size is 10,
+      // so omitting it silently capped the menu at 10 dishes and the floor plan
+      // at 10 tables — the item you wanted simply was not on the grid.
       const [t, f, m, orders, v, k, modes] = await Promise.all([
-        posService.getTables(),
-        posService.getFloors(),
-        posService.getItemMeta(),
+        posService.getTables({ limit: MAX_LIMIT }),
+        posService.getFloors({ limit: MAX_LIMIT }),
+        posService.getItemMeta({ limit: MAX_LIMIT }),
         posService.getOrders({ limit: MAX_LIMIT }),
         posService.getVariants(),
         posService.getKots({ limit: MAX_LIMIT }),
@@ -107,17 +123,26 @@ const Billing = () => {
       const open = orders.filter((o) => (o.Status || '').toLowerCase() !== 'closed')
       setActiveOrders(open)
 
-      // Fetch item details for all ItemDetailIds (to show names)
+      // Fetch item details for all ItemDetailIds (to show names). A miss here is
+      // not cosmetic: the name resolved from these is what goes onto the order
+      // line, into the KOT snapshot and onto the kitchen display. Silently
+      // swallowing the failure printed a raw uuid to the cook, so the count of
+      // unresolved names is surfaced instead.
       const ids = [...new Set(m.map((x) => x.ItemDetailId).filter(Boolean))]
       if (ids.length > 0) {
         const details = {}
+        let unresolved = 0
         await Promise.allSettled(ids.map(async (id) => {
           try {
             const d = await posService.getItemDetail(id)
             if (d) details[id] = d
-          } catch {}
+            else unresolved += 1
+          } catch { unresolved += 1 }
         }))
         setItemDetails(details)
+        if (unresolved > 0) {
+          toast.warn(`${unresolved} menu item name(s) could not be loaded`)
+        }
       }
     } catch {
       toast.error('Failed to load billing data')
@@ -143,10 +168,24 @@ const Billing = () => {
       .filter(Boolean)
   }
 
+  // The menu is inert until a table is chosen. Enforced here as well as in the
+  // markup: the visual lock is the explanation, this is the rule. Without it a
+  // stray keyboard activation could still build a cart with nowhere to send it.
+  const menuLocked = !selectedTable
+
+  // The selected table, for the header bar. Falls back to a neutral chip if the
+  // table has since been retired from the floor plan mid-session.
+  const selectedTableRow = tables.find((t) => (t.id || t.Id) === selectedTable) || null
+  const selectedTableMeta = tableStatusMeta(selectedTableRow)
+  const selectedTableName = selectedTableRow
+    ? (selectedTableRow.Name || selectedTableRow.name)
+    : 'Table'
+
   // Clicking a menu card adds it straight away unless it offers options, in
   // which case the picker opens first. Opting in is optional — Skip adds the
   // plain item.
   const handleMenuClick = (meta) => {
+    if (menuLocked) { toast.warn('Select a table before adding items'); return }
     const available = variantsFor(meta)
     if (available.length === 0) { addToCart(meta, []); return }
     setVariantPick({ meta, selected: [] })
@@ -202,6 +241,7 @@ const Billing = () => {
   // second implementation here would drift by a paisa and disagree with the bill.
   const [quote, setQuote] = useState(null)
   const [quoting, setQuoting] = useState(false)
+  const [quoteFailed, setQuoteFailed] = useState(false)
 
   const subTotal = cartItems.reduce((s, c) => s + c.price * c.qty, 0)
 
@@ -216,16 +256,18 @@ const Billing = () => {
         ref: c.lineKey,
       }))
 
-    if (lines.length === 0) { setQuote(null); return }
+    if (lines.length === 0) { setQuote(null); setQuoteFailed(false); return }
 
     let cancelled = false
     setQuoting(true)
     posService
       .quotePricing(lines)
-      .then((res) => { if (!cancelled) setQuote(res) })
+      .then((res) => { if (!cancelled) { setQuote(res); setQuoteFailed(false) } })
       // A failed quote must not block order taking — fall back to showing the
-      // untaxed subtotal rather than wedging the till.
-      .catch(() => { if (!cancelled) setQuote(null) })
+      // untaxed subtotal rather than wedging the till. It IS flagged though:
+      // the order the server saves still carries correct tax, so a silent
+      // fallback showed the cashier one total and charged another.
+      .catch(() => { if (!cancelled) { setQuote(null); setQuoteFailed(true) } })
       .finally(() => { if (!cancelled) setQuoting(false) })
 
     return () => { cancelled = true }
@@ -289,6 +331,18 @@ const Billing = () => {
     return m
   }, [kots])
 
+  // The drafts that actually count: a chosen type with a real number behind it,
+  // coerced to the numeric shape the pricing engine and the bill both expect.
+  // Everything that leaves this component reads THIS, never the raw drafts.
+  const activeLineDiscounts = useMemo(() => {
+    const out = {}
+    Object.entries(lineDiscounts).forEach(([ref, d]) => {
+      const value = Number(d?.value)
+      if (value > 0) out[ref] = { type: d.type, value }
+    })
+    return out
+  }, [lineDiscounts])
+
   // Priceable lines across every committed round — used to re-quote the settle
   // total with the discount folded in (discount BEFORE tax) via the same server
   // engine the cart uses, so the preview never drifts from the raised bill.
@@ -301,9 +355,26 @@ const Billing = () => {
           it.variantIds ||
           (Array.isArray(it.variants) ? it.variants.map((v) => v.id || v.Id).filter(Boolean) : []),
         ref: `${r.orderId}#${i}`,
+        // The per-item discount, keyed by the same ref the bill will store it
+        // under. The engine applies it to this line before tax, then spreads any
+        // whole-bill discount on top.
+        discount: activeLineDiscounts[`${r.orderId}#${i}`] || null,
       })),
     ).filter((l) => l.costInfoId),
-  [sessionRounds])
+  [sessionRounds, activeLineDiscounts])
+
+  // Display labels for those lines, keyed by ref. Kept OUT of settleLines
+  // because the quote endpoint rejects unknown keys — the wire shape is the
+  // contract, and decorating it for the UI would 400 the whole settle.
+  const settleLineLabels = useMemo(() => {
+    const map = {}
+    sessionRounds.forEach((r) => {
+      (r.items || []).forEach((it, i) => {
+        map[`${r.orderId}#${i}`] = itemLabel(it)
+      })
+    })
+    return map
+  }, [sessionRounds])
 
   // Re-quote (debounced) whenever the settle modal is open and the discount
   // changes. Falls back to a snapshot estimate when nothing is priceable.
@@ -322,16 +393,25 @@ const Billing = () => {
 
   // Numbers shown in the settle modal: prefer the live server quote; otherwise
   // estimate the discount effect from the session snapshot totals.
+  //
+  // `payable` is the gross ROUNDED TO THE NEAREST RUPEE, because that is what the
+  // ledger will invoice (see roundPayable). Quoting the unrounded gross here made
+  // "Exact" hand over less than the invoice asked for, and the sale posted
+  // PARTIALLY_PAID over a few paise nobody could see.
   const settleTotals = useMemo(() => {
     const value = Number(settleDiscount) || 0
     if (settleQuote?.totals) {
       const t = settleQuote.totals
+      const gross = Number(t.grossAmount) || 0
+      const { payable, roundOff } = roundPayable(gross)
       return {
         subTotal: sessionSummary.subTotal,
         discount: Number(t.discountAmount) || 0,
         taxable: Number(t.netAmount) || 0,
         tax: Number(t.taxAmount) || 0,
-        payable: Number(t.grossAmount) || 0,
+        gross,
+        roundOff,
+        payable,
         taxByComponent: t.taxByComponent || [],
         estimated: false,
       }
@@ -342,16 +422,60 @@ const Billing = () => {
       ? (sessionSummary.subTotal * value) / 100
       : value
     const est = estimateAfterDiscount(sessionSummary, resolvedAmount)
+    const { payable, roundOff } = roundPayable(est.total)
     return {
       subTotal: sessionSummary.subTotal,
       discount: est.discount,
       taxable: est.taxable,
       tax: est.tax,
-      payable: est.total,
+      gross: est.total,
+      roundOff,
+      payable,
       taxByComponent: [],
       estimated: true,
     }
   }, [settleQuote, sessionSummary, settleDiscount, settleDiscountType])
+
+  // The whole-bill part of the discount, on its own.
+  //
+  // Taken from the quote's per-line bill shares rather than from the input,
+  // because the server has already resolved a percentage and capped the value at
+  // what is actually being sold. Sending the raw input instead would disagree
+  // with the payable the cashier just read whenever either applied.
+  const billDiscountAmount = useMemo(() => {
+    const lines = settleQuote?.lines
+    if (Array.isArray(lines) && lines.length > 0) {
+      const sum = lines.reduce((s, l) => s + (Number(l.billDiscountAmount) || 0), 0)
+      return Math.round(sum * 100) / 100
+    }
+    // No quote: fall back to the typed amount, resolving a % off the subtotal.
+    const value = Number(settleDiscount) || 0
+    const resolved = settleDiscountType === 'percent'
+      ? (sessionSummary.subTotal * value) / 100
+      : value
+    return Math.round(resolved * 100) / 100
+  }, [settleQuote, settleDiscount, settleDiscountType, sessionSummary])
+
+  // Per-line item discount in rupees, keyed by the ref the row was sent under —
+  // the quote echoes `ref` back untouched. Lets each row show what its ₹ or %
+  // actually took off, which is the only confirmation a % input ever gets.
+  const lineDiscountOff = useMemo(() => {
+    const map = {}
+    const lines = settleQuote?.lines
+    if (!Array.isArray(lines)) return map
+    lines.forEach((l) => {
+      if (l.ref) map[l.ref] = Number(l.itemDiscountAmount) || 0
+    })
+    return map
+  }, [settleQuote])
+
+  // What the per-item discounts came to, for the settle modal's breakdown.
+  const itemDiscountAmount = useMemo(() => {
+    const lines = settleQuote?.lines
+    if (!Array.isArray(lines)) return 0
+    const sum = lines.reduce((s, l) => s + (Number(l.itemDiscountAmount) || 0), 0)
+    return Math.round(sum * 100) / 100
+  }, [settleQuote])
 
   // ── Tenders ───────────────────────────────────────────────────────────────
   // Balance due is the number a cashier actually works to, so it drives both
@@ -419,10 +543,63 @@ const Billing = () => {
     setSelectedOrderId(rounds.length ? rounds[rounds.length - 1].orderId : null)
   }, [selectedTable, activeOrders])
 
-  // A round whose KOT is already in the kitchen — used to fire-once and to label.
-  const isRoundFired = (r) => /fired/i.test(String(r?.status || ''))
+  // Selecting a table RESUMES it: fetch that table's live rounds from the server
+  // rather than trusting the list loaded at mount.
+  //
+  // This matters on the second visit to an occupied table. The mount-time list is
+  // one page deep and already stale by the time a shift is busy — another till may
+  // have added a round, or settled the table entirely. Asking for this table
+  // specifically is both correct and cheap, and it is what makes "select an
+  // occupied table and carry on" trustworthy rather than usually-right.
+  useEffect(() => {
+    if (!selectedTable) { setSessionLoading(false); return }
+    let cancelled = false
+    setSessionLoading(true)
+    posService
+      .getOrders({ tableId: selectedTable, openOnly: true, limit: MAX_LIMIT })
+      .then((rows) => {
+        if (cancelled) return
+        // Merge rather than replace: activeOrders also backs the Transfer sheet,
+        // which needs to know about tables other than this one.
+        setActiveOrders((prev) => {
+          const fresh = Array.isArray(rows) ? rows : []
+          const freshIds = new Set(fresh.map((o) => o.id || o.Id))
+          return [
+            // Drop this table's stale rows — including any that have since been
+            // settled, so a closed table stops looking occupied.
+            ...prev.filter((o) => o.TableId !== selectedTable && !freshIds.has(o.id || o.Id)),
+            ...fresh,
+          ]
+        })
+      })
+      // A failed refresh falls back to the list already in hand rather than
+      // emptying the screen — stale context beats no context at a till.
+      .catch(() => { if (!cancelled) toast.warn('Could not refresh this table — showing last known order') })
+      .finally(() => { if (!cancelled) setSessionLoading(false) })
+    return () => { cancelled = true }
+  }, [selectedTable])
+
+  // The cart belongs to the table it was built for. Switching tables must not
+  // carry someone else's items across — that bills the wrong guest.
+  const handleTableChange = (tableId) => {
+    if (tableId !== selectedTable && cartItems.length > 0) {
+      setCartItems([])
+      toast.info('Cart cleared — it belonged to the previous table')
+    }
+    setSelectedTable(tableId)
+  }
+
+  // Has this round reached the kitchen? The presence of a ticket is the real
+  // answer — the order's own 'fired' status is only a shadow of it, and the two
+  // can differ if a ticket was cancelled. Used to label the button and to warn
+  // before settling.
+  const isRoundSent = (r) => !!kotStatusByOrder[r?.orderId] || /fired/i.test(String(r?.status || ''))
   const selectedRound = sessionRounds.find((r) => r.orderId === selectedOrderId) || null
-  const selectedFired = isRoundFired(selectedRound)
+  const selectedSent = isRoundSent(selectedRound)
+
+  // Rounds nobody sent to the kitchen. Settling is still allowed — a drink
+  // served from the counter never needs a ticket — but it must not be silent.
+  const unsentRounds = sessionRounds.filter((r) => !isRoundSent(r))
 
   // Delete a whole round even after its KOT fired — the customer changed the
   // order. The server pulls the KOT from the kitchen and frees the table.
@@ -451,23 +628,25 @@ const Billing = () => {
     const isFirst = sessionRounds.length === 0
     try {
       const tableObj = tables.find((t) => (t.id || t.Id) === selectedTable)
+      // OrderNo comes from the server's numbering series. It used to be minted
+      // here from the last 6 digits of Date.now(), which wraps every ~16m40s and
+      // then collides with UNIQUE (OrderNo, TenantId) — the round just failed.
       const order = await posService.createOrder({
-        OrderNo: nextOrderNo(),
         TableId: selectedTable,
-        OrderType: 'Dine-in',
-        Status: 'Active',
+        OrderType: 'dinein',
         Items: buildOrderItems(),
-        SubTotal: subTotal,
-        TaxAmount: taxAmount,
-        Total: grandTotal,
         BranchDetailId: tableObj?.BranchDetailId || null,
       })
       const orderId = order.id || order.Id
       if (isFirst) {
         // First round opens the session and marks the table occupied
-        await posService.updateTable(selectedTable, { Status: 'Occupied', CurrentOrderId: orderId })
+        await posService.updateTable(selectedTable, { Status: 'occupied', CurrentOrderId: orderId })
       }
-      toast.success(isFirst ? 'Order started (Round 1)' : `Added Round ${sessionRounds.length + 1}`)
+      // Placing a round does NOT send it to the kitchen — that is a separate,
+      // deliberate tap. Say so, because a waiter who assumes otherwise is how a
+      // round ends up never being cooked.
+      const roundNo = isFirst ? 1 : sessionRounds.length + 1
+      toast.success(`Round ${roundNo} added — press Send KOT when it is ready to cook`)
       setCartItems([])
       setSelectedOrderId(orderId)
       await load()
@@ -514,14 +693,21 @@ const Billing = () => {
     }
   }
 
-  const handleFireKot = async () => {
-    if (!selectedOrderId) { toast.warn('Select an order first'); return }
+  // Send this round to the kitchen. The server is send-once: a round that
+  // already has a live ticket gets no second one, so a double-tap cannot put the
+  // same food on the pass twice. The toast says which happened.
+  const handleSendKot = async () => {
+    if (!selectedOrderId) { toast.warn('Select a round first'); return }
     try {
-      await posService.fireKot(selectedOrderId)
-      toast.success('KOT fired to kitchen')
+      const kot = await posService.fireKot(selectedOrderId)
+      if (kot?.AlreadySent) {
+        toast.info(`Already in the kitchen (${kot.KotNo || 'KOT'})`)
+      } else {
+        toast.success(`Sent to the kitchen (${kot?.KotNo || 'KOT'})`)
+      }
       load()
     } catch (e) {
-      toast.error(e?.response?.data?.message || 'Failed to fire KOT')
+      toast.error(e?.response?.data?.message || 'Failed to send to the kitchen')
     }
   }
 
@@ -536,14 +722,19 @@ const Billing = () => {
       // the discount BEFORE tax, so no totals are calculated here. Sending
       // OrderIds is what lets it do that — OrderId alone only named round 1.
       //
-      // The bill takes a flat ₹ discount, so a % is sent as the resolved rupee
-      // amount the preview already computed — the raised bill then matches the
-      // payable the cashier saw, with no server-side percent handling needed.
-      const discount = Math.round((Number(settleTotals.discount) || 0) * 100) / 100
+      // Discount is sent as TWO separate things, and conflating them would
+      // double-count: pos_bill.Discount is the whole-bill reduction only, while
+      // the per-item ones travel as LineDiscounts and are re-applied per line.
+      //
+      // The bill takes a flat ₹ figure, so a % is resolved here — and resolved
+      // from the quote's own per-line bill shares rather than by multiplying the
+      // subtotal, because the server already capped and apportioned it.
+      const discount = billDiscountAmount
+      // BillNo, like OrderNo, is issued by the server's numbering series.
       const bill = await posService.createBill({
-        BillNo: nextBillNo(),
         OrderIds: sessionRounds.map((r) => r.orderId),
         Discount: discount,
+        LineDiscounts: activeLineDiscounts,
         Status: 'Pending',
         BranchDetailId: sessionRounds[0].order.BranchDetailId || null,
       })
@@ -557,13 +748,14 @@ const Billing = () => {
           refNo: String(t.refNo || '').trim() || null,
         })),
         Discount: discount,
+        LineDiscounts: activeLineDiscounts,
       })
 
       const fullySettled = !(Number(settled?.BalanceDue) > 0)
       if (fullySettled) {
         // Close every round and free the table
-        await Promise.all(sessionRounds.map((r) => posService.updateOrder(r.orderId, { Status: 'Closed' })))
-        await posService.updateTable(selectedTable, { Status: 'Available', CurrentOrderId: null })
+        await Promise.all(sessionRounds.map((r) => posService.updateOrder(r.orderId, { Status: 'closed' })))
+        await posService.updateTable(selectedTable, { Status: 'free', CurrentOrderId: null })
       }
 
       // The invoice number is the customer-facing artefact, so it headlines the
@@ -578,6 +770,10 @@ const Billing = () => {
       setSettleOpen(false)
       setSettleDiscount(0)
       setSettleDiscountType('amount')
+      // Per-item discounts belong to the bill just settled — carrying them into
+      // the next table would silently give the same dish away twice.
+      setLineDiscounts({})
+      setDiscountMode('bill')
       setTenders([])
       if (fullySettled) { setSelectedOrderId(null); setSelectedTable('') }
       await load()
@@ -590,17 +786,51 @@ const Billing = () => {
 
   if (loading) return <div className="fd-loading">Loading billing...</div>
 
-  const kotNo = nextKotNo
-
   return (
     <div className="fd-billing">
-      <h1>🧾 Billing &amp; KOT</h1>
+      {/* One bar, always in the same place: what this screen is, which table is
+          being served, and how to leave it. When nothing is selected the bar is
+          just the title — there is nothing to say yet. */}
+      <div className="fd-billing-bar">
+        <h1>🧾 Billing &amp; KOT</h1>
+        {selectedTable && (
+          <div className="fd-billing-bar-table">
+            <span className={`fd-table-chip ${selectedTableMeta.key}`}>
+              <i className="dot" aria-hidden="true" />
+              <span className="name">{selectedTableName}</span>
+              {sessionRounds.length > 0 && (
+                <span className="rounds">
+                  Round {sessionRounds.length} · ₹{money(sessionSummary.total)}
+                </span>
+              )}
+            </span>
+            <button
+              type="button"
+              className="fd-btn fd-btn-outline fd-btn-sm"
+              onClick={() => handleTableChange('')}
+            >
+              Change table
+            </button>
+          </div>
+        )}
+      </div>
 
+      {/* Choosing a table IS the first screen, not an empty state pointing at a
+          control elsewhere. One tap instead of open-list-then-pick, and the room
+          answers "who is free / who is running / how big is their bill" while
+          you look at it. */}
+      {menuLocked ? (
+        <FloorPlanPicker
+          floors={floors}
+          tables={tables}
+          orders={activeOrders}
+          onPick={handleTableChange}
+        />
+      ) : (
       <div className="fd-billing-layout">
-        {/* Menu panel */}
         <div className="fd-menu-panel">
-          <div style={{ marginBottom: 12, fontSize: 14, fontWeight: 600, color: '#2c3e50' }}>
-            Menu Items
+          <div className="fd-menu-panel-head">
+            <span className="fd-menu-panel-title">Menu Items</span>
           </div>
           <input
             className="fd-menu-search"
@@ -618,7 +848,16 @@ const Billing = () => {
                 const price = itemPrice(meta)
                 const isVeg = meta.FoodTypeIsVeg === 1 || meta.FoodTypeIsVeg === true
                 return (
-                  <div key={id} className="fd-menu-item-card" onClick={() => handleMenuClick(meta)}>
+                  <div
+                    key={id}
+                    className="fd-menu-item-card"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => handleMenuClick(meta)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleMenuClick(meta) }
+                    }}
+                  >
                     {meta.FoodTypeName && (
                       <span className={`food-type-badge ${isVeg ? 'veg' : 'nonveg'}`}>
                         {meta.FoodTypeName}
@@ -650,20 +889,24 @@ const Billing = () => {
           )}
         </div>
 
-        {/* Cart / order panel */}
+        {/* Cart / order panel — the till's working surface. Scrolls internally
+            so the totals and actions stay pinned no matter how long the order
+            gets. The table lives in the header bar now, not here. */}
         <div className="fd-cart-panel">
-          <h3>Order</h3>
+          <div className="fd-cart-scroll">
 
-          {/* Table selector — colour-coded by occupancy status */}
-          <div className="fd-cart-table-selector">
-            <label>Table</label>
-            <TableSelect
-              tables={tables}
-              floors={floors}
-              value={selectedTable}
-              onChange={setSelectedTable}
-            />
-          </div>
+          {/* Resuming an occupied table is a state change worth announcing —
+              the items below are someone else's order, not a fresh one. */}
+          {selectedTable && sessionLoading && (
+            <div className="fd-session-loading" role="status">Loading this table's order…</div>
+          )}
+          {selectedTable && !sessionLoading && sessionRounds.length > 0 && (
+            <div className="fd-session-resumed" role="status">
+              Resuming a running order — {sessionRounds.length}
+              {sessionRounds.length === 1 ? ' round' : ' rounds'} already placed.
+              New items start Round {sessionRounds.length + 1}.
+            </div>
+          )}
 
           {/* Active session for the selected table (filtered by table) */}
           {selectedTable && (
@@ -677,7 +920,7 @@ const Billing = () => {
                   >
                     {sessionRounds.map((r) => (
                       <option key={r.orderId} value={r.orderId}>
-                        Round {r.round} — {r.orderNo}{r.time ? ` (${formatRoundTime(r.time)})` : ''}{isRoundFired(r) ? ' · KOT ✓' : ''}
+                        Round {r.round} — {r.orderNo}{r.time ? ` (${formatRoundTime(r.time)})` : ''}{isRoundSent(r) ? ' · in kitchen' : ' · not sent'}
                       </option>
                     ))}
                   </select>
@@ -755,48 +998,78 @@ const Billing = () => {
                 <span>₹{money(taxAmount)}</span>
               </div>
               <div className="total-row grand"><span>Total</span><span>₹{money(grandTotal)}</span></div>
+
+              {/* The saved order still gets correct server-computed tax, so this
+                  total is the one that is wrong — say so rather than letting the
+                  cashier quote a figure the bill will not match. */}
+              {quoteFailed && !quoting && (
+                <div className="total-row tax-unavailable">
+                  Tax could not be calculated — this total is incomplete. The bill
+                  will show the correct amount.
+                </div>
+              )}
             </div>
           )}
 
-          {/* Actions */}
+          </div>{/* /fd-cart-scroll */}
+
+          {/* Actions are PINNED below the scroll area and ranked, rather than
+              four identical bars. Four equal buttons make the cashier read all
+              of them every time; one obvious next step and a row of follow-ups
+              can be hit without looking. */}
           <div className="fd-cart-actions">
             <button
-              className="fd-btn fd-btn-primary"
+              className="fd-btn fd-btn-primary fd-btn-lg"
               onClick={handleAddRound}
               disabled={!selectedTable || cartItems.length === 0}
             >
               {sessionRounds.length > 0 ? `Add Round ${sessionRounds.length + 1}` : 'Start Order'}
             </button>
-            <button
-              className="fd-btn fd-btn-warning"
-              onClick={handleFireKot}
-              disabled={!selectedOrderId || selectedFired}
-              title={selectedFired ? 'This round has already been sent to the kitchen' : undefined}
-            >
-              {selectedFired ? 'KOT Fired ✓' : 'Fire KOT'}
-            </button>
-            <button
-              className="fd-btn fd-btn-outline"
-              onClick={() => setTransferOpen(true)}
-              disabled={sessionRounds.length === 0}
-            >
-              Transfer
-            </button>
-            <button
-              className="fd-btn fd-btn-success"
-              onClick={() => setSettleOpen(true)}
-              disabled={sessionRounds.length === 0}
-            >
-              Settle Bill
-            </button>
-            {cartItems.length > 0 && (
-              <button className="fd-btn fd-btn-outline" onClick={() => setCartItems([])}>
-                Clear Cart
+
+            <div className="fd-cart-actions-row">
+              {/* Send-once on the server, so this stays enabled: pressing it on a
+                  round that is already cooking reports that rather than
+                  duplicating the ticket. */}
+              <button
+                className="fd-btn fd-btn-warning"
+                onClick={handleSendKot}
+                disabled={!selectedOrderId}
+                title={selectedSent
+                  ? 'This round is already in the kitchen'
+                  : 'Send this round to the kitchen'}
+              >
+                {selectedSent ? 'Sent ✓' : 'Send KOT'}
               </button>
-            )}
+              <button
+                className="fd-btn fd-btn-success"
+                onClick={() => setSettleOpen(true)}
+                disabled={sessionRounds.length === 0}
+              >
+                Settle Bill
+              </button>
+            </div>
+
+            {/* Rarely used and never urgent, so it stays out of the way of the
+                two buttons a cashier presses all shift. */}
+            <div className="fd-cart-actions-minor">
+              <button
+                type="button"
+                className="fd-link-btn"
+                onClick={() => setTransferOpen(true)}
+                disabled={sessionRounds.length === 0}
+              >
+                Transfer table
+              </button>
+              {cartItems.length > 0 && (
+                <button type="button" className="fd-link-btn" onClick={() => setCartItems([])}>
+                  Clear cart
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
+      )}
 
       {/* Variant picker — opens when a menu item offers options. Entirely
           optional: Skip adds the plain item, so it never blocks fast service. */}
@@ -895,8 +1168,8 @@ const Billing = () => {
             <p>
               This removes the whole round
               {deleteTarget.orderNo ? <> (<b>{deleteTarget.orderNo}</b>)</> : null} from the order.
-              {isRoundFired(deleteTarget)
-                ? ' Its KOT has already fired — it will be pulled from the kitchen.'
+              {isRoundSent(deleteTarget)
+                ? ' It is already in the kitchen — its ticket will be pulled from the pass.'
                 : ''}
             </p>
             <p className="fd-confirm-sub">Use this when the customer changes their order.</p>
@@ -1043,7 +1316,107 @@ const Billing = () => {
                 )}
               </div>
               <div>
-                <label htmlFor="settle-discount">Discount</label>
+                <div className="fd-discount-head">
+                  <label htmlFor="settle-discount">Discount</label>
+                  {/* Whole bill or specific dishes. Both can apply at once — the
+                      toggle only chooses which controls are on screen — and they
+                      are stored and reported separately, because "we discounted
+                      this dish" is a decision while "this dish's share of 10%
+                      off" is an accounting artefact. */}
+                  <div className="fd-discount-mode" role="group" aria-label="Discount scope">
+                    <button
+                      type="button"
+                      className={discountMode === 'bill' ? 'is-active' : ''}
+                      aria-pressed={discountMode === 'bill'}
+                      onClick={() => setDiscountMode('bill')}
+                    >
+                      Whole bill
+                    </button>
+                    <button
+                      type="button"
+                      className={discountMode === 'item' ? 'is-active' : ''}
+                      aria-pressed={discountMode === 'item'}
+                      onClick={() => setDiscountMode('item')}
+                    >
+                      Per item
+                    </button>
+                  </div>
+                </div>
+
+                {discountMode === 'item' && (
+                  <div className="fd-item-discounts">
+                    {settleLines.length === 0 ? (
+                      <div className="fd-tender-empty">No priceable lines to discount.</div>
+                    ) : settleLines.map((l) => {
+                      const current = lineDiscounts[l.ref] || { type: 'amount', value: '' }
+                      // Keep the draft exactly as typed — including a blank
+                      // value under a chosen ₹/%. Pricing reads
+                      // activeLineDiscounts, which ignores blanks, so an
+                      // in-progress row still discounts nothing.
+                      const setFor = (patch) => setLineDiscounts((prev) => ({
+                        ...prev,
+                        [l.ref]: { ...(prev[l.ref] || current), ...patch },
+                      }))
+                      return (
+                        <div className="fd-item-discount-row" key={l.ref}>
+                          <span className="fd-item-discount-name">
+                            {settleLineLabels[l.ref] || 'Item'}
+                            <span className="fd-bill-gst-qty">×{l.quantity}</span>
+                          </span>
+                          <div className="fd-discount-toggle" role="group" aria-label={`Discount type for ${settleLineLabels[l.ref] || 'item'}`}>
+                            <button
+                              type="button"
+                              className={current.type === 'amount' ? 'is-active' : ''}
+                              aria-pressed={current.type === 'amount'}
+                              onClick={() => setFor({ type: 'amount' })}
+                            >₹</button>
+                            <button
+                              type="button"
+                              className={current.type === 'percent' ? 'is-active' : ''}
+                              aria-pressed={current.type === 'percent'}
+                              onClick={() => setFor({ type: 'percent' })}
+                            >%</button>
+                          </div>
+                          <input
+                            type="number"
+                            min="0"
+                            max={current.type === 'percent' ? 100 : undefined}
+                            step={current.type === 'percent' ? 1 : 0.01}
+                            aria-label={
+                              `Discount for ${settleLineLabels[l.ref] || 'item'}`
+                              + ` (${current.type === 'percent' ? 'percent' : 'rupees'})`
+                            }
+                            placeholder={current.type === 'percent' ? '0%' : '0'}
+                            value={current.value}
+                            onChange={(e) => setFor({ value: e.target.value })}
+                          />
+                          {/* What it actually took off, from the server quote.
+                              A percentage means nothing to a cashier until it
+                              is a rupee figure, and this is the only place the
+                              two can be checked against each other. */}
+                          <span className="fd-item-discount-off">
+                            {lineDiscountOff[l.ref] > 0 ? `−₹${money(lineDiscountOff[l.ref])}` : ''}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {/* Only in bill mode. Two ₹/% toggles on screen at once — one
+                    per dish, one for the bill — read as one broken control, and
+                    a cashier discounting a single dish would flip the wrong
+                    one. A bill discount typed earlier still applies; the note
+                    below says so rather than letting it vanish silently. */}
+                {discountMode === 'item' && billDiscountAmount > 0 && (
+                  <small className="fd-settle-note">
+                    A whole-bill discount of −₹{money(billDiscountAmount)} is still applied.
+                    Switch to Whole bill to change it.
+                  </small>
+                )}
+
+                {discountMode === 'bill' && (
+                <>
                 <div className="fd-discount-field">
                   {/* Choose how the value is read: a flat ₹ amount or a % of the
                       subtotal. The suffix and max adjust to match. */}
@@ -1082,10 +1455,15 @@ const Billing = () => {
                   </div>
                 </div>
                 <small className="fd-settle-note">
+                  {/* The BILL share, not settleTotals.discount — that is the
+                      item and bill discounts combined, so quoting it here
+                      overstated what the percentage had done. */}
                   {settleDiscountType === 'percent'
-                    ? `${Number(settleDiscount) || 0}% of the subtotal = −₹${money(settleTotals.discount)}, applied before tax.`
+                    ? `${Number(settleDiscount) || 0}% of the subtotal = −₹${money(billDiscountAmount)}, applied before tax.`
                     : 'Applied before tax — the discount reduces the taxable amount.'}
                 </small>
+                </>
+                )}
               </div>
             </div>
 
@@ -1094,6 +1472,20 @@ const Billing = () => {
               <div className="fd-settle-payable-row">
                 <span>Subtotal</span><span>₹{money(settleTotals.subTotal)}</span>
               </div>
+              {/* Split out ONLY when both kinds apply. With one kind the split
+                  would just restate the total on the row below it, and a
+                  cashier reading two identical figures has to work out that
+                  they are the same number. */}
+              {itemDiscountAmount > 0 && billDiscountAmount > 0 && (
+                <>
+                  <div className="fd-settle-payable-row fd-settle-discount fd-settle-payable-sub">
+                    <span>Item discounts</span><span>−₹{money(itemDiscountAmount)}</span>
+                  </div>
+                  <div className="fd-settle-payable-row fd-settle-discount fd-settle-payable-sub">
+                    <span>Bill discount</span><span>−₹{money(billDiscountAmount)}</span>
+                  </div>
+                </>
+              )}
               {settleTotals.discount > 0 && (
                 <div className="fd-settle-payable-row fd-settle-discount">
                   <span>Discount</span><span>−₹{money(settleTotals.discount)}</span>
@@ -1107,6 +1499,18 @@ const Billing = () => {
               <div className="fd-settle-payable-row">
                 <span>Tax</span><span>₹{money(settleTotals.tax)}</span>
               </div>
+              {/* The paise the till cannot hand over. Shown here because the
+                  invoice books it as RoundOff, and a cashier who is asked for
+                  ₹639.00 on a ₹638.88 bill needs to see where the 12p came
+                  from — the alternative is being 12p short and not knowing. */}
+              {settleTotals.roundOff !== 0 && (
+                <div className="fd-settle-payable-row fd-settle-payable-sub">
+                  <span>Round off</span>
+                  <span>
+                    {settleTotals.roundOff < 0 ? '−' : '+'}₹{money(Math.abs(settleTotals.roundOff))}
+                  </span>
+                </div>
+              )}
               <div className="fd-settle-payable-row fd-settle-payable-grand">
                 <span>Amount Payable</span><span>₹{money(settleTotals.payable)}</span>
               </div>
@@ -1122,6 +1526,18 @@ const Billing = () => {
                 </div>
               </div>
             </div>
+
+            {/* Settling is still allowed — a drink poured at the counter never
+                needs a ticket — but a round the kitchen never saw must not slip
+                past silently. */}
+            {unsentRounds.length > 0 && (
+              <div className="fd-settle-warn is-soft" role="status">
+                {unsentRounds.length === 1 ? 'Round' : 'Rounds'}{' '}
+                {unsentRounds.map((r) => r.round).join(', ')}{' '}
+                {unsentRounds.length === 1 ? 'was' : 'were'} never sent to the kitchen.
+                Settle anyway if that is intended.
+              </div>
+            )}
 
             {/* Say WHY settling is blocked rather than showing a mute button. */}
             {missingRef && (

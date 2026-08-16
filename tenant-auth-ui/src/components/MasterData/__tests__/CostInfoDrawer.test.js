@@ -79,8 +79,11 @@ test('shows the group’s tax types as chips', async () => {
   renderDrawer();
   await selectGST18();
   const map = screen.getByText('Group Map — tax types').closest('section');
-  expect(within(map).getByText('CGST')).toBeInTheDocument();
-  expect(within(map).getByText('SGST')).toBeInTheDocument();
+  // The chips come from getMappers, a different request than the rate that
+  // selectGST18 waits on, so they have to be awaited in their own right — a
+  // synchronous getByText here just races the fetch and loses under load.
+  expect(await within(map).findByText('CGST')).toBeInTheDocument();
+  expect(await within(map).findByText('SGST')).toBeInTheDocument();
 });
 
 test('removing a chip deletes that mapper', async () => {

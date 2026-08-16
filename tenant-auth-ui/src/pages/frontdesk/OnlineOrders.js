@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import { toast } from 'react-toastify'
 import posService from '../../services/posService'
+import { statusLabel } from '../../utils/posStatus'
 import { APP_CONFIG } from '../../constants'
 
 const { MAX_LIMIT } = APP_CONFIG.PAGINATION
@@ -8,7 +9,7 @@ const { MAX_LIMIT } = APP_CONFIG.PAGINATION
 const statusBadge = (status) => {
   const s = (status || '').toLowerCase()
   const cls = s === 'delivered' || s === 'completed' ? 'active' : s === 'cancelled' ? 'closed' : 'pending'
-  return <span className={`fd-badge fd-badge-${cls}`}>{status || 'New'}</span>
+  return <span className={`fd-badge fd-badge-${cls}`}>{statusLabel(status || 'new')}</span>
 }
 
 const OnlineOrders = () => {
@@ -87,13 +88,13 @@ const OnlineOrders = () => {
                   <td>{o.CreatedOn ? new Date(o.CreatedOn).toLocaleString() : '—'}</td>
                   <td style={{ display: 'flex', gap: 6 }}>
                     {(!s || s === 'new') && (
-                      <button className="fd-btn fd-btn-warning" onClick={() => handleStatus(o, 'Processing')}>Accept</button>
+                      <button className="fd-btn fd-btn-warning" onClick={() => handleStatus(o, 'processing')}>Accept</button>
                     )}
                     {s === 'processing' && (
-                      <button className="fd-btn fd-btn-success" onClick={() => handleStatus(o, 'Delivered')}>Delivered</button>
+                      <button className="fd-btn fd-btn-success" onClick={() => handleStatus(o, 'delivered')}>Delivered</button>
                     )}
                     {s !== 'cancelled' && s !== 'delivered' && s !== 'completed' && (
-                      <button className="fd-btn fd-btn-danger" onClick={() => handleStatus(o, 'Cancelled')}>Cancel</button>
+                      <button className="fd-btn fd-btn-danger" onClick={() => handleStatus(o, 'cancelled')}>Cancel</button>
                     )}
                   </td>
                 </tr>
