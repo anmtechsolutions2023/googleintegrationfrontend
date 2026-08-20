@@ -87,6 +87,12 @@ export const getOrder = async (id) => {
   const res = await api.get(`/api/pos/orders/${id}`)
   return toObject(res.data)
 }
+// The round PLUS its token, kitchen tickets and invoice — assembled server-side
+// so every screen that links an order number opens the same view of it.
+export const getOrderDetail = async (id) => {
+  const res = await api.get(`/api/pos/orders/${id}/detail`)
+  return toObject(res.data)
+}
 export const createOrder = async (data) => {
   const res = await api.post('/api/pos/orders', data)
   return toObject(res.data)
@@ -183,10 +189,15 @@ export const updateFeedback = async (id, data) => {
 export const deleteFeedback = async (id) => api.delete(`/api/pos/feedback/${id}`)
 
 // ── Tokens ────────────────────────────────────────────────────────────────────
+// `params` accepts { branchId, date, status } — one branch's queue on one day.
+// The screen used to pull every token the tenant had ever issued and keep
+// today's in the browser, which stops working on the first busy week.
 export const getTokens = async (params = {}) => {
   const res = await api.get('/api/pos/tokens', { params })
   return toArray(res.data)
 }
+// Only BranchDetailId (and optionally OrderId) is sent: the number itself is
+// minted server-side from the branch's numbering mode.
 export const createToken = async (data) => {
   const res = await api.post('/api/pos/tokens', data)
   return toObject(res.data)
@@ -195,7 +206,37 @@ export const updateToken = async (id, data) => {
   const res = await api.put(`/api/pos/tokens/${id}`, data)
   return toObject(res.data)
 }
+// Domain actions rather than status PUTs — each stamps its own timestamp on the
+// server, so the queue's clock is the same one the ledger runs on.
+export const callToken = async (id) => {
+  const res = await api.post(`/api/pos/tokens/${id}/call`)
+  return toObject(res.data)
+}
+export const serveToken = async (id) => {
+  const res = await api.post(`/api/pos/tokens/${id}/serve`)
+  return toObject(res.data)
+}
 export const deleteToken = async (id) => api.delete(`/api/pos/tokens/${id}`)
+
+// ── Branches, for POS screens ────────────────────────────────────────────────
+// NOT crudService.getAll('branchDetails') — that endpoint is governed by
+// ORGANIZATION_READ, which a cashier does not hold, so it 403s and every branch
+// picker on a POS screen silently reads "No branches". This one is admitted on
+// any POS read scope and returns only Id + BranchName.
+export const getPosBranches = async () => {
+  const res = await api.get('/api/pos/branches')
+  return toArray(res.data)
+}
+
+// ── POS settings (per branch) ────────────────────────────────────────────────
+export const getPosSettings = async (branchId) => {
+  const res = await api.get('/api/pos/settings', { params: { branchId } })
+  return toObject(res.data) || {}
+}
+export const updatePosSettings = async (branchId, patch) => {
+  const res = await api.put('/api/pos/settings', patch, { params: { branchId } })
+  return toObject(res.data) || {}
+}
 
 // ── Expenses ──────────────────────────────────────────────────────────────────
 export const getExpenses = async (params = {}) => {
@@ -358,6 +399,34 @@ export const getExpenseReport = ledgerReport('expenses')
 export const getVenueReport = ledgerReport('venue')
 // What was given away, split into per-dish decisions and bill-wide reductions.
 export const getDiscountReport = ledgerReport('discounts')
+/** Revenue by where the sale happened: dine-in, counter, delivery. */
+const getChannelRevenue = ledgerReport('channels')
+
+/** How the counter queue performed — issued, served, and how long people waited. */
+export const getTokenStats = async (range = {}) => {
+  const res = await api.get('/api/pos/tokens/stats', { params: range })
+  return toObject(res.data)
+}
+
+/**
+ * The Channels tab: revenue by channel, with counter queue performance beside it.
+ *
+ * Two sources on purpose. Revenue comes from the ledger, because that is where
+ * money is true; wait times come from pos_token, because a token is operational
+ * state and the reporting engine does not read operational tables. Composing
+ * them here keeps that separation on the server while the screen still asks one
+ * question.
+ *
+ * The queue half degrades to null rather than failing the tab: it is gated on
+ * POS scopes, and a finance user without them should still see the money.
+ */
+export const getChannelReport = async (range = {}) => {
+  const [channels, queue] = await Promise.all([
+    getChannelRevenue(range),
+    getTokenStats(range).catch(() => null),
+  ])
+  return { ...channels, queue }
+}
 
 // ── Cash sessions (till shifts) ─────────────────────────────────────────────
 // One session per cashier per shift. Expected cash is DERIVED by the server
@@ -463,12 +532,13 @@ const posService = {
   getTables, createTable, updateTable, deleteTable,
   getItemMeta, createItemMeta, updateItemMeta, deleteItemMeta,
   getCustomers, createCustomer, updateCustomer, deleteCustomer,
-  getOrders, getOrder, createOrder, updateOrder, deleteOrder, transferOrder, fireKot,
+  getOrders, getOrder, getOrderDetail, createOrder, updateOrder, deleteOrder, transferOrder, fireKot,
   getKots, createKot, updateKot, markKotReady, deleteKot,
   getBills, getBill, createBill, updateBill, settleBill, deleteBill,
   getOnlineOrders, createOnlineOrder, updateOnlineOrder, deleteOnlineOrder,
   getFeedback, createFeedback, updateFeedback, deleteFeedback,
-  getTokens, createToken, updateToken, deleteToken,
+  getTokens, createToken, updateToken, deleteToken, callToken, serveToken,
+  getPosBranches, getPosSettings, updatePosSettings,
   getExpenses, createExpense, updateExpense, deleteExpense,
   approveExpense, rejectExpense, settleExpense, getExpenseCategories,
   getStaff, createStaff, updateStaff, deleteStaff,
@@ -477,7 +547,7 @@ const posService = {
   getLedgerDocuments, getLedgerDocument, refundLedgerDocument,
   getFinanceOverview, getSalesReport, getProductReport, getPendingReport,
   getTenderReport, getCashFlowReport, getExpenseReport,
-  getVenueReport, getDiscountReport,
+  getVenueReport, getDiscountReport, getChannelReport, getTokenStats,
   getCashSessions, getCashSession, getCashSessionSummary,
   openCashSession, closeCashSession,
   getAssets, getAssetSummary, createAsset, updateAsset, deleteAsset, getAssetCategories,

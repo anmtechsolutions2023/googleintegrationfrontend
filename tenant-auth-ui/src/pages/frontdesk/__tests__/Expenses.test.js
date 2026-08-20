@@ -17,6 +17,7 @@ jest.mock('../../../services/posService', () => ({
     settleExpense: jest.fn(),
     getExpenseCategories: jest.fn(),
     getPaymentModes: jest.fn(),
+    getPosBranches: jest.fn(),
   },
 }));
 jest.mock('../../../services/crudService', () => ({
@@ -43,6 +44,7 @@ const EXPENSES = [
 const asUser = (scopes) => useAuth.mockReturnValue({ user: { scopes } });
 
 beforeEach(() => {
+  posService.getPosBranches.mockResolvedValue([{ Id: 'b1', BranchName: 'Koramangala' }]);
   posService.getExpenses.mockResolvedValue(EXPENSES);
   posService.getExpenseCategories.mockResolvedValue([
     { Id: 'c1', Name: 'Gas' }, { Id: 'c2', Name: 'Rent' },

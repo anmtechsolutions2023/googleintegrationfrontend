@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useLocation, Outlet } from 'react-router-dom'
 import FrontDeskSidebar from './FrontDeskSidebar'
 import { FrontDeskProvider } from '../../context/FrontDeskContext'
+import { OrderLinkProvider } from './OrderLinkProvider'
 import './frontdesk.css'
 
 const FrontDeskLayout = () => {
@@ -26,6 +27,9 @@ const FrontDeskLayout = () => {
 
   return (
     <FrontDeskProvider>
+      {/* Mounted once here so any Front Desk screen can link an order number
+          without wiring a modal of its own. */}
+      <OrderLinkProvider>
       <div className="frontdesk-layout">
         {sidebarOpen && (
           <div className="fd-sidebar-overlay" onClick={() => setSidebarOpen(false)} />
@@ -48,6 +52,7 @@ const FrontDeskLayout = () => {
           {sidebarOpen ? '✕' : '☰'}
         </button>
       </div>
+      </OrderLinkProvider>
     </FrontDeskProvider>
   )
 }

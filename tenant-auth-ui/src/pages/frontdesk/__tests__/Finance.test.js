@@ -15,6 +15,7 @@ jest.mock('../../../services/posService', () => ({
     getCashFlowReport: jest.fn(),
     getExpenseReport: jest.fn(),
     getVenueReport: jest.fn(),
+    getChannelReport: jest.fn(),
     getDiscountReport: jest.fn(),
     // Filter options for the timeframe picker.
     getFloors: jest.fn(),
@@ -112,6 +113,27 @@ const DISCOUNTS = {
   ],
 };
 
+// Revenue by where the sale happened, with the counter queue beside it. The
+// two halves come from different sources — ledger and pos_token — and the
+// service composes them.
+const CHANNELS = {
+  range: RANGE,
+  channels: [
+    { Channel: 'Dine-in',  Orders: 6, Bills: 4, NetAmount: 800, DiscountAmount: 20, TaxAmount: 144, GrossAmount: 944, AvgBillValue: 236, ShareOfRevenue: 57.15 },
+    { Channel: 'Counter',  Orders: 9, Bills: 9, NetAmount: 400, DiscountAmount: 0,  TaxAmount: 72,  GrossAmount: 472, AvgBillValue: 52.44, ShareOfRevenue: 28.57 },
+    { Channel: 'Delivery', Orders: 2, Bills: 2, NetAmount: 200, DiscountAmount: 0,  TaxAmount: 36,  GrossAmount: 236, AvgBillValue: 118, ShareOfRevenue: 14.28 },
+  ],
+  totalGross: 1652,
+  queue: {
+    range: RANGE,
+    summary: {
+      Issued: 12, Served: 10, Waiting: 1, Called: 1, Cancelled: 0,
+      AvgWaitMinutes: 4.5, MaxWaitMinutes: 15, AvgCollectMinutes: 0.8,
+    },
+    trend: [{ Bucket: '2026-08-02', Issued: 12, Served: 10, AvgWaitMinutes: 4.5 }],
+  },
+};
+
 beforeEach(() => {
   posService.getFinanceOverview.mockResolvedValue(OVERVIEW);
   posService.getSalesReport.mockResolvedValue(SALES);
@@ -121,6 +143,7 @@ beforeEach(() => {
   posService.getCashFlowReport.mockResolvedValue(CASHFLOW);
   posService.getExpenseReport.mockResolvedValue(EXPENSES);
   posService.getVenueReport.mockResolvedValue(VENUE);
+  posService.getChannelReport.mockResolvedValue(CHANNELS);
   posService.getDiscountReport.mockResolvedValue(DISCOUNTS);
   posService.getFloors.mockResolvedValue([
     { Id: 'f1', Name: 'Ground' },
@@ -403,5 +426,78 @@ describe('venue filters', () => {
     await waitFor(() => {
       expect(posService.getFinanceOverview.mock.calls.at(-1)[0].tableId).toBeUndefined();
     });
+  });
+});
+
+// Counter sales were always in every total — a counter bill posts the same
+// ledger document as any other — but nothing could NAME them, so "how much came
+// over the counter today?" had no answer, and the venue report filed them under
+// "No table" beside delivery.
+describe('channels tab — where the sale happened', () => {
+  it('names counter revenue, the figure that had no home before', async () => {
+    await renderFinance();
+    await goToTab('Channels');
+
+    expect(kpiValue('Counter Revenue')).toBe('₹472.00');
+    expect(kpiValue('Counter Bills')).toBe('9');
+  });
+
+  it('breaks the same money down by channel', async () => {
+    await renderFinance();
+    await goToTab('Channels');
+
+    const counter = rowStartingWith('Counter');
+    expect(within(counter).getByText('₹472.00')).toBeInTheDocument();
+    expect(within(counter).getByText('28.57%')).toBeInTheDocument();
+    expect(rowStartingWith('Dine-in')).toBeTruthy();
+    expect(rowStartingWith('Delivery')).toBeTruthy();
+  });
+
+  // Average bill is what makes a counter and a dining room comparable at all.
+  it('gives each channel an average bill', async () => {
+    await renderFinance();
+    await goToTab('Channels');
+    expect(within(rowStartingWith('Counter')).getByText('₹52.44')).toBeInTheDocument();
+  });
+
+  it('shows how the queue performed beside what it earned', async () => {
+    await renderFinance();
+    await goToTab('Channels');
+
+    expect(kpiValue('Tokens issued')).toBe('12');
+    // Two distinct waits: issued→called is the customer's, called→collected is
+    // how long they took to walk up.
+    expect(kpiValue('Average wait')).toBe('4.5 min');
+    expect(kpiValue('Longest wait')).toBe('15 min');
+    expect(kpiValue('Collection time')).toBe('0.8 min');
+  });
+
+  // The queue half is gated on POS scopes; the money half is not. A finance
+  // user without them must still get the report.
+  it('still shows revenue when queue statistics are unavailable', async () => {
+    posService.getChannelReport.mockResolvedValue({ ...CHANNELS, queue: null });
+    await renderFinance();
+    await goToTab('Channels');
+
+    expect(kpiValue('Counter Revenue')).toBe('₹472.00');
+    expect(screen.getByText(/not available for your access level/i)).toBeInTheDocument();
+  });
+
+  it('says so when no tokens were issued, rather than showing zeroes', async () => {
+    posService.getChannelReport.mockResolvedValue({
+      ...CHANNELS, queue: { range: RANGE, summary: { Issued: 0 }, trend: [] },
+    });
+    await renderFinance();
+    await goToTab('Channels');
+    expect(screen.getByText(/No counter tokens issued/i)).toBeInTheDocument();
+  });
+
+  it('sends the shared timeframe to the channel report like every other tab', async () => {
+    await renderFinance();
+    fireEvent.click(screen.getByRole('button', { name: 'This month' }));
+    await goToTab('Channels');
+    expect(posService.getChannelReport).toHaveBeenLastCalledWith(
+      expect.objectContaining({ preset: 'month' }),
+    );
   });
 });

@@ -24,7 +24,10 @@ const money = (n) => (Number(n) || 0).toFixed(2)
 
 const UNASSIGNED = '__unassigned__'
 
-const FloorPlanPicker = ({ floors = [], tables = [], orders = [], onPick, title = 'Pick a table to start' }) => {
+const FloorPlanPicker = ({
+  floors = [], tables = [], orders = [], onPick, onPickCounter = null,
+  title = 'Pick a table to start',
+}) => {
   // A table's live session, priced from what each round already stored.
   const sessionByTable = useMemo(() => {
     const map = {}
@@ -58,7 +61,9 @@ const FloorPlanPicker = ({ floors = [], tables = [], orders = [], onPick, title 
     return loose ? [...named, { id: UNASSIGNED, name: 'Unassigned', tables: loose }] : named
   }, [floors, tables])
 
-  if (tables.length === 0) {
+  // A counter-service outlet has no tables at all, so the counter has to be
+  // reachable before this bails out — otherwise the till is unusable there.
+  if (tables.length === 0 && !onPickCounter) {
     return (
       <div className="fd-floorplan is-empty">
         <span className="fd-floorplan-icon" aria-hidden="true">🪑</span>
@@ -67,6 +72,27 @@ const FloorPlanPicker = ({ floors = [], tables = [], orders = [], onPick, title 
       </div>
     )
   }
+
+  // Takeaway ordered over the counter. It sits apart from the floor plan
+  // because it is not a place in the room — there is no table to occupy, and
+  // the customer is handed a token instead.
+  const counterTile = onPickCounter && (
+    <section className="fd-floorplan-group" key="__counter__">
+      <h3>Counter</h3>
+      <div className="fd-floorplan-grid">
+        <button
+          type="button"
+          className="fd-tablecard fd-tablecard-counter"
+          onClick={onPickCounter}
+          aria-label="Counter takeaway, pay first then issue a token"
+        >
+          <span className="fd-tablecard-name">🎫 Counter</span>
+          <span className="fd-tablecard-status">Takeaway</span>
+          <span className="fd-tablecard-seats">Token issued on payment</span>
+        </button>
+      </div>
+    </section>
+  )
 
   return (
     <div className="fd-floorplan">
@@ -78,6 +104,7 @@ const FloorPlanPicker = ({ floors = [], tables = [], orders = [], onPick, title 
           <span><i className="dot reserved" /> Reserved</span>
         </div>
       </div>
+
 
       {groups.map((g) => (
         <section className="fd-floorplan-group" key={g.id}>
@@ -118,6 +145,18 @@ const FloorPlanPicker = ({ floors = [], tables = [], orders = [], onPick, title 
           </div>
         </section>
       ))}
+
+      {/* After the room, not before it: this screen is the floor plan, and a
+          dine-in cashier should not have to look past the counter to find
+          table 4. An outlet with no tables at all still gets it — that is the
+          only thing they can sell through. */}
+      {tables.length === 0 && (
+        <div className="fd-floorplan-note">
+          No tables set up yet — add them under Front Desk → Tables to take a
+          dine-in order.
+        </div>
+      )}
+      {counterTile}
     </div>
   )
 }

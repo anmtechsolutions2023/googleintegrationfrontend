@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -49,6 +49,8 @@ import Expenses from './pages/frontdesk/Expenses';
 import Customers from './pages/frontdesk/Customers';
 import Feedback from './pages/frontdesk/Feedback';
 import Tokens from './pages/frontdesk/Tokens';
+import TokenDisplay from './pages/frontdesk/TokenDisplay';
+import PosSettings from './pages/frontdesk/PosSettings';
 import OnlineOrders from './pages/frontdesk/OnlineOrders';
 import Tracking from './pages/frontdesk/Tracking';
 import Inventory from './pages/frontdesk/Inventory';
@@ -63,11 +65,16 @@ import AccessControl from './pages/frontdesk/AccessControl';
 
 const AppRoutes = () => {
   const { loading, user } = useAuth();
+  const { pathname } = useLocation();
+  const isCustomerDisplay = pathname.startsWith(`${ROUTES.FRONTDESK}/tokens/display`);
   if (loading) return <LoadingSpinner />;
 
   return (
     <>
-      {user && <Navbar />}
+      {/* The customer token board is a sign on a second monitor, not a page:
+          app navigation on it is something a customer could click, and it eats
+          the top of a display that is meant to be read from across a room. */}
+      {user && !isCustomerDisplay && <Navbar />}
       <Routes>
         {/* Public */}
         <Route path={ROUTES.LOGIN} element={<Login />} />
@@ -177,6 +184,21 @@ const AppRoutes = () => {
           }
         />
 
+        {/* Customer-facing token board. Registered BEFORE (and outside) the
+            Front Desk layout on purpose: it is a sign on a second monitor, not
+            a page — no sidebar, no navigation, nothing a customer could press.
+            Still behind the same login and scope as the queue it displays. */}
+        <Route
+          path={`${ROUTES.FRONTDESK}/tokens/display`}
+          element={
+            <ApprovedRoute>
+              <ScopeGuard requiredScopes={[SCOPES.POS_OPS_READ, SCOPES.TENANT_ADMIN]}>
+                <TokenDisplay />
+              </ScopeGuard>
+            </ApprovedRoute>
+          }
+        />
+
         {/* Front Desk (POS) */}
         <Route
           path={`${ROUTES.FRONTDESK}/*`}
@@ -211,6 +233,7 @@ const AppRoutes = () => {
           <Route path="variants"  element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ,  SCOPES.TENANT_ADMIN]}><Variants /></ScopeGuard>} />
           <Route path="floors"    element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ,  SCOPES.TENANT_ADMIN]}><Floors /></ScopeGuard>} />
           <Route path="staff"     element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ,  SCOPES.TENANT_ADMIN]}><Staff /></ScopeGuard>} />
+          <Route path="settings"  element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ,  SCOPES.TENANT_ADMIN]}><PosSettings /></ScopeGuard>} />
           <Route path="expenses"  element={<ScopeGuard requiredScopes={[SCOPES.POS_OPS_READ,     SCOPES.TENANT_ADMIN]}><Expenses /></ScopeGuard>} />
           <Route path="customers"      element={<ScopeGuard requiredScopes={[SCOPES.POS_CRM_READ,     SCOPES.TENANT_ADMIN]}><Customers /></ScopeGuard>} />
           <Route path="feedback"       element={<ScopeGuard requiredScopes={[SCOPES.POS_CRM_READ,     SCOPES.TENANT_ADMIN]}><Feedback /></ScopeGuard>} />

@@ -33,6 +33,7 @@ const TABS = [
   { key: 'pending',  label: 'Pending',   icon: '⏳' },
   { key: 'tenders',  label: 'Tenders',   icon: '💳' },
   { key: 'venue',    label: 'Floors & Tables', icon: '🪑' },
+  { key: 'channels', label: 'Channels',  icon: '🎫' },
   { key: 'discounts', label: 'Discounts', icon: '🏷️' },
   { key: 'cashflow', label: 'Cash Flow', icon: '🏦' },
   { key: 'expenses', label: 'Expenses',  icon: '💸' },
@@ -45,6 +46,7 @@ const LOADERS = {
   pending:  posService.getPendingReport,
   tenders:  posService.getTenderReport,
   venue:     posService.getVenueReport,
+  channels:  posService.getChannelReport,
   discounts: posService.getDiscountReport,
   cashflow: posService.getCashFlowReport,
   expenses: posService.getExpenseReport,
@@ -167,6 +169,7 @@ const Finance = () => {
           {tab === 'pending'  && <PendingTab data={data} />}
           {tab === 'tenders'  && <TendersTab data={data} />}
           {tab === 'venue'    && <VenueTab data={data} />}
+          {tab === 'channels' && <ChannelsTab data={data} />}
           {tab === 'discounts' && <DiscountsTab data={data} />}
           {tab === 'cashflow' && <CashFlowTab data={data} />}
           {tab === 'expenses' && <ExpensesTab data={data} range={range} />}
@@ -527,6 +530,104 @@ const VenueTab = ({ data }) => {
           </tbody>
         </table>
       </div>
+    </>
+  )
+}
+
+/* ── Channels ─────────────────────────────────────────────────────────────── */
+// Where the sale happened: dine-in, counter, delivery.
+//
+// Counter revenue was always in every total — a counter bill posts the same
+// ledger document as any other — but nothing could name it, so "how much came
+// over the counter?" had no answer. The queue block beside it comes from
+// pos_token rather than the ledger, because how long somebody stood at a
+// counter is a real question but not an accounting one.
+
+/** A minutes figure, or an explicit dash — "no waits recorded" is not zero. */
+const minutes = (n) =>
+  (n == null ? <span className="muted">—</span> : `${n} min`)
+
+const QueueBlock = ({ queue }) => {
+  // Null when the caller lacks POS scopes, or the endpoint failed. The money
+  // half of the tab still stands on its own, so this simply says why.
+  if (!queue) {
+    return (
+      <p className="fd-lead">
+        Counter queue statistics are not available for your access level.
+      </p>
+    )
+  }
+  const s = queue.summary || {}
+  if (!s.Issued) return <Empty>No counter tokens issued in this period.</Empty>
+
+  return (
+    <div className="fd-kpi-grid">
+      <Kpi label="Tokens issued" value={s.Issued} accent="accent-blue" />
+      <Kpi label="Served" value={s.Served} accent="accent-green"
+           hint={s.Waiting || s.Called ? `${s.Waiting + s.Called} still open` : 'All handed over'} />
+      {/* Issue → called is the customer's wait; called → collected is how long
+          they took to walk up. Merging them would blame the kitchen for a
+          customer who wandered off. */}
+      <Kpi label="Average wait" value={minutes(s.AvgWaitMinutes)} accent="accent-orange"
+           hint="Issued until called" />
+      <Kpi label="Longest wait" value={minutes(s.MaxWaitMinutes)}
+           hint="The worst one, not the average" />
+      <Kpi label="Collection time" value={minutes(s.AvgCollectMinutes)}
+           hint="Called until handed over" />
+    </div>
+  )
+}
+
+const ChannelsTab = ({ data }) => {
+  const channels = data.channels || []
+  if (!channels.length) return <Empty>No settled bills for this period.</Empty>
+
+  const counter = channels.find((c) => c.Channel === 'Counter')
+  const top = channels[0]
+
+  return (
+    <>
+      <div className="fd-kpi-grid">
+        <Kpi label="Total Revenue" value={money(data.totalGross)} accent="accent-green" />
+        <Kpi label="Top Channel" value={top.Channel} accent="accent-blue"
+             hint={`${money(top.GrossAmount)} · ${top.ShareOfRevenue}%`} />
+        <Kpi label="Counter Revenue" value={money(counter?.GrossAmount || 0)} accent="accent-orange"
+             hint={counter ? `${counter.ShareOfRevenue}% of takings` : 'No counter sales'} />
+        <Kpi label="Counter Bills" value={counter?.Bills || 0}
+             hint={counter ? `Avg ${money(counter.AvgBillValue)}` : '—'} />
+      </div>
+
+      <div className="fd-section-title">By channel</div>
+      <div className="fd-table-scroll">
+        <table className="fd-table">
+          <thead>
+            <tr>
+              <th>Channel</th><th className="num">Orders</th><th className="num">Bills</th>
+              <th className="num">Avg Bill</th><th className="num">Discount</th>
+              <th className="num">Tax</th><th className="num">Revenue</th><th className="num">Share</th>
+            </tr>
+          </thead>
+          <tbody>
+            {channels.map((c) => (
+              <tr key={c.Channel}>
+                <td className="strong">{c.Channel}</td>
+                <td className="num">{c.Orders}</td>
+                <td className="num">{c.Bills}</td>
+                <td className="num">{money(c.AvgBillValue)}</td>
+                <td className="num">
+                  {c.DiscountAmount ? `−${money(c.DiscountAmount)}` : <span className="muted">—</span>}
+                </td>
+                <td className="num">{money(c.TaxAmount)}</td>
+                <td className="num strong">{money(c.GrossAmount)}</td>
+                <td className="num">{c.ShareOfRevenue}%</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="fd-section-title">Counter queue</div>
+      <QueueBlock queue={data.queue} />
     </>
   )
 }

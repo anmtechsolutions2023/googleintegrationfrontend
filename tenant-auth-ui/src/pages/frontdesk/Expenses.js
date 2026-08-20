@@ -96,8 +96,11 @@ const Expenses = () => {
     // list, so they settle independently.
     posService.getExpenseCategories().then(setCategories).catch(() => setCategories([]))
     posService.getPaymentModes().then(setModes).catch(() => setModes([]))
-    crudService.getAll('branchDetails', { limit: 200 })
-      .then((r) => setBranches(Array.isArray(r?.data) ? r.data : []))
+    // NOT crudService('branchDetails'): that endpoint is gated on
+    // ORGANIZATION_READ, which a POS user filing an expense does not hold, so it
+    // 403'd and the branch field rendered empty with no explanation.
+    posService.getPosBranches()
+      .then(setBranches)
       .catch(() => setBranches([]))
   }, [])
 
@@ -105,6 +108,20 @@ const Expenses = () => {
     () => (filter ? expenses.filter((e) => String(e.Status).toLowerCase() === filter) : expenses),
     [expenses, filter],
   )
+
+  // How many rows sit behind each chip. Without it a filter that matches
+  // nothing looks identical to having no expenses at all — which is exactly
+  // how a list with one draft in it reads as broken.
+  const countsByStatus = useMemo(() => {
+    const counts = { '': expenses.length }
+    expenses.forEach((e) => {
+      const s = String(e.Status || '').toLowerCase()
+      counts[s] = (counts[s] || 0) + 1
+    })
+    return counts
+  }, [expenses])
+
+  const activeFilterLabel = FILTERS.find((f) => f.value === filter)?.label || ''
 
   const totals = useMemo(() => expenses.reduce((t, e) => {
     const amt = Number(e.Amount) || 0
@@ -239,8 +256,15 @@ const Expenses = () => {
             key={f.value || 'all'}
             className={`fd-chip ${filter === f.value ? 'is-active' : ''}`}
             onClick={() => setFilter(f.value)}
+            aria-pressed={filter === f.value}
           >
             {f.label}
+            {/* aria-hidden: the count is a visual scent for a sighted user
+                scanning the chips. Folding it into the button's accessible name
+                would turn "Awaiting payment" into "Awaiting payment 1", which
+                reads oddly and changes the control's identity. The empty state
+                below carries the same information in words. */}
+            <span className="fd-chip-count" aria-hidden="true">{countsByStatus[f.value] || 0}</span>
           </button>
         ))}
         <button className="fd-btn fd-btn-outline" onClick={load}>🔄 Refresh</button>
@@ -249,7 +273,21 @@ const Expenses = () => {
       {loading ? (
         <div className="fd-loading">Loading expenses…</div>
       ) : visible.length === 0 ? (
-        <div className="fd-empty">No expenses here yet.</div>
+        <div className="fd-empty">
+          {expenses.length === 0 ? (
+            'No expenses recorded yet.'
+          ) : (
+            <>
+              {/* There ARE expenses — this filter just matches none of them.
+                  Saying so, with a way out, is the difference between an empty
+                  list and a list that looks broken. */}
+              No expenses are {activeFilterLabel.toLowerCase()}.{' '}
+              <button type="button" className="fd-link-btn" onClick={() => setFilter('')}>
+                Show all {expenses.length}
+              </button>
+            </>
+          )}
+        </div>
       ) : (
         <div className="fd-table-scroll">
           <table className="fd-table">

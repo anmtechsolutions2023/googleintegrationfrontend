@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import { toast } from 'react-toastify'
 import posService from '../../services/posService'
+import { OrderNoLink } from '../../components/frontdesk/OrderLinkProvider'
 import './ledger.css'
 
 const money = (n) => (Number(n) || 0).toFixed(2)
@@ -105,7 +106,7 @@ const Ledger = () => {
           <table className="fd-ledger-table">
             <thead>
               <tr>
-                <th>Invoice</th><th>Date</th><th>Customer</th>
+                <th>Invoice</th><th>Date</th><th>Token / Table</th><th>Customer</th>
                 <th className="num">Net</th><th className="num">Tax</th>
                 <th className="num">Total</th><th>Status</th>
               </tr>
@@ -115,6 +116,17 @@ const Ledger = () => {
                 <tr key={d.Id} onClick={() => openDocument(d.Id)} className="is-clickable">
                   <td className="fd-ledger-no">{d.TransactionNo}</td>
                   <td>{dateOnly(d.TransactionDate)}</td>
+                  {/* Which counter customer or which table this invoice came
+                      from. Resolved server-side (Source), so the list and the
+                      detail cannot label the same document differently. */}
+                  <td>{d.Source?.label
+                    ? (
+                      <span className={`fd-source-chip is-${d.Source.kind}`}>
+                        {d.Source.kind === 'token' ? '🎫' : '🪑'} {d.Source.label}
+                      </span>
+                    )
+                    : <span className="muted">—</span>}
+                  </td>
                   <td>
                     {d.CustomerName || <span className="muted">Walk-in</span>}
                     {d.CustomerMobile && <div className="muted small">{d.CustomerMobile}</div>}
@@ -157,6 +169,32 @@ const Ledger = () => {
                   <span>{selected.CustomerName || 'Walk-in'}</span>
                   {selected.CustomerMobile && <span>{selected.CustomerMobile}</span>}
                 </div>
+
+                {/* The rounds behind this invoice: which token or table each
+                    came from, and a link into the order itself. An invoice used
+                    to stand alone here with no way back to the floor it came
+                    from. An expense document covers no rounds, so this is
+                    legitimately absent rather than empty. */}
+                {selected.Orders?.length > 0 && (
+                  <div className="fd-invoice-orders">
+                    <div className="fd-section-title">Orders on this invoice</div>
+                    <ul>
+                      {selected.Orders.map((o) => (
+                        <li key={o.OrderId}>
+                          <OrderNoLink orderId={o.OrderId}>{o.OrderNo}</OrderNoLink>
+                          {o.TokenLabel ? (
+                            <span className="fd-source-chip is-token">🎫 Token {o.TokenLabel}</span>
+                          ) : o.TableName ? (
+                            <span className="fd-source-chip is-table">🪑 {o.TableName}</span>
+                          ) : (
+                            <span className="muted">No token or table</span>
+                          )}
+                          <span className="muted small">₹{money(o.OrderTotal)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
 
                 <table className="fd-invoice-lines">
                   <thead>

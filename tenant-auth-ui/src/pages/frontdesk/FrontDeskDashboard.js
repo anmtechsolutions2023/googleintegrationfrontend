@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { toast } from 'react-toastify'
 import posService from '../../services/posService'
+import { OrderNoLink } from '../../components/frontdesk/OrderLinkProvider'
 import { normalizeStatus, statusLabel } from '../../utils/posStatus'
 
 const FrontDeskDashboard = () => {
@@ -59,7 +60,7 @@ const FrontDeskDashboard = () => {
           <thead>
             <tr>
               <th>Order No</th>
-              <th>Table</th>
+              <th>Token / Table</th>
               <th>Type</th>
               <th>Status</th>
               <th>Total</th>
@@ -69,10 +70,18 @@ const FrontDeskDashboard = () => {
           <tbody>
             {stats.recentOrders.map((o) => (
               <tr key={o.id || o.Id}>
-                <td>{o.OrderNo || '—'}</td>
-                {/* Joined server-side. This column used to be absent, so a
-                    cashier could not tell which table a round belonged to. */}
-                <td>{o.TableName || '—'}</td>
+                <td><OrderNoLink orderId={o.Id || o.id}>{o.OrderNo || '—'}</OrderNoLink></td>
+                {/* The identifier the CUSTOMER is holding. The table was joined
+                    server-side already; the token was not, so every counter
+                    order showed a dash in the one column that could say which
+                    order it was. */}
+                <td>
+                  {o.TokenLabel ? (
+                    <span className="fd-source-chip is-token">🎫 {o.TokenLabel}</span>
+                  ) : o.TableName ? (
+                    <span className="fd-source-chip is-table">🪑 {o.TableName}</span>
+                  ) : <span className="muted">—</span>}
+                </td>
                 <td>{statusLabel(o.OrderType)}</td>
                 <td>{statusBadge(o.Status)}</td>
                 <td>{o.Total != null ? fmt(o.Total) : '—'}</td>

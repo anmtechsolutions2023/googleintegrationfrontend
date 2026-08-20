@@ -1,0 +1,154 @@
+/* Customer-facing token board.
+ *
+ * Read from across a room, by someone who is not wearing their glasses and is
+ * holding a tray. Everything here follows from that: one enormous number, high
+ * contrast, dark ground so it does not glare, and no interface furniture the
+ * customer could mistake for something they are meant to press. */
+
+.td-screen {
+  position: fixed;
+  inset: 0;
+  /* Above the app shell. The navbar is hidden on this route, but a sign that
+     depends on a sibling component staying out of its way is one refactor from
+     being clipped again. */
+  z-index: 4000;
+  display: flex;
+  flex-direction: column;
+  background: #0b1a2b;
+  color: #fff;
+  font-family: inherit;
+  overflow: hidden;
+}
+
+.td-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 32px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+.td-head h1 {
+  margin: 0;
+  font-size: clamp(20px, 2.6vw, 34px);
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+.td-branch {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 14px;
+}
+.td-branch option { color: #0b1a2b; }
+
+.td-main {
+  flex: 1;
+  display: grid;
+  /* Ready dominates: it is the only part anyone is watching for. */
+  grid-template-columns: 1.6fr 1fr;
+  min-height: 0;
+}
+
+.td-now {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  min-width: 0;
+}
+.td-now h2,
+.td-waiting h2 {
+  margin: 0;
+  font-size: clamp(13px, 1.4vw, 18px);
+  font-weight: 600;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+}
+/* Sized against the viewport, not in pixels: the same build drives a 15"
+   counter monitor and a 55" screen on the wall. */
+.td-now-number {
+  font-size: clamp(96px, 22vw, 340px);
+  line-height: 1;
+  font-weight: 800;
+  color: #4ade80;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 40px rgba(74, 222, 128, 0.25);
+  word-break: break-all;
+  text-align: center;
+}
+/* Sized well below the ready number: it is a status line, not a headline, and
+   at 180px it read as a fault rather than as an empty queue. */
+.td-now-idle {
+  font-size: clamp(20px, 3vw, 40px);
+  line-height: 1.2;
+  font-weight: 600;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.td-also { text-align: center; }
+.td-also > span {
+  display: block;
+  font-size: 12px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
+  margin-bottom: 8px;
+}
+.td-also-list,
+.td-waiting-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  align-content: flex-start;
+  overflow-y: auto;
+}
+
+.td-waiting {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+  padding: 24px;
+  min-width: 0;
+  min-height: 0;
+}
+.td-waiting-empty { color: rgba(255, 255, 255, 0.35); font-size: 16px; }
+
+.td-chip {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-size: clamp(20px, 2.6vw, 38px);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.td-chip.is-ready {
+  background: rgba(74, 222, 128, 0.14);
+  border-color: rgba(74, 222, 128, 0.4);
+  color: #4ade80;
+}
+
+.td-stale {
+  padding: 6px 32px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 12px;
+  text-align: center;
+}
+
+/* A counter monitor is often portrait or small; stacking keeps the ready
+   number the biggest thing on it rather than squeezing both columns. */
+@media (max-width: 900px), (orientation: portrait) {
+  .td-main { grid-template-columns: 1fr; grid-template-rows: 1.4fr 1fr; }
+  .td-now { border-right: none; border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
+}

@@ -835,6 +835,77 @@
 .fd-tablecard:focus-visible { outline: 2px solid #2980b9; outline-offset: 2px; }
 .fd-tablecard:active { transform: scale(0.985); }
 
+/* ── Token queue + POS settings ──────────────────────────────────────────── */
+.fd-page-sub {
+  margin: -8px 0 16px;
+  color: #7f8c8d;
+  font-size: 13px;
+  line-height: 1.55;
+  max-width: 70ch;
+}
+.fd-token-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.fd-token-toolbar label { font-size: 12px; color: #7f8c8d; font-weight: 600; }
+.fd-token-toolbar select {
+  padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 8px;
+  font-size: 13px; background: #fff; min-width: 180px;
+}
+/* The number is what the row is FOR, so it reads at a glance down the column. */
+.fd-token-no { font-size: 18px; font-variant-numeric: tabular-nums; color: #0f3460; }
+.fd-token-orderno { font-size: 12px; font-weight: 600; color: #2c3e50; }
+.fd-token-items {
+  display: block; font-size: 11px; color: #7f8c8d; margin-top: 2px;
+}
+.fd-token-items span + span::before { content: ' · '; }
+.fd-token-noorder { font-size: 12px; color: #b2bec3; font-style: italic; }
+.fd-token-actions { display: flex; gap: 6px; }
+
+.fd-setting-card {
+  border: 1px solid #e1e5eb; border-radius: 10px; padding: 16px 18px;
+  background: #fff; max-width: 760px;
+}
+.fd-setting-card h2 { margin: 0 0 4px; font-size: 15px; color: #2c3e50; }
+.fd-setting-desc { margin: 0 0 12px; font-size: 12.5px; color: #7f8c8d; line-height: 1.55; }
+.fd-setting-options { display: flex; flex-direction: column; gap: 8px; }
+.fd-setting-option {
+  display: flex; gap: 10px; align-items: flex-start;
+  border: 1px solid #e1e5eb; border-radius: 8px; padding: 10px 12px;
+  cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease;
+}
+.fd-setting-option:hover { border-color: #3498db; }
+.fd-setting-option.is-active { border-color: #0f3460; background: #f7f9fc; }
+.fd-setting-option input { margin-top: 3px; flex-shrink: 0; }
+.fd-setting-option strong { display: block; font-size: 13px; color: #2c3e50; }
+.fd-setting-option em {
+  display: block; font-style: normal; font-size: 11.5px; color: #7f8c8d;
+  line-height: 1.5; margin-top: 3px;
+}
+
+/* Said inline rather than as a full empty state, because a counter-only outlet
+   is not in an error condition — it just has nothing to seat. */
+.fd-floorplan-note {
+  margin: 4px 0 12px;
+  padding: 9px 12px;
+  border: 1px dashed #d9e0e7;
+  border-radius: 8px;
+  background: #fbfcfd;
+  color: #7f8c8d;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+/* The counter is not a place in the room, so it does not borrow the free/
+   occupied colour language the tables use — there is nothing to occupy. */
+.fd-tablecard-counter {
+  border-left-color: #0f3460;
+  background: #f7f9fc;
+}
+
 .fd-tablecard-name { font-size: 16px; font-weight: 700; color: #2c3e50; }
 .fd-tablecard-status {
   font-size: 11px; font-weight: 700; text-transform: uppercase;
@@ -1811,6 +1882,26 @@
 }
 .fd-invoice-no span { font-size: 11px; color: #7f8c8d; text-transform: uppercase; letter-spacing: 0.5px; }
 .fd-invoice-no strong { font-size: 20px; color: #0f3460; letter-spacing: 0.5px; }
+/* The counter token, on the settle confirmation. Deliberately the loudest
+   thing in the dialog: the customer is standing there waiting to be told a
+   number, and the invoice number below it is for the books, not for them. */
+.fd-invoice-token {
+  background: #0f3460;
+  color: #fff;
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+}
+.fd-invoice-token span {
+  display: block; font-size: 11px; letter-spacing: 1px;
+  text-transform: uppercase; opacity: 0.75;
+}
+.fd-invoice-token strong {
+  display: block; font-size: 44px; line-height: 1.1; font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.fd-invoice-token em { font-size: 11px; font-style: normal; opacity: 0.75; }
+
 .fd-invoice-total { font-size: 24px; font-weight: 700; color: #2c3e50; margin-bottom: 12px; }
 .fd-invoice-tenders { list-style: none; padding: 0; margin: 0 0 16px; text-align: left; }
 .fd-invoice-tenders li {
@@ -1824,3 +1915,105 @@
   background: #fbf0da; border: 1px solid #f0d9a8; color: #7a5b12;
   border-radius: 8px; padding: 9px 12px; font-size: 12.5px; line-height: 1.5;
 }
+
+/* ── Order linking ───────────────────────────────────────────────────────────
+   An order number is a control wherever it appears, so it looks and behaves the
+   same in the ledger, on the dashboard and in the token queue. A real <button>
+   underneath: keyboard-activated and announced as a control, not a styled span
+   that only a mouse can reach. */
+.fd-order-link {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  color: #2980b9;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: rgba(41, 128, 185, 0.35);
+}
+.fd-order-link:hover { color: #1c5980; text-decoration-color: currentColor; }
+.fd-order-link:focus-visible { outline: 2px solid #2980b9; outline-offset: 2px; border-radius: 3px; }
+/* No id behind it — must not look clickable. */
+.fd-order-no { color: #2c3e50; font-weight: 600; }
+
+/* Which counter customer or which table a row belongs to. Two visually distinct
+   kinds, because "token 7" and "table G02" are different things and a cashier
+   scanning a column should not have to read the text to tell them apart. */
+.fd-source-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.fd-source-chip.is-token { background: #e8f0fe; color: #0f3460; }
+.fd-source-chip.is-table { background: #eaf7ef; color: #1e8449; }
+
+/* ── Order detail modal ──────────────────────────────────────────────────── */
+.fd-order-modal { max-width: 560px; width: 100%; }
+
+/* Whose order this is — the first question anyone clicking a number has, so it
+   leads the dialog rather than sitting in a metadata list. */
+.fd-order-identity {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  margin-bottom: 14px;
+  background: #f7f9fc;
+  border-left: 4px solid #cbd5e1;
+}
+.fd-order-identity.is-token { background: #0f3460; color: #fff; border-left-color: #4ade80; }
+.fd-order-identity.is-table { background: #eaf7ef; border-left-color: #27ae60; }
+.fd-order-identity-label {
+  font-size: 11px; letter-spacing: 1px; text-transform: uppercase; opacity: 0.7;
+}
+.fd-order-identity-value { font-size: 30px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.fd-order-identity-sub { font-size: 12px; opacity: 0.75; }
+
+.fd-order-meta {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px 16px; margin: 0 0 14px;
+}
+.fd-order-meta div { display: flex; flex-direction: column; }
+.fd-order-meta dt { font-size: 11px; color: #7f8c8d; text-transform: uppercase; letter-spacing: 0.5px; }
+.fd-order-meta dd { margin: 0; font-size: 13px; color: #2c3e50; font-weight: 600; }
+
+.fd-order-items { margin-bottom: 12px; }
+.fd-order-totals {
+  display: flex; justify-content: flex-end; gap: 16px; flex-wrap: wrap;
+  font-size: 13px; color: #7f8c8d; padding: 8px 0; border-top: 1px solid #eef2f5;
+}
+.fd-order-totals strong { color: #2c3e50; font-size: 15px; }
+
+.fd-order-kots { list-style: none; padding: 0; margin: 0 0 12px; }
+.fd-order-kots li {
+  display: flex; align-items: center; gap: 10px; padding: 6px 0;
+  border-bottom: 1px solid #f1f5f9; font-size: 13px;
+}
+
+/* Rounds behind one invoice, in the ledger detail. */
+.fd-invoice-orders ul { list-style: none; padding: 0; margin: 0 0 14px; }
+.fd-invoice-orders li {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 7px 0; border-bottom: 1px solid #f1f5f9;
+}
+
+/* A foreign key whose join found nothing. Called out rather than printed raw:
+   a uuid in a data cell is noise, but a MISSING category is worth seeing. */
+.fd-unresolved {
+  font-size: 11px; font-style: italic; color: #b45309;
+  background: #fef3c7; padding: 1px 6px; border-radius: 4px;
+}
+/* How many rows sit behind a filter chip. */
+.fd-chip-count {
+  margin-left: 6px; padding: 0 6px; border-radius: 999px;
+  background: rgba(0, 0, 0, 0.08); font-size: 11px; font-weight: 700;
+}
+.fd-chip.is-active .fd-chip-count { background: rgba(255, 255, 255, 0.25); }

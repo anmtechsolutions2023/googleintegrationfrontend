@@ -7,7 +7,9 @@ import BillSummary from '../../components/frontdesk/BillSummary'
 import TransferSheet from '../../components/frontdesk/TransferSheet'
 import { tableStatusMeta } from '../../components/frontdesk/TableSelect'
 import FloorPlanPicker from '../../components/frontdesk/FloorPlanPicker'
-import { buildTableRounds, formatRoundTime, itemLabel } from '../../utils/posRounds'
+import {
+  buildTableRounds, buildRoundIndex, formatRoundTime, itemLabel,
+} from '../../utils/posRounds'
 import { summarizeSession, estimateAfterDiscount, roundPayable } from '../../utils/posBilling'
 
 const { MAX_LIMIT } = APP_CONFIG.PAGINATION
@@ -57,6 +59,12 @@ const Billing = () => {
 
   // active order state
   const [selectedTable, setSelectedTable] = useState('')
+  // Counter service: takeaway ordered at the till, with no table. The customer
+  // pays first and leaves with a token, so the session is a single order rather
+  // than a table someone keeps adding rounds to.
+  const [counterMode, setCounterMode] = useState(false)
+  const [counterOrderId, setCounterOrderId] = useState(null)
+  const [counterBusy, setCounterBusy] = useState(false)
   const [cartItems, setCartItems] = useState([])
   const [menuSearch, setMenuSearch] = useState('')
   const [activeOrders, setActiveOrders] = useState([])
@@ -171,7 +179,7 @@ const Billing = () => {
   // The menu is inert until a table is chosen. Enforced here as well as in the
   // markup: the visual lock is the explanation, this is the rule. Without it a
   // stray keyboard activation could still build a cart with nowhere to send it.
-  const menuLocked = !selectedTable
+  const menuLocked = !selectedTable && !counterMode
 
   // The selected table, for the header bar. Falls back to a neutral chip if the
   // table has since been retired from the floor plan mid-session.
@@ -185,7 +193,7 @@ const Billing = () => {
   // which case the picker opens first. Opting in is optional — Skip adds the
   // plain item.
   const handleMenuClick = (meta) => {
-    if (menuLocked) { toast.warn('Select a table before adding items'); return }
+    if (menuLocked) { toast.warn('Pick a table or the counter before adding items'); return }
     const available = variantsFor(meta)
     if (available.length === 0) { addToCart(meta, []); return }
     setVariantPick({ meta, selected: [] })
@@ -305,10 +313,24 @@ const Billing = () => {
   }
 
   // The selected table's active session, grouped into chronological rounds.
-  const sessionRounds = useMemo(
+  const tableRounds = useMemo(
     () => buildTableRounds(activeOrders, selectedTable),
     [activeOrders, selectedTable],
   )
+
+  // A counter sale is ONE order, not a session: the customer pays and leaves
+  // with a token, so there is no table to come back to and add a round to.
+  // buildRoundIndex already treats a table-less order as its own round 1, which
+  // is exactly the shape the bill summary and settle modal expect.
+  const counterRounds = useMemo(() => {
+    if (!counterOrderId) return []
+    const r = buildRoundIndex(activeOrders).get(counterOrderId)
+    return r ? [r] : []
+  }, [counterOrderId, activeOrders])
+
+  // Everything downstream — the bill, the settle modal, the discounts — reads
+  // this one list and does not care which kind of sale produced it.
+  const sessionRounds = counterMode ? counterRounds : tableRounds
 
   // Whole-session bill (pre-discount) from the priced snapshots on each round.
   const sessionSummary = useMemo(
@@ -586,7 +608,24 @@ const Billing = () => {
       setCartItems([])
       toast.info('Cart cleared — it belonged to the previous table')
     }
+    // Leaving the counter is the same kind of move: whatever was on it was for
+    // the customer standing there, not for the table being opened.
+    setCounterMode(false)
+    setCounterOrderId(null)
     setSelectedTable(tableId)
+  }
+
+  // Switch the till to counter service. No table, no session to resume — each
+  // customer is one order, paid for on the spot.
+  const handlePickCounter = () => {
+    if (cartItems.length > 0) {
+      setCartItems([])
+      toast.info('Cart cleared — it belonged to the previous table')
+    }
+    setSelectedTable('')
+    setSelectedOrderId(null)
+    setCounterOrderId(null)
+    setCounterMode(true)
   }
 
   // Has this round reached the kitchen? The presence of a ticket is the real
@@ -655,6 +694,50 @@ const Billing = () => {
     }
   }
 
+  // Counter service: commit the cart as one takeaway order, send it to the
+  // kitchen, and go straight to payment.
+  //
+  // The order is created BEFORE the settle modal opens so the bill is priced by
+  // the same server path a dine-in bill goes through — the alternative, billing
+  // a cart the server has never seen, is how the till and the invoice end up
+  // disagreeing. If the cashier abandons the modal, the order is left unsettled
+  // and can be finished from the queue rather than being lost.
+  //
+  // The branch comes from the items themselves: pos_item_meta.BranchDetailId is
+  // NOT NULL, and a till necessarily sells one branch's menu — so there is
+  // nothing to ask the cashier.
+  const handleCounterOrder = async () => {
+    if (cartItems.length === 0) { toast.warn('Add items to cart first'); return }
+    const branchId = cartItems.find((c) => c.meta?.BranchDetailId)?.meta.BranchDetailId || null
+
+    setCounterBusy(true)
+    try {
+      const order = await posService.createOrder({
+        TableId: null,
+        OrderType: 'takeaway',
+        Items: buildOrderItems(),
+        BranchDetailId: branchId,
+      })
+      const orderId = order.id || order.Id
+      // Counter food is being made now — there is no later moment to decide to
+      // send it, which is why this fires the ticket rather than leaving it to a
+      // second tap the way a dine-in round does.
+      try {
+        await posService.fireKot(orderId)
+      } catch {
+        toast.warn('Order placed, but the kitchen ticket did not send — check the KDS')
+      }
+      setCartItems([])
+      setCounterOrderId(orderId)
+      await load()
+      setSettleOpen(true)
+    } catch (e) {
+      toast.error(e?.response?.data?.message || 'Failed to place the counter order')
+    } finally {
+      setCounterBusy(false)
+    }
+  }
+
   // Reverse a committed transfer by replaying the server-supplied inverse.
   const runUndo = async (undo) => {
     try {
@@ -712,7 +795,7 @@ const Billing = () => {
   }
 
   const handleSettleBill = async () => {
-    if (!selectedTable) { toast.warn('Select a table first'); return }
+    if (!selectedTable && !counterMode) { toast.warn('Select a table first'); return }
     if (sessionRounds.length === 0) { toast.warn('No active order to settle'); return }
     if (tenders.length === 0) { toast.warn('Add at least one payment'); return }
     if (missingRef) { toast.warn('Enter a reference number for card, UPI and wallet payments'); return }
@@ -753,9 +836,12 @@ const Billing = () => {
 
       const fullySettled = !(Number(settled?.BalanceDue) > 0)
       if (fullySettled) {
-        // Close every round and free the table
+        // Close every round; free the table when there was one. A counter sale
+        // has none — the customer left with a token instead.
         await Promise.all(sessionRounds.map((r) => posService.updateOrder(r.orderId, { Status: 'closed' })))
-        await posService.updateTable(selectedTable, { Status: 'free', CurrentOrderId: null })
+        if (selectedTable) {
+          await posService.updateTable(selectedTable, { Status: 'free', CurrentOrderId: null })
+        }
       }
 
       // The invoice number is the customer-facing artefact, so it headlines the
@@ -765,6 +851,10 @@ const Billing = () => {
         total: Number(settled?.Total) || payable,
         balanceDue: Number(settled?.BalanceDue) || 0,
         tenders: tenders.map((t) => ({ mode: modeName(t.paymentModeId), amount: Number(t.amount) || 0, refNo: t.refNo })),
+        // Minted by the server inside the settle transaction. It headlines the
+        // confirmation because it is the only thing the customer walks away
+        // with — nobody can call a number that was never shown to the cashier.
+        tokenLabel: settled?.TokenLabel || null,
       })
       toast.success(fullySettled ? 'Bill settled and posted to ledger' : 'Partial payment recorded')
       setSettleOpen(false)
@@ -775,7 +865,13 @@ const Billing = () => {
       setLineDiscounts({})
       setDiscountMode('bill')
       setTenders([])
-      if (fullySettled) { setSelectedOrderId(null); setSelectedTable('') }
+      if (fullySettled) {
+        setSelectedOrderId(null)
+        setSelectedTable('')
+        // The till STAYS on the counter — the next customer is already there.
+        // Only the finished order is let go of.
+        setCounterOrderId(null)
+      }
       await load()
     } catch (e) {
       toast.error(e?.response?.data?.message || 'Failed to settle bill')
@@ -813,6 +909,22 @@ const Billing = () => {
             </button>
           </div>
         )}
+        {counterMode && (
+          <div className="fd-billing-bar-table">
+            <span className="fd-table-chip free">
+              <i className="dot" aria-hidden="true" />
+              <span className="name">🎫 Counter</span>
+              <span className="rounds">Takeaway · pay first</span>
+            </span>
+            <button
+              type="button"
+              className="fd-btn fd-btn-outline fd-btn-sm"
+              onClick={() => handleTableChange('')}
+            >
+              Back to floor plan
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Choosing a table IS the first screen, not an empty state pointing at a
@@ -825,6 +937,7 @@ const Billing = () => {
           tables={tables}
           orders={activeOrders}
           onPick={handleTableChange}
+          onPickCounter={handlePickCounter}
         />
       ) : (
       <div className="fd-billing-layout">
@@ -905,6 +1018,18 @@ const Billing = () => {
               Resuming a running order — {sessionRounds.length}
               {sessionRounds.length === 1 ? ' round' : ' rounds'} already placed.
               New items start Round {sessionRounds.length + 1}.
+            </div>
+          )}
+
+          {/* A counter order that has been placed but not yet paid for. Shown
+              so "Resume payment" has something to point at — otherwise the cart
+              is empty and the screen looks like nothing happened. */}
+          {counterMode && sessionRounds.length > 0 && (
+            <div className="fd-session-panel">
+              <div className="fd-session-resumed" role="status">
+                Order placed and sent to the kitchen — waiting on payment.
+              </div>
+              <BillSummary rounds={sessionRounds} title="Counter order" />
             </div>
           )}
 
@@ -1018,48 +1143,82 @@ const Billing = () => {
               of them every time; one obvious next step and a row of follow-ups
               can be hit without looking. */}
           <div className="fd-cart-actions">
-            <button
-              className="fd-btn fd-btn-primary fd-btn-lg"
-              onClick={handleAddRound}
-              disabled={!selectedTable || cartItems.length === 0}
-            >
-              {sessionRounds.length > 0 ? `Add Round ${sessionRounds.length + 1}` : 'Start Order'}
-            </button>
+            {/* Counter service collapses order → kitchen → payment into one
+                press. There is no second visit to add a round to, and the food
+                is being made now, so nothing is left for the cashier to
+                remember. Dine-in keeps its three deliberate steps. */}
+            {counterMode ? (
+              <>
+                <button
+                  className="fd-btn fd-btn-success fd-btn-lg"
+                  onClick={handleCounterOrder}
+                  disabled={counterBusy || cartItems.length === 0}
+                >
+                  {counterBusy ? 'Placing…' : 'Place & Pay'}
+                </button>
+                {sessionRounds.length > 0 && (
+                  <div className="fd-cart-actions-row">
+                    {/* The customer walked off mid-payment, or the modal was
+                        closed by accident: the order is still there and can be
+                        settled rather than stranded. */}
+                    <button
+                      className="fd-btn fd-btn-outline"
+                      onClick={() => setSettleOpen(true)}
+                    >
+                      Resume payment
+                    </button>
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <button
+                  className="fd-btn fd-btn-primary fd-btn-lg"
+                  onClick={handleAddRound}
+                  disabled={!selectedTable || cartItems.length === 0}
+                >
+                  {sessionRounds.length > 0 ? `Add Round ${sessionRounds.length + 1}` : 'Start Order'}
+                </button>
 
-            <div className="fd-cart-actions-row">
-              {/* Send-once on the server, so this stays enabled: pressing it on a
-                  round that is already cooking reports that rather than
-                  duplicating the ticket. */}
-              <button
-                className="fd-btn fd-btn-warning"
-                onClick={handleSendKot}
-                disabled={!selectedOrderId}
-                title={selectedSent
-                  ? 'This round is already in the kitchen'
-                  : 'Send this round to the kitchen'}
-              >
-                {selectedSent ? 'Sent ✓' : 'Send KOT'}
-              </button>
-              <button
-                className="fd-btn fd-btn-success"
-                onClick={() => setSettleOpen(true)}
-                disabled={sessionRounds.length === 0}
-              >
-                Settle Bill
-              </button>
-            </div>
+                <div className="fd-cart-actions-row">
+                  {/* Send-once on the server, so this stays enabled: pressing it on a
+                      round that is already cooking reports that rather than
+                      duplicating the ticket. */}
+                  <button
+                    className="fd-btn fd-btn-warning"
+                    onClick={handleSendKot}
+                    disabled={!selectedOrderId}
+                    title={selectedSent
+                      ? 'This round is already in the kitchen'
+                      : 'Send this round to the kitchen'}
+                  >
+                    {selectedSent ? 'Sent ✓' : 'Send KOT'}
+                  </button>
+                  <button
+                    className="fd-btn fd-btn-success"
+                    onClick={() => setSettleOpen(true)}
+                    disabled={sessionRounds.length === 0}
+                  >
+                    Settle Bill
+                  </button>
+                </div>
+              </>
+            )}
 
             {/* Rarely used and never urgent, so it stays out of the way of the
                 two buttons a cashier presses all shift. */}
             <div className="fd-cart-actions-minor">
-              <button
-                type="button"
-                className="fd-link-btn"
-                onClick={() => setTransferOpen(true)}
-                disabled={sessionRounds.length === 0}
-              >
-                Transfer table
-              </button>
+              {/* Transferring needs a table to transfer between. */}
+              {!counterMode && (
+                <button
+                  type="button"
+                  className="fd-link-btn"
+                  onClick={() => setTransferOpen(true)}
+                  disabled={sessionRounds.length === 0}
+                >
+                  Transfer table
+                </button>
+              )}
               {cartItems.length > 0 && (
                 <button type="button" className="fd-link-btn" onClick={() => setCartItems([])}>
                   Clear cart
@@ -1192,6 +1351,17 @@ const Billing = () => {
           <div className="fd-invoice-modal">
             <div className="fd-invoice-tick">✓</div>
             <h3>{settledInvoice.balanceDue > 0 ? 'Partial payment recorded' : 'Posted to ledger'}</h3>
+            {/* The token OUTRANKS the invoice number here. The customer is
+                standing at the counter waiting to be told a number; the invoice
+                is for the books. Nobody can call a token that was never shown
+                to the person taking the money. */}
+            {settledInvoice.tokenLabel && (
+              <div className="fd-invoice-token">
+                <span>Token</span>
+                <strong>{settledInvoice.tokenLabel}</strong>
+                <em>Tell the customer this number</em>
+              </div>
+            )}
             {settledInvoice.transactionNo && (
               <div className="fd-invoice-no">
                 <span>Invoice</span>
