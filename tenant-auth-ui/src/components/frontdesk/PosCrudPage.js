@@ -59,7 +59,10 @@ const toArray = (res) => {
 
 const PAGE_SIZE = APP_CONFIG.PAGINATION.DEFAULT_LIMIT
 
-const PosCrudPage = ({ moduleConfig, writeScopes }) => {
+// `onView` is optional and passed straight through: a module that has a richer
+// read view (a customer profile, say) opts in, and every other module renders
+// exactly as before.
+const PosCrudPage = ({ moduleConfig, writeScopes, onView }) => {
   const { user } = useAuth()
   const canWrite = hasScope(user, writeScopes || [SCOPES.TENANT_ADMIN])
 
@@ -293,6 +296,7 @@ const PosCrudPage = ({ moduleConfig, writeScopes }) => {
         columns={columns}
         data={pagedData}
         loading={loading}
+        onView={onView}
         onEdit={canWrite ? handleEdit : undefined}
         onDelete={canWrite ? handleDelete : undefined}
         pagination={pagination}

@@ -77,6 +77,17 @@ export const updateCustomer = async (id, data) => {
   return toObject(res.data)
 }
 export const deleteCustomer = async (id) => api.delete(`/api/pos/customers/${id}`)
+// The till's type-ahead: find a regular by the number they recite at the
+// counter. Capped server-side — this backs a lookup beside a queue.
+export const searchCustomers = async (q) => {
+  const res = await api.get('/api/pos/customers/search', { params: { q } })
+  return toArray(res.data)
+}
+// Who they are, what they have spent, every round and every rating.
+export const getCustomerProfile = async (id) => {
+  const res = await api.get(`/api/pos/customers/${id}/profile`)
+  return toObject(res.data)
+}
 
 // ── Orders ───────────────────────────────────────────────────────────────────
 export const getOrders = async (params = {}) => {
@@ -532,6 +543,7 @@ const posService = {
   getTables, createTable, updateTable, deleteTable,
   getItemMeta, createItemMeta, updateItemMeta, deleteItemMeta,
   getCustomers, createCustomer, updateCustomer, deleteCustomer,
+  searchCustomers, getCustomerProfile,
   getOrders, getOrder, getOrderDetail, createOrder, updateOrder, deleteOrder, transferOrder, fireKot,
   getKots, createKot, updateKot, markKotReady, deleteKot,
   getBills, getBill, createBill, updateBill, settleBill, deleteBill,

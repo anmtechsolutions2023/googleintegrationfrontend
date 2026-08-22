@@ -8,6 +8,7 @@ import { useAuth } from '../../../context/AuthContext';
 jest.mock('../../../services/posService', () => ({
   __esModule: true,
   default: {
+    getPosBranches: jest.fn(),
     getAssets: jest.fn(),
     getAssetSummary: jest.fn(),
     createAsset: jest.fn(),
@@ -51,9 +52,7 @@ beforeEach(() => {
     { Id: 'c1', Name: 'Kitchen Equipment' }, { Id: 'c2', Name: 'IT Equipment' },
   ]);
   posService.createAsset.mockResolvedValue({ id: 'new' });
-  crudService.getAll.mockResolvedValue({
-    data: [{ Id: 'b1', BranchName: 'Koramangala' }, { Id: 'b2', BranchName: 'Indiranagar' }],
-  });
+  posService.getPosBranches.mockResolvedValue([{ Id: 'b1', BranchName: 'Koramangala' }, { Id: 'b2', BranchName: 'Indiranagar' }]);
 });
 
 afterEach(() => jest.clearAllMocks());

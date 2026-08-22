@@ -8,6 +8,7 @@ import { useAuth } from '../../../context/AuthContext';
 jest.mock('../../../services/posService', () => ({
   __esModule: true,
   default: {
+    getPosBranches: jest.fn(),
     getCashSessions: jest.fn(),
     getCashSessionSummary: jest.fn(),
     openCashSession: jest.fn(),
@@ -42,7 +43,7 @@ beforeEach(() => {
   posService.getCashSessionSummary.mockResolvedValue({ ...OPEN_SESSION, ExpectedCash: 1180, IsOpen: true });
   posService.openCashSession.mockResolvedValue({ Id: 's2' });
   posService.closeCashSession.mockResolvedValue({ ...CLOSED_SESSION, Id: 's1', Variance: -80 });
-  crudService.getAll.mockResolvedValue({ data: [{ Id: 'b1', BranchName: 'Koramangala' }] });
+  posService.getPosBranches.mockResolvedValue([{ Id: 'b1', BranchName: 'Koramangala' }]);
 });
 
 afterEach(() => jest.clearAllMocks());

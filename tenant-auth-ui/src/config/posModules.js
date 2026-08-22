@@ -136,8 +136,12 @@ export const POS_MODULES = {
       { name: 'BranchDetailId', label: 'Branch', type: 'select', reference: 'branchDetails' },
       { name: 'Active', type: 'boolean', default: true },
     ],
-    tableColumns: ['CustomerId', 'CustomerName', 'Rating', 'Comments', 'BranchDetailId', 'Active', 'CreatedOn'],
-    searchFields: ['CustomerName', 'Comments'],
+    // OrderNo rather than OrderId: the list answers "which visit was this
+    // about?", and a uuid answers nothing. It is joined server-side, and is
+    // read-only here because feedback is attached to an order at the moment it
+    // is given, not re-pointed at a different meal afterwards.
+    tableColumns: ['CustomerName', 'Rating', 'Comments', 'OrderNo', 'TableName', 'TokenLabel', 'CreatedOn'],
+    searchFields: ['CustomerName', 'Comments', 'OrderNo'],
   },
 
   posOnlineOrders: {

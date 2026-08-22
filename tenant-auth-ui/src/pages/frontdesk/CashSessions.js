@@ -2,10 +2,11 @@ import React, { useCallback, useEffect, useState } from 'react'
 import { toast } from 'react-toastify'
 import { useAuth } from '../../context/AuthContext'
 import { hasScope } from '../../utils/permissions'
-import { SCOPES } from '../../constants'
+import { SCOPES, APP_CONFIG } from '../../constants'
 import posService from '../../services/posService'
-import crudService from '../../services/crudService'
 import './finance.css'
+
+const { MAX_LIMIT } = APP_CONFIG.PAGINATION
 
 /**
  * Cash sessions — a cashier's shift at a till, and the day-close that
@@ -72,8 +73,12 @@ const CashSessions = () => {
   useEffect(() => { load() }, [load])
 
   useEffect(() => {
-    crudService.getAll('branchDetails', { limit: 200 })
-      .then((r) => setBranches(Array.isArray(r?.data) ? r.data : []))
+    // The POS-scoped branch list. /api/branchdetails is gated on
+    // ORGANIZATION_READ, which a POS user does not hold — it 403'd and every
+    // branch picker on these screens rendered empty, with the .catch below
+    // turning the failure into a silent "no branches".
+    posService.getPosBranches()
+      .then(setBranches)
       .catch(() => setBranches([]))
   }, [])
 

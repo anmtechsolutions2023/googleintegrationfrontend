@@ -7,6 +7,7 @@ import crudService from '../../../services/crudService';
 jest.mock('../../../services/posService', () => ({
   __esModule: true,
   default: {
+    getPosBranches: jest.fn(),
     getFinanceOverview: jest.fn(),
     getSalesReport: jest.fn(),
     getProductReport: jest.fn(),
@@ -153,7 +154,7 @@ beforeEach(() => {
     { Id: 't1', Name: 'T1', FloorId: 'f1' },
     { Id: 't9', Name: 'R1', FloorId: 'f2' },
   ]);
-  crudService.getAll.mockResolvedValue({ data: [{ Id: 'b1', BranchName: 'Koramangala' }] });
+  posService.getPosBranches.mockResolvedValue([{ Id: 'b1', BranchName: 'Koramangala' }]);
 });
 
 afterEach(() => jest.clearAllMocks());

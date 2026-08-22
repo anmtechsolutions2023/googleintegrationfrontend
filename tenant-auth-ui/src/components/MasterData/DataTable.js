@@ -11,6 +11,9 @@ import './MasterData.css';
  * @param {Array} props.data - Array of data objects to display
  * @param {boolean} props.loading - Loading state
  * @param {Function} props.onEdit - Edit handler (row) => void
+ * @param {Function} [props.onView] - Optional view handler (row) => void. When
+ *   omitted the button is not rendered at all, so every existing caller is
+ *   unaffected — this extends the table rather than changing it.
  * @param {Function} props.onDelete - Delete handler (row) => void
  * @param {Object} props.pagination - { page, pageSize, total }
  * @param {Function} props.onPageChange - Page change handler
@@ -23,6 +26,7 @@ const DataTable = ({
   data = [],
   loading = false,
   onEdit,
+  onView,
   onDelete,
   pagination = null,
   onPageChange,
@@ -164,8 +168,8 @@ const DataTable = ({
                 </span>
               </th>
             ))}
-            {(onEdit || onDelete) && (
-              <th style={{ width: '120px' }}>Actions</th>
+            {(onEdit || onView || onDelete) && (
+              <th style={{ width: onView ? '160px' : '120px' }}>Actions</th>
             )}
           </tr>
         </thead>
@@ -175,9 +179,21 @@ const DataTable = ({
               {columns.map((column) => (
                 <td key={column.key}>{renderCell(column, row)}</td>
               ))}
-              {(onEdit || onDelete) && (
+              {(onEdit || onView || onDelete) && (
                 <td>
                   <div className="table-actions">
+                    {/* Read before write: viewing is the commoner intent and
+                        the only one available to someone without write access. */}
+                    {onView && (
+                      <button
+                        className="btn btn-secondary btn-icon btn-sm"
+                        onClick={() => onView(row)}
+                        title="View details"
+                        aria-label="View details"
+                      >
+                        👁️
+                      </button>
+                    )}
                     {onEdit && (
                       <button
                         className="btn btn-secondary btn-icon btn-sm"

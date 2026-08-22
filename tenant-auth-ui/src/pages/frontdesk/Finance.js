@@ -2,8 +2,10 @@ import React, { useCallback, useEffect, useState } from 'react'
 import { toast } from 'react-toastify'
 import posService from '../../services/posService'
 import TimeframePicker from '../../components/frontdesk/TimeframePicker'
-import crudService from '../../services/crudService'
+import { APP_CONFIG } from '../../constants'
 import './finance.css'
+
+const { MAX_LIMIT } = APP_CONFIG.PAGINATION
 
 /**
  * The financial reporting screen.
@@ -82,11 +84,15 @@ const Finance = () => {
   useEffect(() => {
     // Filter options are optional context; failing to load them must not break
     // the report itself, so each settles independently.
-    crudService.getAll('branchDetails', { limit: 200 })
-      .then((res) => setBranches(Array.isArray(res?.data) ? res.data : []))
+    // The POS-scoped branch list. /api/branchdetails is gated on
+    // ORGANIZATION_READ, which a POS user does not hold — it 403'd and every
+    // branch picker on these screens rendered empty, with the .catch below
+    // turning the failure into a silent "no branches".
+    posService.getPosBranches()
+      .then(setBranches)
       .catch(() => setBranches([]))
-    posService.getFloors({ limit: 200 }).then(setFloors).catch(() => setFloors([]))
-    posService.getTables({ limit: 200 }).then(setTables).catch(() => setTables([]))
+    posService.getFloors({ limit: MAX_LIMIT }).then(setFloors).catch(() => setFloors([]))
+    posService.getTables({ limit: MAX_LIMIT }).then(setTables).catch(() => setTables([]))
   }, [])
 
   const load = useCallback(async () => {

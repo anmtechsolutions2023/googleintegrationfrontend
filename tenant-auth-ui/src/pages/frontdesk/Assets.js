@@ -2,10 +2,11 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'react-toastify'
 import { useAuth } from '../../context/AuthContext'
 import { hasScope } from '../../utils/permissions'
-import { SCOPES } from '../../constants'
+import { SCOPES, APP_CONFIG } from '../../constants'
 import posService from '../../services/posService'
-import crudService from '../../services/crudService'
 import './finance.css'
+
+const { MAX_LIMIT } = APP_CONFIG.PAGINATION
 
 /**
  * The fixed-asset register: what equipment each branch has, and what it is worth.
@@ -61,7 +62,7 @@ const Assets = () => {
     setLoading(true)
     try {
       const [list, sum] = await Promise.all([
-        posService.getAssets({ limit: 200 }),
+        posService.getAssets({ limit: MAX_LIMIT }),
         posService.getAssetSummary().catch(() => null),
       ])
       setAssets(list)
@@ -77,8 +78,12 @@ const Assets = () => {
 
   useEffect(() => {
     posService.getAssetCategories().then(setCategories).catch(() => setCategories([]))
-    crudService.getAll('branchDetails', { limit: 200 })
-      .then((r) => setBranches(Array.isArray(r?.data) ? r.data : []))
+    // The POS-scoped branch list. /api/branchdetails is gated on
+    // ORGANIZATION_READ, which a POS user does not hold — it 403'd and every
+    // branch picker on these screens rendered empty, with the .catch below
+    // turning the failure into a silent "no branches".
+    posService.getPosBranches()
+      .then(setBranches)
       .catch(() => setBranches([]))
   }, [])
 

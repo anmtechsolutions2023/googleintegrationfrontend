@@ -2017,3 +2017,53 @@
   background: rgba(0, 0, 0, 0.08); font-size: 11px; font-weight: 700;
 }
 .fd-chip.is-active .fd-chip-count { background: rgba(255, 255, 255, 0.25); }
+
+/* ── Customer at the till ────────────────────────────────────────────────── */
+/* Optional throughout: a queue must never wait on a lookup, so this is a quiet
+   control above the cart rather than a step in the flow. */
+.fd-customer-picker { position: relative; margin-bottom: 10px; }
+.fd-customer-label { display: block; font-size: 11px; color: #7f8c8d; margin-bottom: 3px; font-weight: 600; }
+.fd-customer-picker input {
+  width: 100%; padding: 7px 10px; border: 1px solid #d0d4da;
+  border-radius: 6px; font-size: 13px; box-sizing: border-box;
+}
+.fd-customer-busy { position: absolute; right: 10px; top: 26px; color: #95a5a6; }
+.fd-customer-results {
+  position: absolute; z-index: 60; left: 0; right: 0; top: 100%;
+  margin: 2px 0 0; padding: 4px; list-style: none;
+  background: #fff; border: 1px solid #d0d4da; border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.12); max-height: 240px; overflow-y: auto;
+}
+.fd-customer-results button {
+  display: flex; align-items: baseline; gap: 8px; width: 100%;
+  border: none; background: none; padding: 7px 8px; cursor: pointer;
+  text-align: left; font: inherit; border-radius: 6px;
+}
+.fd-customer-results button:hover { background: #f2f6fa; }
+.fd-customer-results .name { font-weight: 600; color: #2c3e50; font-size: 13px; }
+.fd-customer-none { padding: 8px; font-size: 12px; color: #7f8c8d; display: flex; flex-direction: column; gap: 4px; }
+
+/* Attached. Shows the visit count, because "this is their ninth time" is the
+   one thing worth knowing at the moment of taking an order. */
+.fd-customer-chip {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 7px 10px; margin-bottom: 10px;
+  background: #eaf2fb; border: 1px solid #cfe0f5; border-radius: 8px;
+}
+.fd-customer-chip-name { font-size: 13px; font-weight: 600; color: #0f3460; }
+.fd-customer-chip-name em { font-style: normal; color: #5b7fa6; margin-left: 6px; font-weight: 500; }
+.fd-customer-chip-stat { font-size: 11px; color: #5b7fa6; }
+
+/* ── Customer profile ────────────────────────────────────────────────────── */
+.fd-customer-profile { max-width: 720px; width: 100%; }
+.fd-customer-meta {
+  display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 14px;
+  font-size: 12.5px; color: #7f8c8d;
+}
+.fd-customer-feedback { list-style: none; padding: 0; margin: 0; }
+.fd-customer-feedback li {
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+  padding: 8px 0; border-bottom: 1px solid #f1f5f9;
+}
+.fd-customer-feedback .comment { color: #2c3e50; font-size: 13px; font-style: italic; }
+.fd-stars { color: #f39c12; letter-spacing: 1px; }

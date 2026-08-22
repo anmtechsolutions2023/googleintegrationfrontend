@@ -2,10 +2,11 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'react-toastify'
 import { useAuth } from '../../context/AuthContext'
 import { hasScope } from '../../utils/permissions'
-import { SCOPES } from '../../constants'
+import { SCOPES, APP_CONFIG } from '../../constants'
 import posService from '../../services/posService'
-import crudService from '../../services/crudService'
 import './finance.css'
+
+const { MAX_LIMIT } = APP_CONFIG.PAGINATION
 
 /**
  * Expenses — money out, with an approval gate before it becomes a cost.
@@ -81,7 +82,7 @@ const Expenses = () => {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      setExpenses(await posService.getExpenses({ limit: 200 }))
+      setExpenses(await posService.getExpenses({ limit: MAX_LIMIT }))
     } catch {
       toast.error('Failed to load expenses')
     } finally {

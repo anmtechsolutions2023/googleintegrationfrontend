@@ -7,6 +7,7 @@ import BillSummary from '../../components/frontdesk/BillSummary'
 import TransferSheet from '../../components/frontdesk/TransferSheet'
 import { tableStatusMeta } from '../../components/frontdesk/TableSelect'
 import FloorPlanPicker from '../../components/frontdesk/FloorPlanPicker'
+import CustomerPicker from '../../components/frontdesk/CustomerPicker'
 import {
   buildTableRounds, buildRoundIndex, formatRoundTime, itemLabel,
 } from '../../utils/posRounds'
@@ -65,6 +66,11 @@ const Billing = () => {
   const [counterMode, setCounterMode] = useState(false)
   const [counterOrderId, setCounterOrderId] = useState(null)
   const [counterBusy, setCounterBusy] = useState(false)
+  // Who this order is for. pos_order.CustomerId and the whole settle → ledger
+  // contact chain have always existed; nothing ever set them, so every sale was
+  // a walk-in and the CRM counters stayed at zero. Optional: leaving it empty
+  // is a walk-in and behaves exactly as before.
+  const [customer, setCustomer] = useState(null)
   const [cartItems, setCartItems] = useState([])
   const [menuSearch, setMenuSearch] = useState('')
   const [activeOrders, setActiveOrders] = useState([])
@@ -674,6 +680,9 @@ const Billing = () => {
         TableId: selectedTable,
         OrderType: 'dinein',
         Items: buildOrderItems(),
+        // Null for a walk-in — the settle path already carries this through to
+        // the ledger contact and the CRM projection.
+        CustomerId: customer?.Id || null,
         BranchDetailId: tableObj?.BranchDetailId || null,
       })
       const orderId = order.id || order.Id
@@ -687,6 +696,7 @@ const Billing = () => {
       const roundNo = isFirst ? 1 : sessionRounds.length + 1
       toast.success(`Round ${roundNo} added — press Send KOT when it is ready to cook`)
       setCartItems([])
+      setCustomer(null)
       setSelectedOrderId(orderId)
       await load()
     } catch (e) {
@@ -716,6 +726,7 @@ const Billing = () => {
         TableId: null,
         OrderType: 'takeaway',
         Items: buildOrderItems(),
+        CustomerId: customer?.Id || null,
         BranchDetailId: branchId,
       })
       const orderId = order.id || order.Id
@@ -728,6 +739,7 @@ const Billing = () => {
         toast.warn('Order placed, but the kitchen ticket did not send — check the KDS')
       }
       setCartItems([])
+      setCustomer(null)
       setCounterOrderId(orderId)
       await load()
       setSettleOpen(true)
@@ -818,7 +830,10 @@ const Billing = () => {
         OrderIds: sessionRounds.map((r) => r.orderId),
         Discount: discount,
         LineDiscounts: activeLineDiscounts,
-        Status: 'Pending',
+        // Status is NOT sent: a bill is born 'unpaid' server-side and settling
+        // is what changes that. This used to send 'Pending', a value no reader
+        // in either codebase compares against — the bill was invisible to every
+        // status filter it should have appeared in.
         BranchDetailId: sessionRounds[0].order.BranchDetailId || null,
       })
       const billId = bill.id || bill.Id
@@ -1071,6 +1086,10 @@ const Billing = () => {
               </div>
             )
           )}
+
+          {/* Who this is for. Above the cart because it is asked at the start
+              of an order, and skippable because a queue must never wait on it. */}
+          <CustomerPicker value={customer} onChange={setCustomer} />
 
           {/* Cart items */}
           <div className="fd-cart-items">
