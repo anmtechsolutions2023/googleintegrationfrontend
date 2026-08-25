@@ -33,6 +33,9 @@ export const ENDPOINTS = {
     ROLES: '/api/admin/roles',
     ONBOARDING: '/api/admin/onboarding',
     FEATURES: '/api/admin/features',
+    // Cross-tenant directory: every tenancy, and the people in any one of them.
+    // Super-admin only — see the guards on the admin routes.
+    TENANTS: '/api/admin/tenants',
     APP_CONFIG: '/api/admin/app-config',
   },
 

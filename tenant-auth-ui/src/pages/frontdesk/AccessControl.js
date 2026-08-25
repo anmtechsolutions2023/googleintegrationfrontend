@@ -5,14 +5,18 @@ import adminService from '../../services/adminService'
 import InvitePanel from '../../components/frontdesk/InvitePanel'
 import TenantUsersPanel from '../../components/frontdesk/TenantUsersPanel'
 import RolesPanel from '../../components/frontdesk/RolesPanel'
+import TenantDirectoryPanel from '../../components/frontdesk/TenantDirectoryPanel'
 import { useAuth } from '../../context/AuthContext'
-import { hasScope } from '../../utils/permissions'
+import { hasScope, isSuperAdmin } from '../../utils/permissions'
 import { SCOPES } from '../../constants'
 
 const TABS = [
   { key: 'users',   label: '👥 People' },
   { key: 'invites', label: '✉️ Invitations' },
   { key: 'roles',   label: '🛡️ Roles' },
+  // Spans every tenancy, so it is the one tab that is not about "this
+  // tenancy" — hence super admins only, matching the API guard exactly.
+  { key: 'tenants', label: '🌐 All Tenants', superAdminOnly: true },
 ]
 
 /**
@@ -22,6 +26,12 @@ const TABS = [
  *   People      — everybody in this tenancy. Their details, their roles, their access.
  *   Invitations — people asked to join who have not signed in yet.
  *   Roles       — the grants you can hand out, and what each one covers.
+ *
+ * A super admin gets a fourth, All Tenants, which is the one tab NOT about this
+ * tenancy: every tenancy on the platform and who is in each. It is read-only,
+ * because role assignment is scoped to the caller's own tenancy on the server
+ * and a super admin cannot switch into a tenancy they do not belong to — so a
+ * cross-tenant editor would be a button that always 403s.
  *
  * This screen is the ONLY place a tenancy's people are managed. /admin/users and
  * /admin/roles redirect here: they were a second implementation over the same
@@ -40,6 +50,9 @@ const AccessControl = () => {
   const { user } = useAuth()
   // Managing access is a tenant-admin act. A read-only viewer still sees lists.
   const canManage = hasScope(user, [SCOPES.TENANT_ADMIN, SCOPES.TENANT_SUPER_ADMIN])
+  // Cross-tenant sight is a platform authority, not a tenancy one.
+  const isSuper = isSuperAdmin(user)
+  const tabs = TABS.filter((t) => !t.superAdminOnly || isSuper)
 
   const [roles, setRoles] = useState([])
   const [branches, setBranches] = useState([])
@@ -83,10 +96,11 @@ const AccessControl = () => {
       <p className="fd-page-sub">
         Everyone who works in this tenancy: their details, what they may do, and
         who has been invited but has not signed in yet.
+        {isSuper && ' As a super admin you can also see every other tenancy.'}
       </p>
 
       <div className="fd-token-toolbar">
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <button
             key={t.key}
             className={`fd-btn ${activeTab === t.key ? 'fd-btn-primary' : 'fd-btn-outline'}`}
@@ -112,6 +126,8 @@ const AccessControl = () => {
         />
       ) : activeTab === 'invites' ? (
         <InvitePanel roles={roles} branches={branches} canWrite={canManage} />
+      ) : activeTab === 'tenants' ? (
+        <TenantDirectoryPanel currentTenantId={user?.tid} currentEmail={user?.email} />
       ) : (
         // Reloads the shared catalogue when a role is created, renamed or
         // deleted, so the People and Invitations tabs cannot offer a role that

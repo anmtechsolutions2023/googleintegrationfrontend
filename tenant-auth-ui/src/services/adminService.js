@@ -127,6 +127,16 @@ export const setUserRoles = async (email, roleIds) =>
 export const setUserStatus = async (email, status) =>
   toObject((await api.put(`${BASE.USERS}/${encodeURIComponent(email)}/status`, { status })).data);
 
+// ── Cross-tenant directory (super admin) ──
+// The only view that spans tenancies. Read-only on purpose: role assignment
+// stays scoped to the caller's own tenancy, so there is no write to pair with
+// these. Both 403 for anybody who is not a super admin.
+export const listTenants = async (params = { limit: 100 }) =>
+  toArray((await api.get(`${BASE.TENANTS}`, { params })).data);
+
+export const listTenantUsers = async (tenantId) =>
+  toArray((await api.get(`${BASE.TENANTS}/${encodeURIComponent(tenantId)}/users`)).data);
+
 // ── Invitations ──
 // A tenant admin adding somebody to THEIR tenancy. The invitee joins on their
 // next sign-in, and an invitation beats onboarding auto-approval, so they land
@@ -189,6 +199,8 @@ export default {
   listInvitations,
   createInvitation,
   revokeInvitation,
+  listTenants,
+  listTenantUsers,
   listRolePermissionIds,
   saveRole,
   saveRolePermissions,

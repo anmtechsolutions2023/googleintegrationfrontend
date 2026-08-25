@@ -2134,6 +2134,96 @@
    the standard confirm-sized dialog. */
 .fd-modal-wide { width: 720px; }
 
+/* ── Cross-tenant directory (super admin) ────────────────────────────────────
+   Laid out with container queries rather than media queries: the panel sits
+   inside the Front Desk shell, so what matters is how wide the PANEL is, not
+   the window. A sidebar-narrowed panel on a wide monitor gets the stacked
+   layout, which a viewport breakpoint would get wrong. */
+.fd-tenant-stats {
+  display: grid; gap: 10px; margin-bottom: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+}
+.fd-stat {
+  background: #f5f7fa; border: 1px solid #e6eaee; border-radius: 10px; padding: 11px 13px;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.fd-stat .k {
+  font-size: 10.5px; font-weight: 600; letter-spacing: .08em;
+  text-transform: uppercase; color: #7f8c8d;
+}
+.fd-stat .v { font-size: 23px; font-weight: 600; color: #2c3e50; font-variant-numeric: tabular-nums; }
+/* Amber, not red: a tenancy with no admin needs somebody to act, but nothing is
+   broken and no data is at risk. */
+.fd-stat.is-alert { border-color: #e67e22; }
+.fd-stat.is-alert .v { color: #e67e22; }
+
+.fd-chip {
+  font: inherit; font-size: 12px; padding: 5px 11px; border-radius: 999px; cursor: pointer;
+  border: 1px solid #d0d4da; background: #fff; color: #5a6b7d; white-space: nowrap;
+}
+.fd-chip.is-on { background: #e8f0fe; border-color: #0f3460; color: #0f3460; font-weight: 600; }
+.fd-chip:focus-visible { outline: 2px solid #0f3460; outline-offset: 1px; }
+
+.fd-tenant {
+  border: 1px solid #e6eaee; border-radius: 11px; margin-bottom: 10px;
+  overflow: hidden; background: #fff; container-type: inline-size;
+}
+.fd-tenant.is-flagged { border-color: #e67e22; }
+
+.fd-tenant-head {
+  width: 100%; text-align: left; font: inherit; cursor: pointer; background: none;
+  border: 0; color: inherit; display: grid; gap: 10px 14px; align-items: center;
+  padding: 13px 15px; grid-template-columns: 20px minmax(0, 2.1fr) auto auto auto;
+}
+.fd-tenant-head:hover { background: #f8fafc; }
+.fd-tenant-head:focus-visible { outline: 2px solid #0f3460; outline-offset: -2px; }
+.fd-tenant-caret { font-size: 11px; color: #7f8c8d; transition: transform .18s ease; }
+.fd-tenant.is-open .fd-tenant-caret { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) { .fd-tenant-caret { transition: none; } }
+
+.fd-tenant-name {
+  font-weight: 600; font-size: 15px; color: #2c3e50; min-width: 0;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.fd-tenant-unnamed { color: #7f8c8d; font-style: italic; font-weight: 500; }
+.fd-tenant-id {
+  display: block; width: 100%; font-size: 11px; color: #a9b4bf;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.fd-tenant-counts {
+  display: flex; gap: 14px; font-size: 12.5px; color: #5a6b7d;
+  font-variant-numeric: tabular-nums; flex-wrap: wrap;
+}
+.fd-tenant-counts b { font-weight: 600; color: #2c3e50; }
+.fd-tenant-roles { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+
+.fd-badge-role { background: #e8f0fe; color: #0f3460; font-weight: 500; }
+.fd-badge-more { background: #f5f7fa; color: #7f8c8d; border: 1px solid #e6eaee; font-weight: 500; }
+
+.fd-tenant-body { border-top: 1px solid #e6eaee; }
+.fd-tenant-warn {
+  display: flex; gap: 9px; align-items: flex-start; padding: 10px 15px;
+  background: #ffeaa7; color: #b9600f; font-size: 12.5px; font-weight: 500;
+}
+.fd-tenant-table { overflow-x: auto; }
+.fd-tenant-cards { display: none; padding: 12px; gap: 10px; flex-direction: column; }
+.fd-person-card { border: 1px solid #e6eaee; border-radius: 9px; padding: 12px; background: #f8fafc; }
+.fd-person-top { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; margin-bottom: 8px; }
+.fd-person-card dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 12.5px; }
+.fd-person-card dt {
+  color: #7f8c8d; font-size: 10.5px; letter-spacing: .07em;
+  text-transform: uppercase; padding-top: 3px;
+}
+.fd-person-card dd { margin: 0; }
+.fd-person-card .fd-tenant-roles { justify-content: flex-start; }
+
+@container (max-width: 700px) {
+  .fd-tenant-head { grid-template-columns: 18px minmax(0, 1fr); }
+  .fd-tenant-counts, .fd-tenant-roles, .fd-tenant-setup { grid-column: 2; justify-content: flex-start; }
+  .fd-tenant-table { display: none; }
+  .fd-tenant-cards { display: flex; }
+}
+
 /* Where the Front Desk landing page sends somebody whose role has no reporting
    figures to show them. */
 .fd-shortcut-grid {
