@@ -3,32 +3,27 @@ import { Routes, Route, NavLink, Navigate } from 'react-router-dom';
 import './Admin.css';
 
 import AdminApprovals from './AdminApprovals';
-import AdminUsers from './AdminUsers';
 import AdminAllUsers from './AdminAllUsers';
-import AdminRoles from './AdminRoles';
 import AdminFeatures from './AdminFeatures';
 import AdminAppConfig from './AdminAppConfig';
 import { useAuth } from '../../context/AuthContext';
-import { hasScope } from '../../utils/permissions';
-import { SCOPES } from '../../constants';
+import { ROUTES } from '../../constants/routes';
+import { visibleAdminTabs } from '../../config/navigation';
 
-const BASE_NAV_ITEMS = [
-  { to: 'approvals', label: 'Approvals', icon: '📋' },
-  { to: 'users',     label: 'Users',     icon: '👥' },
-  { to: 'roles',     label: 'Roles',     icon: '🎭' },
-  { to: 'features',  label: 'Features',  icon: '⚙️' },
-];
-
-// Cross-tenant "All Users" and system-wide App Config are super-admin only.
-const ALL_USERS_NAV = { to: 'all-users', label: 'All Users', icon: '🌐' };
-const APP_CONFIG_NAV = { to: 'app-config', label: 'App Config', icon: '🛠️' };
-
+/**
+ * The platform console.
+ *
+ * Everything here crosses tenancy boundaries or has none at all: the onboarding
+ * queue carries no tenant_id until a request is approved, the feature catalogue
+ * is global, All Users spans tenancies, App Config is system-wide. That is the
+ * line — a tenancy's own people, invitations and roles live on Front Desk at
+ * /frontdesk/access-control, and the old Users and Roles tabs redirect there.
+ *
+ * Which tabs render is decided by config/navigation.js.
+ */
 const AdminDashboard = () => {
   const { user } = useAuth();
-  const isSuperAdmin = hasScope(user, [SCOPES.TENANT_SUPER_ADMIN]);
-  const NAV_ITEMS = isSuperAdmin
-    ? [...BASE_NAV_ITEMS, ALL_USERS_NAV, APP_CONFIG_NAV]
-    : BASE_NAV_ITEMS;
+  const NAV_ITEMS = visibleAdminTabs(user);
 
   return (
   <div className="admin-shell">
@@ -71,17 +66,15 @@ const AdminDashboard = () => {
       {/* Page content */}
       <main className="admin-content">
         <Routes>
-          <Route index element={<Navigate to="approvals" replace />} />
-          <Route path="approvals" element={<AdminApprovals />} />
-          <Route path="users"     element={<AdminUsers />} />
-          <Route path="roles"     element={<AdminRoles />} />
-          <Route path="features"  element={<AdminFeatures />} />
-          {isSuperAdmin && (
-            <Route path="all-users" element={<AdminAllUsers />} />
-          )}
-          {isSuperAdmin && (
-            <Route path="app-config" element={<AdminAppConfig />} />
-          )}
+          <Route index element={<Navigate to={NAV_ITEMS[0]?.to || 'approvals'} replace />} />
+          <Route path="approvals"  element={<AdminApprovals />} />
+          <Route path="features"   element={<AdminFeatures />} />
+          <Route path="all-users"  element={<AdminAllUsers />} />
+          <Route path="app-config" element={<AdminAppConfig />} />
+          {/* Belt and braces for the redirects in App.js: reaching these
+              through a nested link must never render an empty console. */}
+          <Route path="users" element={<Navigate to={ROUTES.ACCESS_CONTROL} replace />} />
+          <Route path="roles" element={<Navigate to={ROUTES.ACCESS_CONTROL} replace />} />
         </Routes>
       </main>
     </div>

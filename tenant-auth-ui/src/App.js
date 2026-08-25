@@ -7,6 +7,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { SCOPES, APP_CONFIG } from './constants';
 import { ROUTES } from './constants/routes';
+import { MASTER_DATA_SCOPES } from './config/navigation';
 import { THIRD_PARTY } from './config/config';
 import {
   ProtectedRoute,
@@ -44,7 +45,6 @@ import FoodTypes from './pages/frontdesk/FoodTypes';
 import Channels from './pages/frontdesk/Channels';
 import Variants from './pages/frontdesk/Variants';
 import Floors from './pages/frontdesk/Floors';
-import Staff from './pages/frontdesk/Staff';
 import Expenses from './pages/frontdesk/Expenses';
 import Customers from './pages/frontdesk/Customers';
 import Feedback from './pages/frontdesk/Feedback';
@@ -145,24 +145,43 @@ const AppRoutes = () => {
           }
         />
 
-        {/* New IAM admin section (admin:access scope) — nested under /admin/* */}
+        {/* Managing a tenancy's own people moved to Front Desk — one screen for
+            "who works here". These two were a second implementation over the
+            same API and had drifted apart, so the old URLs redirect rather than
+            404 for anybody holding a bookmark. Declared ahead of /admin/* so
+            they resolve before the super-admin guard below. */}
+        <Route path={`${ROUTES.ADMIN}/users`} element={<Navigate to={ROUTES.ACCESS_CONTROL} replace />} />
+        <Route path={`${ROUTES.ADMIN}/roles`} element={<Navigate to={ROUTES.ACCESS_CONTROL} replace />} />
+
+        {/* The platform console: onboarding requests, the global feature
+            catalogue, cross-tenant users, system configuration. Super admins
+            only — none of this can be narrowed to a single tenancy, which is
+            exactly why it did not move to Front Desk with the rest. */}
         <Route
           path={`${ROUTES.ADMIN}/*`}
           element={
             <ApprovedRoute>
-              <ScopeGuard requiredScopes={[SCOPES.ADMIN_ACCESS]}>
+              <ScopeGuard requiredScopes={[SCOPES.TENANT_SUPER_ADMIN]}>
                 <AdminDashboard />
               </ScopeGuard>
             </ApprovedRoute>
           }
         />
 
-        {/* Master Data Module */}
+        {/* Master Data Module.
+            Gated on the six master-data category reads: the index renders only
+            the categories the user may read, so without one of them the page
+            was a heading over nothing. The per-module pages inside carry their
+            own category check as well — that one has to stay, because a direct
+            link to /master/<module> must be refused even when the user can read
+            a DIFFERENT category. */}
         <Route
           path={ROUTES.MASTER}
           element={
             <ApprovedRoute>
-              <MasterDataLayout />
+              <ScopeGuard requiredScopes={MASTER_DATA_SCOPES}>
+                <MasterDataLayout />
+              </ScopeGuard>
             </ApprovedRoute>
           }
         >
@@ -232,7 +251,10 @@ const AppRoutes = () => {
           <Route path="channels"  element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ,  SCOPES.TENANT_ADMIN]}><Channels /></ScopeGuard>} />
           <Route path="variants"  element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ,  SCOPES.TENANT_ADMIN]}><Variants /></ScopeGuard>} />
           <Route path="floors"    element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ,  SCOPES.TENANT_ADMIN]}><Floors /></ScopeGuard>} />
-          <Route path="staff"     element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ,  SCOPES.TENANT_ADMIN]}><Staff /></ScopeGuard>} />
+          {/* Staff is now a tab on Access Control — one screen answers "who works
+              in this tenancy". The old path is kept so existing links still land
+              somewhere useful rather than 404ing. */}
+          <Route path="staff" element={<Navigate to="/frontdesk/access-control" replace />} />
           <Route path="settings"  element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ,  SCOPES.TENANT_ADMIN]}><PosSettings /></ScopeGuard>} />
           <Route path="expenses"  element={<ScopeGuard requiredScopes={[SCOPES.POS_OPS_READ,     SCOPES.TENANT_ADMIN]}><Expenses /></ScopeGuard>} />
           <Route path="customers"      element={<ScopeGuard requiredScopes={[SCOPES.POS_CRM_READ,     SCOPES.TENANT_ADMIN]}><Customers /></ScopeGuard>} />

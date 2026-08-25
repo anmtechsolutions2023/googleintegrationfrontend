@@ -289,30 +289,11 @@ export const getExpenseCategories = async (params = {}) => {
   return toArray(res.data)
 }
 
-// ── Staff ──────────────────────────────────────────────────────────────────────
-export const getStaff = async (params = {}) => {
-  const res = await api.get('/api/pos/staff', { params })
-  return toArray(res.data)
-}
-export const createStaff = async (data) => {
-  const res = await api.post('/api/pos/staff', data)
-  return toObject(res.data)
-}
-export const updateStaff = async (id, data) => {
-  const res = await api.put(`/api/pos/staff/${id}`, data)
-  return toObject(res.data)
-}
-export const deleteStaff = async (id) => api.delete(`/api/pos/staff/${id}`)
+// IAM lives in services/adminService.js — it owns every /api/admin/* URL.
+// This module used to carry its own copy of half of them, which is how the
+// Front Desk and /admin screens drifted into two different sets of controls
+// over the same data.
 
-// ── Admin/cross-domain lookups (used by AccessControl + Billing) ─────────────
-export const getAdminRoles = async () => {
-  const res = await api.get('/api/admin/roles')
-  return toArray(res.data)
-}
-export const getAdminUsers = async () => {
-  const res = await api.get('/api/admin/users')
-  return toArray(res.data)
-}
 export const getItemDetail = async (id) => {
   const res = await api.get(`/api/itemdetails/${id}`)
   return toObject(res.data)
@@ -553,7 +534,6 @@ const posService = {
   getPosBranches, getPosSettings, updatePosSettings,
   getExpenses, createExpense, updateExpense, deleteExpense,
   approveExpense, rejectExpense, settleExpense, getExpenseCategories,
-  getStaff, createStaff, updateStaff, deleteStaff,
   getVariants,
   getPaymentModes,
   getLedgerDocuments, getLedgerDocument, refundLedgerDocument,
@@ -567,7 +547,7 @@ const posService = {
   getDashboardStats,
   getReports,
   genericGet, genericPost, genericPut, genericDelete,
-  getAdminRoles, getAdminUsers, getItemDetail, getInventoryEndpoint,
+  getItemDetail, getInventoryEndpoint,
 }
 
 export default posService

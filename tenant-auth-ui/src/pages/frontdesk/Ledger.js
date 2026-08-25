@@ -2,6 +2,8 @@ import React, { useEffect, useState, useCallback } from 'react'
 import { toast } from 'react-toastify'
 import posService from '../../services/posService'
 import { OrderNoLink } from '../../components/frontdesk/OrderLinkProvider'
+import { SCOPES } from '../../constants'
+import { useCan } from '../../hooks/useCan'
 import './ledger.css'
 
 const money = (n) => (Number(n) || 0).toFixed(2)
@@ -17,6 +19,9 @@ const STATUS_FILTERS = ['', 'SETTLED', 'PARTIALLY_PAID', 'REFUNDED', 'CANCELLED'
  * that rather than hiding disabled edit controls.
  */
 const Ledger = () => {
+  // The ledger is offered on TRANSACTIONS:READ — anyone who may see the books.
+  // A refund moves money back out of them, which is WRITE.
+  const canRefund = useCan(SCOPES.TRANSACTIONS_WRITE)
   const [documents, setDocuments] = useState([])
   const [loading, setLoading] = useState(true)
   const [status, setStatus] = useState('')
@@ -264,7 +269,7 @@ const Ledger = () => {
 
                 <div className="fd-invoice-actions">
                   <button className="fd-btn fd-btn-outline" onClick={() => window.print()}>Print</button>
-                  {selected.StatusName === 'SETTLED' && (
+                  {selected.StatusName === 'SETTLED' && canRefund && (
                     <button className="fd-btn fd-btn-danger" onClick={() => setRefundTarget(selected)}>
                       Refund
                     </button>

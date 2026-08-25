@@ -45,7 +45,7 @@ const ITEM_META_CONFIG = {
       emptyText: 'No price set on this item',
     },
     { name: 'FoodTypeId', label: 'Food Type', type: 'select', required: true, reference: 'posFoodType' },
-    { name: 'BranchDetailId', label: 'Branch', type: 'select', required: true, reference: 'branchDetails' },
+    { name: 'BranchDetailId', label: 'Branch', type: 'select', required: true, reference: 'posBranches' },
     { name: 'ChannelIds', label: 'Channels', type: 'multiselect', reference: 'posChannel', wide: true },
     { name: 'VariantIds', label: 'Variants', type: 'multiselect', reference: 'posVariant', wide: true },
     { name: 'Active', type: 'boolean', default: true },

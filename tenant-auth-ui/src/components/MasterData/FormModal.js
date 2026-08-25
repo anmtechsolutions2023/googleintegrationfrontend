@@ -33,6 +33,12 @@ const renderDerivedPart = (part, raw) => {
  * @param {Function} props.onSubmit - Submit handler (formData) => void
  * @param {boolean} props.loading - Submit loading state
  * @param {Object} props.referenceData - Data for select fields { fieldName: [options] }
+ * @param {Object} props.referenceErrors - Reference lists the server refused,
+ *   keyed the same way: { [reference]: 'forbidden' | 'failed' }. An empty
+ *   dropdown and a forbidden one look identical on screen, and the difference
+ *   is the whole answer — one means "nothing here yet", the other means "not
+ *   yours to see". Saying which is what stops a permission gap reading as a
+ *   broken form.
  */
 const FormModal = ({
   isOpen,
@@ -43,6 +49,7 @@ const FormModal = ({
   onSubmit,
   loading = false,
   referenceData = {},
+  referenceErrors = {},
   moduleKey = null,
   onQuickCreate = null,
   onOpenDrawer = null,
@@ -351,6 +358,30 @@ const FormModal = ({
         // reference-loaded data; falls back to referenceData for reference selects.
         const inlineOptions = Array.isArray(field.options) ? field.options : null
         const options = inlineOptions || referenceData[field.reference] || []
+
+        // This list belongs to a category the role may not read. Offering an
+        // empty dropdown here would leave them clicking it and drawing their
+        // own conclusion; a required field would then block save with no
+        // explanation at all.
+        const refusal = !inlineOptions && field.reference && referenceErrors[field.reference]
+        if (refusal) {
+          const label = MODULES[field.reference]?.name || field.label || field.name
+          return (
+            <div className="form-reference-denied">
+              <select id={field.name} className="form-select" disabled value="">
+                <option value="">
+                  {refusal === 'forbidden' ? `${label} unavailable` : `Could not load ${label}`}
+                </option>
+              </select>
+              <p className="form-reference-denied-note">
+                {refusal === 'forbidden'
+                  ? `You do not have permission to read ${label}, so this cannot be set here.`
+                  : `${label} could not be loaded. Try again, or reload the page.`}
+                {field.required && ' This field is required to save.'}
+              </p>
+            </div>
+          )
+        }
         // A field with a guided "Set up" drawer doesn't also need the "+"
         // quick-create — the drawer supersedes it.
         const canQuickCreate =

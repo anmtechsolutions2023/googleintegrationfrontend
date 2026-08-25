@@ -19,6 +19,12 @@ jest.mock('../../../services/posService', () => ({
 jest.mock('react-toastify', () => ({
   toast: { success: jest.fn(), error: jest.fn(), warn: jest.fn(), info: jest.fn() },
 }));
+// Settling is billing work, so the default user here can take money.
+jest.mock('../../../context/AuthContext', () => ({ useAuth: jest.fn() }));
+const { useAuth } = require('../../../context/AuthContext');
+const asUser = (scopes) => useAuth.mockReturnValue({
+  user: { tid: 't1', onboardingStatus: 'APPROVED', scopes },
+});
 
 const CI_DOSA = 'aaaaaaaa-0000-0000-0000-000000000001';
 const CI_WATER = 'aaaaaaaa-0000-0000-0000-000000000002';
@@ -134,6 +140,7 @@ const changeTable = () => {
 };
 
 beforeEach(() => {
+  asUser(['POS_ORDER:READ', 'POS_ORDER:WRITE', 'POS_BILLING:READ', 'POS_BILLING:WRITE']);
   posService.getTables.mockResolvedValue([DEFAULT_TABLE]);
   posService.getFloors.mockResolvedValue([]);
   posService.getOrders.mockResolvedValue([]);

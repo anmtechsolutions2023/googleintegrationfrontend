@@ -41,6 +41,10 @@ export const ROUTES = {
   // Front Desk (POS)
   FRONTDESK: '/frontdesk',
   FRONTDESK_MODULE: '/frontdesk/:tab',
+
+  // The one place a tenancy's people, invitations and roles are managed.
+  // /admin/users and /admin/roles redirect here.
+  ACCESS_CONTROL: '/frontdesk/access-control',
 };
 
 // Route groups for navigation menus

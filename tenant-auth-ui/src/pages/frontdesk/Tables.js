@@ -83,15 +83,20 @@ const Tables = () => {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [f, t, o] = await Promise.all([
+      // allSettled: the floor plan is the screen. Orders only mark which
+      // tables are occupied, so a refused order list should cost the badges,
+      // not the plan.
+      const [f, t, o] = (await Promise.allSettled([
         posService.getFloors(),
         posService.getTables(),
         posService.getOrders({ limit: MAX_LIMIT }),
-      ])
-      setFloors(f)
-      setTables(t)
-      setOrders(o)
-      if (f.length > 0 && !activeFloor) setActiveFloor(f[0].id || f[0].Id)
+      ])).map((r) => (r.status === 'fulfilled' ? r.value : null))
+
+      if (f === null || t === null) toast.error('Failed to load floor/table data')
+      setFloors(f || [])
+      setTables(t || [])
+      setOrders(o || [])
+      if ((f || []).length > 0 && !activeFloor) setActiveFloor(f[0].id || f[0].Id)
     } catch {
       toast.error('Failed to load floor/table data')
     } finally {

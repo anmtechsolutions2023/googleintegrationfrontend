@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react'
 import { toast } from 'react-toastify'
 import posService from '../../services/posService'
-import { APP_CONFIG } from '../../constants'
+import { APP_CONFIG, SCOPES } from '../../constants'
+import { useCan } from '../../hooks/useCan'
 import RoundsTimeline from '../../components/frontdesk/RoundsTimeline'
 import BillSummary from '../../components/frontdesk/BillSummary'
 import TransferSheet from '../../components/frontdesk/TransferSheet'
@@ -47,6 +48,12 @@ const money = (n) => (Number(n) || 0).toFixed(2)
 
 
 const Billing = () => {
+  // The till is offered on POS_ORDER:READ, but what it lets you DO splits in
+  // two: punching an order is order work, taking the money is billing work. A
+  // waiter has the first and not the second, so offering Settle to everyone who
+  // could open this screen sent them into a 403 at the end of a sale.
+  const canTakeOrders = useCan(SCOPES.POS_ORDER_WRITE)
+  const canTakeMoney  = useCan(SCOPES.POS_BILLING_WRITE)
   const [tables, setTables]     = useState([])
   const [floors, setFloors]     = useState([])
   const [menu, setMenu]         = useState([])
@@ -119,7 +126,12 @@ const Billing = () => {
       // Every list needs MAX_LIMIT explicitly: the API's default page size is 10,
       // so omitting it silently capped the menu at 10 dishes and the floor plan
       // at 10 tables — the item you wanted simply was not on the grid.
-      const [t, f, m, orders, v, k, modes] = await Promise.all([
+      //
+      // allSettled, not all: one refused list must not discard the six that
+      // came back. Variants and payment modes are gated on scopes a given role
+      // may not hold, and losing the whole till because the tender list was
+      // refused is a worse answer than a till without that one dropdown.
+      const [t, f, m, orders, v, k, modes] = (await Promise.allSettled([
         posService.getTables({ limit: MAX_LIMIT }),
         posService.getFloors({ limit: MAX_LIMIT }),
         posService.getItemMeta({ limit: MAX_LIMIT }),
@@ -127,14 +139,19 @@ const Billing = () => {
         posService.getVariants(),
         posService.getKots({ limit: MAX_LIMIT }),
         posService.getPaymentModes(),
-      ])
-      setTables(t)
-      setFloors(f)
-      setMenu(m)
+      ])).map((r) => (r.status === 'fulfilled' ? r.value : null))
+
+      // The menu is what the screen is FOR, so its absence is reported rather
+      // than rendered as an empty grid the cashier will stare at.
+      if (m === null) toast.error('The menu could not be loaded')
+
+      setTables(t || [])
+      setFloors(f || [])
+      setMenu(m || [])
       setVariants(v || [])
       setPaymentModes(modes || [])
       setKots(Array.isArray(k) ? k : [])
-      const open = orders.filter((o) => (o.Status || '').toLowerCase() !== 'closed')
+      const open = (orders || []).filter((o) => (o.Status || '').toLowerCase() !== 'closed')
       setActiveOrders(open)
 
       // Fetch item details for all ItemDetailIds (to show names). A miss here is
@@ -142,7 +159,7 @@ const Billing = () => {
       // line, into the KOT snapshot and onto the kitchen display. Silently
       // swallowing the failure printed a raw uuid to the cook, so the count of
       // unresolved names is surfaced instead.
-      const ids = [...new Set(m.map((x) => x.ItemDetailId).filter(Boolean))]
+      const ids = [...new Set((m || []).map((x) => x.ItemDetailId).filter(Boolean))]
       if (ids.length > 0) {
         const details = {}
         let unresolved = 0
@@ -1168,58 +1185,74 @@ const Billing = () => {
                 remember. Dine-in keeps its three deliberate steps. */}
             {counterMode ? (
               <>
-                <button
-                  className="fd-btn fd-btn-success fd-btn-lg"
-                  onClick={handleCounterOrder}
-                  disabled={counterBusy || cartItems.length === 0}
-                >
-                  {counterBusy ? 'Placing…' : 'Place & Pay'}
-                </button>
+                {/* One press covers order, kitchen and payment, so it needs
+                    both authorities — there is no half of it to offer. */}
+                {canTakeOrders && canTakeMoney ? (
+                  <button
+                    className="fd-btn fd-btn-success fd-btn-lg"
+                    onClick={handleCounterOrder}
+                    disabled={counterBusy || cartItems.length === 0}
+                  >
+                    {counterBusy ? 'Placing…' : 'Place & Pay'}
+                  </button>
+                ) : (
+                  <p className="fd-cart-note">
+                    Counter sales need permission to take both orders and payments.
+                  </p>
+                )}
                 {sessionRounds.length > 0 && (
                   <div className="fd-cart-actions-row">
                     {/* The customer walked off mid-payment, or the modal was
                         closed by accident: the order is still there and can be
                         settled rather than stranded. */}
-                    <button
-                      className="fd-btn fd-btn-outline"
-                      onClick={() => setSettleOpen(true)}
-                    >
-                      Resume payment
-                    </button>
+                    {canTakeMoney && (
+                      <button
+                        className="fd-btn fd-btn-outline"
+                        onClick={() => setSettleOpen(true)}
+                      >
+                        Resume payment
+                      </button>
+                    )}
                   </div>
                 )}
               </>
             ) : (
               <>
-                <button
-                  className="fd-btn fd-btn-primary fd-btn-lg"
-                  onClick={handleAddRound}
-                  disabled={!selectedTable || cartItems.length === 0}
-                >
-                  {sessionRounds.length > 0 ? `Add Round ${sessionRounds.length + 1}` : 'Start Order'}
-                </button>
+                {canTakeOrders && (
+                  <button
+                    className="fd-btn fd-btn-primary fd-btn-lg"
+                    onClick={handleAddRound}
+                    disabled={!selectedTable || cartItems.length === 0}
+                  >
+                    {sessionRounds.length > 0 ? `Add Round ${sessionRounds.length + 1}` : 'Start Order'}
+                  </button>
+                )}
 
                 <div className="fd-cart-actions-row">
                   {/* Send-once on the server, so this stays enabled: pressing it on a
                       round that is already cooking reports that rather than
                       duplicating the ticket. */}
-                  <button
-                    className="fd-btn fd-btn-warning"
-                    onClick={handleSendKot}
-                    disabled={!selectedOrderId}
-                    title={selectedSent
-                      ? 'This round is already in the kitchen'
-                      : 'Send this round to the kitchen'}
-                  >
-                    {selectedSent ? 'Sent ✓' : 'Send KOT'}
-                  </button>
-                  <button
-                    className="fd-btn fd-btn-success"
-                    onClick={() => setSettleOpen(true)}
-                    disabled={sessionRounds.length === 0}
-                  >
-                    Settle Bill
-                  </button>
+                  {canTakeOrders && (
+                    <button
+                      className="fd-btn fd-btn-warning"
+                      onClick={handleSendKot}
+                      disabled={!selectedOrderId}
+                      title={selectedSent
+                        ? 'This round is already in the kitchen'
+                        : 'Send this round to the kitchen'}
+                    >
+                      {selectedSent ? 'Sent ✓' : 'Send KOT'}
+                    </button>
+                  )}
+                  {canTakeMoney && (
+                    <button
+                      className="fd-btn fd-btn-success"
+                      onClick={() => setSettleOpen(true)}
+                      disabled={sessionRounds.length === 0}
+                    >
+                      Settle Bill
+                    </button>
+                  )}
                 </div>
               </>
             )}
@@ -1228,7 +1261,7 @@ const Billing = () => {
                 two buttons a cashier presses all shift. */}
             <div className="fd-cart-actions-minor">
               {/* Transferring needs a table to transfer between. */}
-              {!counterMode && (
+              {!counterMode && canTakeOrders && (
                 <button
                   type="button"
                   className="fd-link-btn"

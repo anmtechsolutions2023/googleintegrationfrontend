@@ -571,6 +571,22 @@
   resize: vertical;
 }
 
+/* A dropdown whose list the role may not read. Shown rather than left empty:
+   "nothing here yet" and "not yours to see" look identical in an empty select,
+   and only one of them is the user's problem to solve. */
+.form-reference-denied .form-select {
+  background: #f8fafc;
+  color: #94a3b8;
+  border-style: dashed;
+  cursor: not-allowed;
+}
+.form-reference-denied-note {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #64748b;
+}
+
 .form-checkbox-group {
   display: flex;
   align-items: center;

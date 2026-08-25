@@ -18,6 +18,15 @@ import {
   createFeature,
   updateFeature,
   deleteFeature,
+  listUsers,
+  listUserRoleIds,
+  listRolePermissionIds,
+  setUserTenantAdmin,
+  updateUserProfile,
+  removeUser,
+  listInvitations,
+  createInvitation,
+  saveRole,
 } from '../adminService';
 
 jest.mock('../../api/api', () => ({
@@ -240,5 +249,103 @@ describe('deleteFeature', () => {
     api.delete.mockResolvedValue({ data: {} });
     deleteFeature('feat-uuid');
     expect(api.delete).toHaveBeenCalledWith('/api/admin/features/feat-uuid');
+  });
+});
+
+// ── The People & Access screen ────────────────────────────────
+// These return the payload already unwrapped. Verified against a live server:
+// /users/:email/roles returns user_roles rows (id, user_email, tenant_id,
+// role_id, …) and /roles/:id/permissions returns role_permissions rows
+// (id, role_id, feature_id, …).
+
+describe('unwrapping', () => {
+  it('pulls the array out of whichever envelope the API used', async () => {
+    api.get.mockResolvedValue({ data: { data: [{ user_email: 'a@b.com' }] } });
+    expect(await listUsers()).toEqual([{ user_email: 'a@b.com' }]);
+
+    api.get.mockResolvedValue({ data: { resource: [{ user_email: 'c@d.com' }] } });
+    expect(await listUsers()).toEqual([{ user_email: 'c@d.com' }]);
+  });
+
+  it('yields an empty array rather than undefined when there is no payload', async () => {
+    api.get.mockResolvedValue({ data: null });
+    expect(await listUsers()).toEqual([]);
+  });
+});
+
+describe('listUserRoleIds', () => {
+  // The row carries BOTH an id (the user_roles row) and a role_id. Picking the
+  // wrong one would pre-tick nothing, and since saving replaces the whole set,
+  // that saves as "remove every role".
+  it('takes role_id, not the row id', async () => {
+    api.get.mockResolvedValue({ data: { data: [
+      { id: 'ur-1', role_id: 'role-1' },
+      { id: 'ur-2', role_id: 'role-2' },
+    ] } });
+    expect(await listUserRoleIds('a@b.com')).toEqual(['role-1', 'role-2']);
+  });
+
+  it('encodes the email into the path', async () => {
+    api.get.mockResolvedValue({ data: { data: [] } });
+    await listUserRoleIds('a+b@x.com');
+    expect(api.get).toHaveBeenCalledWith('/api/admin/users/a%2Bb%40x.com/roles');
+  });
+});
+
+describe('listRolePermissionIds', () => {
+  it('takes feature_id, not the row id', async () => {
+    api.get.mockResolvedValue({ data: { data: [
+      { id: 'rp-1', role_id: 'r1', feature_id: 'f1' },
+    ] } });
+    expect(await listRolePermissionIds('r1')).toEqual(['f1']);
+  });
+});
+
+describe('membership mutations', () => {
+  it('sets the admin FLAG, which is what the login path reads', async () => {
+    api.put.mockResolvedValue({ data: {} });
+    await setUserTenantAdmin('a@b.com', true);
+    expect(api.put).toHaveBeenCalledWith('/api/admin/users/a%40b.com/admin', { isAdmin: true });
+  });
+
+  it('updates the staff details on the membership', async () => {
+    api.put.mockResolvedValue({ data: {} });
+    await updateUserProfile('a@b.com', { fullName: 'Priya R' });
+    expect(api.put).toHaveBeenCalledWith('/api/admin/users/a%40b.com/profile', { fullName: 'Priya R' });
+  });
+
+  it('removes a membership, never a person', async () => {
+    api.delete.mockResolvedValue({ data: {} });
+    await removeUser('a@b.com');
+    expect(api.delete).toHaveBeenCalledWith('/api/admin/users/a%40b.com');
+  });
+});
+
+describe('invitations', () => {
+  it('lists them', async () => {
+    api.get.mockResolvedValue({ data: { data: [] } });
+    await listInvitations();
+    expect(api.get).toHaveBeenCalledWith('/api/admin/invitations');
+  });
+
+  // The tenancy comes from the token — sending one would let an admin invite
+  // into somebody else's.
+  it('never sends a tenancy', async () => {
+    api.post.mockResolvedValue({ data: {} });
+    await createInvitation({ email: 'new@x.com', roleIds: ['r1'] });
+    expect(api.post).toHaveBeenCalledWith('/api/admin/invitations',
+      { email: 'new@x.com', roleIds: ['r1'] });
+  });
+});
+
+describe('saveRole', () => {
+  it('posts when there is no id, puts when there is', async () => {
+    api.post.mockResolvedValue({ data: {} });
+    await saveRole(null, { name: 'POS_HOST', description: '' });
+    expect(api.post).toHaveBeenCalledWith('/api/admin/roles', { name: 'POS_HOST', description: '' });
+
+    api.put.mockResolvedValue({ data: {} });
+    await saveRole('r1', { name: 'POS_TILL' });
+    expect(api.put).toHaveBeenCalledWith('/api/admin/roles/r1', { name: 'POS_TILL' });
   });
 });

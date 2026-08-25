@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { toast } from 'react-toastify'
 import posService from '../../services/posService'
-import { APP_CONFIG } from '../../constants'
+import { APP_CONFIG, SCOPES } from '../../constants'
+import { useCan } from '../../hooks/useCan'
 import RoundsTimeline from '../../components/frontdesk/RoundsTimeline'
 import {
   buildTableRounds, buildRoundIndex, itemLabel, itemQty, itemVariants, formatRoundTime,
@@ -17,6 +18,9 @@ const POLL_MS = 15000
 const money = (n) => (Number(n) || 0).toFixed(2)
 
 const Kitchen = () => {
+  // The pass is offered on POS_KITCHEN:READ so an expeditor or a manager can
+  // watch it; finishing a ticket is the cook's call and needs WRITE.
+  const canCook = useCan(SCOPES.POS_KITCHEN_WRITE)
   const [kots, setKots]       = useState([])
   const [orders, setOrders]   = useState([])
   const [tables, setTables]   = useState([])
@@ -33,14 +37,18 @@ const Kitchen = () => {
   const load = useCallback(async () => {
     if (!loadedOnce.current) setLoading(true)
     try {
-      const [k, o, t] = await Promise.all([
+      // allSettled: the tickets are the pass. Orders and tables only label
+      // them, so losing a label must not empty the board mid-service.
+      const [k, o, t] = (await Promise.allSettled([
         posService.getKots({ limit: MAX_LIMIT }),
         posService.getOrders({ limit: MAX_LIMIT }),
         posService.getTables({ limit: MAX_LIMIT }),
-      ])
-      setKots(k)
-      setOrders(o)
-      setTables(t)
+      ])).map((r) => (r.status === 'fulfilled' ? r.value : null))
+
+      if (k === null && !loadedOnce.current) toast.error('Failed to load KOTs')
+      setKots(k || [])
+      setOrders(o || [])
+      setTables(t || [])
     } catch {
       // A failed poll must not bury the pass in toasts.
       if (!loadedOnce.current) toast.error('Failed to load KOTs')
@@ -213,7 +221,7 @@ const Kitchen = () => {
                   {kot.FiredAt && <span>Fired: {new Date(kot.FiredAt).toLocaleTimeString()}</span>}
                 </div>
 
-                {sc === 'pending' && (
+                {sc === 'pending' && canCook && (
                   <button
                     className="fd-btn fd-btn-success"
                     style={{ width: '100%' }}

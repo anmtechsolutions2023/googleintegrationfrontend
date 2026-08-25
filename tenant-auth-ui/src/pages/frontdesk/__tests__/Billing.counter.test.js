@@ -22,6 +22,14 @@ jest.mock('../../../services/posService', () => ({
 jest.mock('react-toastify', () => ({
   toast: { success: jest.fn(), error: jest.fn(), warn: jest.fn(), info: jest.fn() },
 }));
+// The till splits into two authorities: punching an order (POS_ORDER:WRITE)
+// and taking the money (POS_BILLING:WRITE). A counter sale needs both, so the
+// default user here holds both.
+jest.mock('../../../context/AuthContext', () => ({ useAuth: jest.fn() }));
+const { useAuth } = require('../../../context/AuthContext');
+const asUser = (scopes) => useAuth.mockReturnValue({
+  user: { tid: 't1', onboardingStatus: 'APPROVED', scopes },
+});
 
 const CI_DOSA = 'aaaaaaaa-0000-0000-0000-000000000001';
 const BRANCH = 'bbbbbbbb-0000-0000-0000-000000000001';
@@ -50,6 +58,7 @@ const PLACED_ORDER = {
 };
 
 beforeEach(() => {
+  asUser(['POS_ORDER:READ', 'POS_ORDER:WRITE', 'POS_BILLING:READ', 'POS_BILLING:WRITE']);
   jest.clearAllMocks();
   posService.getTables.mockResolvedValue([{ Id: 't1', Name: 'T1', Status: 'free' }]);
   posService.getFloors.mockResolvedValue([]);
@@ -205,5 +214,41 @@ describe('Counter mode — placing and paying', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /^Cancel$/i }));
     expect(await screen.findByRole('button', { name: /Resume payment/i })).toBeInTheDocument();
+  });
+});
+
+// Taking an order and taking the money are different jobs, and the seed splits
+// them that way: a waiter has POS_ORDER, a cashier has POS_BILLING. The till is
+// offered to both on POS_ORDER:READ, so what it OFFERS has to split too —
+// otherwise a waiter reaches the end of a sale and is refused by the server.
+describe('what the till offers each job', () => {
+  // A counter sale is one press covering order, kitchen and payment, so half
+  // the permission is no permission — and the screen says so rather than
+  // ending in blank space.
+  it('withholds Place & Pay from somebody who can order but not take money', async () => {
+    asUser(['POS_ORDER:READ', 'POS_ORDER:WRITE']);
+    await openCounter();
+    expect(screen.queryByRole('button', { name: /Place & Pay/i })).not.toBeInTheDocument();
+    expect(screen.getByText(/permission to take both orders and payments/i)).toBeInTheDocument();
+  });
+
+  it('withholds it from a cashier who cannot punch the order either', async () => {
+    asUser(['POS_ORDER:READ', 'POS_BILLING:READ', 'POS_BILLING:WRITE']);
+    await openCounter();
+    expect(screen.queryByRole('button', { name: /Place & Pay/i })).not.toBeInTheDocument();
+  });
+
+  it('offers it to somebody holding both', async () => {
+    asUser(['POS_ORDER:READ', 'POS_ORDER:WRITE', 'POS_BILLING:READ', 'POS_BILLING:WRITE']);
+    await openCounter();
+    expect(screen.getByRole('button', { name: /Place & Pay/i })).toBeInTheDocument();
+  });
+
+  // A tenant admin holds neither POS scope explicitly and must still work —
+  // their access comes from the membership flag, not from any role.
+  it('offers it to a tenant admin, who holds no POS scope at all', async () => {
+    asUser(['TENANT:ADMIN']);
+    await openCounter();
+    expect(screen.getByRole('button', { name: /Place & Pay/i })).toBeInTheDocument();
   });
 });

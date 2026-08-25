@@ -41,7 +41,9 @@ const ITEM_OPTIONS = [
 const REFERENCE_DATA = {
   itemDetails: ITEM_OPTIONS,
   posFoodType: [{ Id: FOOD_VEG, Name: 'Veg' }],
-  branchDetails: [{ Id: BRANCH, Name: 'Main', BranchName: 'Main' }],
+  // The branch picker reads /api/pos/branches, not /api/branchdetails — the
+  // latter needs ORGANIZATION:READ, which a POS role has no reason to hold.
+  posBranches: [{ Id: BRANCH, Name: 'Main', BranchName: 'Main' }],
   posChannel: [],
   posVariant: [],
 };
@@ -91,6 +93,9 @@ describe('Menu Item form — cost info is read-only', () => {
     const refsRequested = crudService.getReferenceData.mock.calls.map(([r]) => r);
     expect(refsRequested).not.toContain('costInfos');
     expect(refsRequested).toContain('itemDetails');
+    // And branches come from the POS-scoped source.
+    expect(refsRequested).toContain('posBranches');
+    expect(refsRequested).not.toContain('branchDetails');
   });
 
   test('explains where the cost comes from once an item is chosen', async () => {

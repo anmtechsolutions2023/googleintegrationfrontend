@@ -43,7 +43,6 @@ jest.mock('./pages/frontdesk/Tables',      () => () => <div>Tables</div>);
 jest.mock('./pages/frontdesk/Kitchen',     () => () => <div>Kitchen</div>);
 jest.mock('./pages/frontdesk/MenuMaster',  () => () => <div>Menu Master</div>);
 jest.mock('./pages/frontdesk/Floors',      () => () => <div>Floors</div>);
-jest.mock('./pages/frontdesk/Staff',       () => () => <div>Staff</div>);
 jest.mock('./pages/frontdesk/Expenses',    () => () => <div>Expenses</div>);
 jest.mock('./pages/frontdesk/Customers',   () => () => <div>Customers</div>);
 jest.mock('./pages/frontdesk/Feedback',    () => () => <div>Feedback</div>);
@@ -99,6 +98,46 @@ describe('App routing', () => {
     useAuth.mockReturnValue({ loading: false, user: APPROVED_USER });
     render(<App />);
     expect(screen.getByTestId('navbar')).toBeInTheDocument();
+  });
+
+  // A tenancy's people are managed in one place. /admin/users and /admin/roles
+  // were a second implementation over the same API and had drifted apart, so
+  // they redirect rather than 404 for anybody holding a bookmark.
+  describe('the retired admin screens', () => {
+    const at = (path) => {
+      window.history.pushState({}, '', path);
+      useAuth.mockReturnValue({ loading: false, user: APPROVED_USER });
+      render(<App />);
+      return window.location.pathname;
+    };
+
+    test('/admin/users lands on the front-desk screen', () => {
+      expect(at('/admin/users')).toBe('/frontdesk/access-control');
+    });
+
+    test('/admin/roles lands there too', () => {
+      expect(at('/admin/roles')).toBe('/frontdesk/access-control');
+    });
+
+    // The platform console is what is left at /admin: onboarding, the global
+    // feature catalogue, cross-tenant users. None of it is tenant-scoped, so a
+    // tenant admin has no business there.
+    test('/admin itself refuses a tenant admin', () => {
+      at('/admin');
+      // ScopeGuard renders Forbidden in place rather than navigating away.
+      expect(screen.getByText('Access Denied')).toBeInTheDocument();
+      expect(screen.queryByText('Admin Dashboard')).not.toBeInTheDocument();
+    });
+
+    test('a super admin still reaches it', () => {
+      window.history.pushState({}, '', '/admin');
+      useAuth.mockReturnValue({
+        loading: false,
+        user: { ...APPROVED_USER, scopes: ['TENANT:SUPER_ADMIN'] },
+      });
+      render(<App />);
+      expect(screen.getByText('Admin Dashboard')).toBeInTheDocument();
+    });
   });
 
   test('guest user sees onboarding page', () => {

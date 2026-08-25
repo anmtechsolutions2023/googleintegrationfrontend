@@ -181,6 +181,11 @@ const GenericCrudPage = () => {
 
   // Reference data for main form dropdowns
   const [referenceData, setReferenceData] = useState({})
+  // Which of those the server refused. A dropdown can be empty because the
+  // tenancy has no records yet or because this role may not read that category,
+  // and the two look identical to the person staring at it. Keeping the reason
+  // lets the form say which.
+  const [referenceErrors, setReferenceErrors] = useState({})
 
   // Quick-create: which field/module triggered it
   const [quickCreate, setQuickCreate] = useState({ isOpen: false, fieldName: '', moduleKey: '' })
@@ -215,6 +220,11 @@ const GenericCrudPage = () => {
 
   const fetchData = useCallback(async () => {
     if (!module) return
+    // Refusing in the render path alone still sent the request. The server
+    // refuses it too, so nothing leaked — but the visitor got an error toast
+    // stacked on top of the Access Denied panel, and a 403 was logged every
+    // time somebody opened a module their role does not cover.
+    if (!hasRead) { setLoading(false); return }
     setLoading(true)
     try {
       const response = await crudService.getAll(moduleKey, {
@@ -284,7 +294,7 @@ const GenericCrudPage = () => {
     } finally {
       setLoading(false)
     }
-  }, [moduleKey, module, pagination.page, pagination.pageSize])
+  }, [moduleKey, module, hasRead, pagination.page, pagination.pageSize])
 
   const parseDateToInput = (v) => {
     if (!v && v !== 0) return ''
@@ -347,6 +357,7 @@ const GenericCrudPage = () => {
     if (referenceModules.length === 0) return
     try {
       const refData = {}
+      const refErrors = {}
       await Promise.all(
         referenceModules.map(async (refModuleKey) => {
           try {
@@ -361,6 +372,10 @@ const GenericCrudPage = () => {
           } catch (err) {
             console.warn(`Failed to load reference data for ${refModuleKey}:`, err)
             refData[refModuleKey] = []
+            // 403 is a permission answer, not a failure to be swallowed: this
+            // list belongs to a category the role cannot read. Anything else is
+            // an ordinary error and the field just comes up empty.
+            refErrors[refModuleKey] = err?.response?.status === 403 ? 'forbidden' : 'failed'
           }
         }),
       )
@@ -378,6 +393,7 @@ const GenericCrudPage = () => {
       })
 
       setReferenceData(refData)
+      setReferenceErrors(refErrors)
     } catch (error) {
       console.error('Error fetching reference data:', error)
     }
@@ -865,6 +881,7 @@ const GenericCrudPage = () => {
         onSubmit={handleFormSubmit}
         loading={formLoading}
         referenceData={referenceData}
+        referenceErrors={referenceErrors}
         onQuickCreate={handleQuickCreate}
         onOpenDrawer={handleOpenDrawer}
         fieldUpdates={pendingFieldUpdate}

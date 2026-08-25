@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import { toast } from 'react-toastify'
 import posService from '../../services/posService'
-import { APP_CONFIG } from '../../constants'
+import { APP_CONFIG, SCOPES } from '../../constants'
+import { useCan } from '../../hooks/useCan'
 import { normalizeStatus, statusLabel } from '../../utils/posStatus'
 
 const { MAX_LIMIT } = APP_CONFIG.PAGINATION
@@ -50,6 +51,8 @@ const ProgressBar = ({ status }) => {
 }
 
 const Tracking = () => {
+  // Watching a rider is a read; changing the order's state is not.
+  const canDispatch = useCan(SCOPES.POS_OPS_WRITE)
   const [orders, setOrders]   = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter]   = useState('active')
@@ -128,7 +131,7 @@ const Tracking = () => {
                   </span>
                 </div>
                 <ProgressBar status={o.Status} />
-                {!cancelled && idx < 4 && (
+                {!cancelled && idx < 4 && canDispatch && (
                   <div style={{ marginTop: 12 }}>
                     <button className="fd-btn fd-btn-success" onClick={() => handleAdvance(o)}>
                       Advance → {statusLabel(STAGES[Math.min(idx + 1, 4)])}

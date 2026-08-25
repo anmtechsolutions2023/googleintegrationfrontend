@@ -2,7 +2,8 @@ import React, { useEffect, useState, useCallback } from 'react'
 import { toast } from 'react-toastify'
 import posService from '../../services/posService'
 import { statusLabel } from '../../utils/posStatus'
-import { APP_CONFIG } from '../../constants'
+import { APP_CONFIG, SCOPES } from '../../constants'
+import { useCan } from '../../hooks/useCan'
 
 const { MAX_LIMIT } = APP_CONFIG.PAGINATION
 
@@ -13,6 +14,9 @@ const statusBadge = (status) => {
 }
 
 const OnlineOrders = () => {
+  // The queue is offered on POS_OPS:READ so anyone minding the shop can watch
+  // it; accepting, completing or cancelling an order needs WRITE.
+  const canDispatch = useCan(SCOPES.POS_OPS_WRITE)
   const [orders, setOrders]   = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter]   = useState('all')
@@ -87,13 +91,13 @@ const OnlineOrders = () => {
                   <td>{statusBadge(o.Status)}</td>
                   <td>{o.CreatedOn ? new Date(o.CreatedOn).toLocaleString() : '—'}</td>
                   <td style={{ display: 'flex', gap: 6 }}>
-                    {(!s || s === 'new') && (
+                    {(!s || s === 'new') && canDispatch && (
                       <button className="fd-btn fd-btn-warning" onClick={() => handleStatus(o, 'processing')}>Accept</button>
                     )}
-                    {s === 'processing' && (
+                    {s === 'processing' && canDispatch && (
                       <button className="fd-btn fd-btn-success" onClick={() => handleStatus(o, 'delivered')}>Delivered</button>
                     )}
-                    {s !== 'cancelled' && s !== 'delivered' && s !== 'completed' && (
+                    {s !== 'cancelled' && s !== 'delivered' && s !== 'completed' && canDispatch && (
                       <button className="fd-btn fd-btn-danger" onClick={() => handleStatus(o, 'cancelled')}>Cancel</button>
                     )}
                   </td>

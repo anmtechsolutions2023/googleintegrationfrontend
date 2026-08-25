@@ -1,5 +1,5 @@
 // POS CRUD module registry — same shape as config/modules.js.
-// Config-CRUD screens (floors, tables, staff, customers, expenses, feedback) use
+// Config-CRUD screens (floors, tables, customers, expenses, feedback) use
 // PosCrudPage which wires FormModal + DataTable + crudService pointing at these entries.
 
 export const POS_CATEGORIES = {
@@ -8,7 +8,33 @@ export const POS_CATEGORIES = {
   CRM:        'POS CRM',
 }
 
+// Branches, read through the POS-scoped endpoint rather than /api/branchdetails.
+//
+// Reference dropdowns resolve through crudService, which looks the key up in
+// MODULES then POS_MODULES and calls that entry's endpoint. Pointed at
+// branchDetails, every POS screen with a branch picker needed ORGANIZATION:READ
+// — which is why POS roles used to be handed it wholesale, and why the pickers
+// silently came up empty when they were not. /api/pos/branches returns the same
+// list to any POS read scope, and the pages that fetch branches directly
+// (Billing, Expenses, Assets, Finance, Cash Sessions, POS Settings) already use
+// it.
+//
+// Not a screen: there is no route for it. It exists to be referenced.
+export const POS_BRANCH_REFERENCE = {
+  key: 'posBranches',
+  name: 'Branches',
+  endpoint: '/api/pos/branches',
+  icon: '🏢',
+  category: POS_CATEGORIES.CONFIG,
+  displayField: 'BranchName',
+  fields: [],
+  tableColumns: ['BranchName'],
+  searchFields: ['BranchName'],
+}
+
 export const POS_MODULES = {
+  posBranches: POS_BRANCH_REFERENCE,
+
   posFloors: {
     key: 'posFloors',
     name: 'Floors',
@@ -18,7 +44,7 @@ export const POS_MODULES = {
     displayField: 'Name',
     fields: [
       { name: 'Name', type: 'text', required: true, maxLength: 100 },
-      { name: 'BranchDetailId', label: 'Branch', type: 'select', reference: 'branchDetails' },
+      { name: 'BranchDetailId', label: 'Branch', type: 'select', reference: 'posBranches' },
       { name: 'Active', type: 'boolean', default: true },
     ],
     tableColumns: ['Name', 'BranchDetailId', 'Active', 'CreatedBy', 'CreatedOn'],
@@ -43,25 +69,6 @@ export const POS_MODULES = {
     searchFields: ['Name', 'Status'],
   },
 
-  posStaff: {
-    key: 'posStaff',
-    name: 'Staff',
-    endpoint: '/api/pos/staff',
-    icon: '👤',
-    category: POS_CATEGORIES.CONFIG,
-    displayField: 'Name',
-    fields: [
-      { name: 'Name', type: 'text', required: true, maxLength: 100 },
-      { name: 'Role', type: 'text', maxLength: 50 },
-      { name: 'Phone', type: 'text', maxLength: 20 },
-      { name: 'Email', type: 'email', maxLength: 100 },
-      { name: 'BranchDetailId', label: 'Branch', type: 'select', reference: 'branchDetails' },
-      { name: 'Active', type: 'boolean', default: true },
-    ],
-    tableColumns: ['Name', 'Role', 'Phone', 'Email', 'BranchDetailId', 'Active', 'CreatedOn'],
-    searchFields: ['Name', 'Role', 'Email'],
-  },
-
   posCustomers: {
     key: 'posCustomers',
     name: 'Customers',
@@ -76,7 +83,7 @@ export const POS_MODULES = {
       { name: 'Visits', type: 'number', min: 0 },
       { name: 'TotalSpent', label: 'Total Spent', type: 'number', min: 0, step: 0.01 },
       { name: 'LoyaltyPoints', label: 'Loyalty Points', type: 'number', min: 0 },
-      { name: 'BranchDetailId', label: 'Branch', type: 'select', reference: 'branchDetails' },
+      { name: 'BranchDetailId', label: 'Branch', type: 'select', reference: 'posBranches' },
       { name: 'Active', type: 'boolean', default: true },
     ],
     tableColumns: ['Name', 'Phone', 'Email', 'Visits', 'TotalSpent', 'LoyaltyPoints', 'BranchDetailId', 'Active'],
@@ -133,7 +140,7 @@ export const POS_MODULES = {
       { name: 'CustomerName', label: 'Customer Name', type: 'text', maxLength: 100 },
       { name: 'Rating', type: 'number', required: true, min: 1, max: 5 },
       { name: 'Comments', type: 'textarea', maxLength: 1000 },
-      { name: 'BranchDetailId', label: 'Branch', type: 'select', reference: 'branchDetails' },
+      { name: 'BranchDetailId', label: 'Branch', type: 'select', reference: 'posBranches' },
       { name: 'Active', type: 'boolean', default: true },
     ],
     // OrderNo rather than OrderId: the list answers "which visit was this

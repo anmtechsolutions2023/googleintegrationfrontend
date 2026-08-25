@@ -5,7 +5,8 @@ import posService from '../../services/posService'
 import { OrderNoLink } from '../../components/frontdesk/OrderLinkProvider'
 import { statusLabel, normalizeStatus } from '../../utils/posStatus'
 import { parseOrderItems, itemLabel, itemQty } from '../../utils/posRounds'
-import { APP_CONFIG } from '../../constants'
+import { APP_CONFIG, SCOPES } from '../../constants'
+import { useCan } from '../../hooks/useCan'
 import { businessDate as today } from '../../utils/businessDate'
 
 const { MAX_LIMIT } = APP_CONFIG.PAGINATION
@@ -30,6 +31,9 @@ const badgeClass = (status) => {
 }
 
 const Tokens = () => {
+  // The queue is offered on POS_OPS:READ so a manager or the counter can watch
+  // it. Issuing, calling and handing over move the queue and need WRITE.
+  const canRunQueue = useCan(SCOPES.POS_OPS_WRITE)
   const [tokens, setTokens] = useState([])
   const [branches, setBranches] = useState([])
   const [branchId, setBranchId] = useState(() => localStorage.getItem(BRANCH_KEY) || '')
@@ -159,7 +163,7 @@ const Tokens = () => {
         <td>{Number(t.OrderTotal) > 0 ? `₹${money(t.OrderTotal)}` : '—'}</td>
         <td>{t.CreatedOn ? new Date(t.CreatedOn).toLocaleTimeString() : '—'}</td>
         <td className="fd-token-actions">
-          {s === 'waiting' && (
+          {s === 'waiting' && canRunQueue && (
             <button
               className="fd-btn fd-btn-warning fd-btn-sm"
               disabled={busyId === id}
@@ -168,7 +172,7 @@ const Tokens = () => {
               Call
             </button>
           )}
-          {s === 'called' && (
+          {s === 'called' && canRunQueue && (
             <button
               className="fd-btn fd-btn-outline fd-btn-sm"
               disabled={busyId === id}
@@ -177,7 +181,7 @@ const Tokens = () => {
               Call again
             </button>
           )}
-          {(s === 'waiting' || s === 'called') && (
+          {(s === 'waiting' || s === 'called') && canRunQueue && (
             <button
               className="fd-btn fd-btn-success fd-btn-sm"
               disabled={busyId === id}
@@ -216,14 +220,16 @@ const Tokens = () => {
           ))}
         </select>
         <button className="fd-btn fd-btn-outline" onClick={() => load()}>Refresh</button>
-        <button
-          className="fd-btn fd-btn-outline"
-          onClick={handleIssueBlank}
-          disabled={issuing || !branchId}
-          title="For a walk-in with no order punched in yet"
-        >
-          {issuing ? 'Issuing…' : '+ Blank token'}
-        </button>
+        {canRunQueue && (
+          <button
+            className="fd-btn fd-btn-outline"
+            onClick={handleIssueBlank}
+            disabled={issuing || !branchId}
+            title="For a walk-in with no order punched in yet"
+          >
+            {issuing ? 'Issuing…' : '+ Blank token'}
+          </button>
+        )}
         {/* The screen that faces the customer. Opened in its own window so it
             can live on a second monitor while the till keeps working. */}
         <Link

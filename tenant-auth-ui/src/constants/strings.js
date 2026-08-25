@@ -18,6 +18,7 @@ const STRINGS = {
     auditLogs: 'Audit Logs',
     admin: 'Admin',
     access: 'Access',
+    platform: 'Platform',
     settings: 'Settings',
     profile: 'Profile',
     masterData: 'Master Data',
@@ -185,27 +186,14 @@ const STRINGS = {
       rejectReasonPlaceholder: 'Briefly explain why access is being denied...',
     },
 
+    // What is left of the old per-tenancy Users screen, still used by the
+    // cross-tenant All Users view. Managing one tenancy's own people moved to
+    // /frontdesk/access-control, which carries its own copy.
     adminUsers: {
       title: 'Users',
       empty: 'No users found in this tenant.',
-      rolesTitle: 'Edit Roles',
-      confirmSuspend: 'Suspend this user? They will lose access on next login.',
-      confirmActivate: 'Restore access for this user?',
-      confirmDelete: 'Permanently remove this user from the tenant?',
       selfSuspendBlocked: 'You cannot suspend your own account.',
-      selfRemoveBlocked: 'You cannot remove your own account.',
-      selfActionsBlocked: 'You cannot suspend or remove your own account.',
       selfBadge: 'You',
-    },
-
-    adminRoles: {
-      title: 'Roles',
-      empty: 'No roles defined yet.',
-      createTitle: 'Create Role',
-      editTitle: 'Edit Role',
-      permissionsTitle: 'Edit Permissions',
-      systemRoleNote: 'System roles cannot be modified or deleted.',
-      noFeatures: 'No features available to assign.',
     },
 
     adminFeatures: {

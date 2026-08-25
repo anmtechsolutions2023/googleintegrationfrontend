@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { SCOPES, MESSAGES, STRINGS, APP_CONFIG } from '../constants';
+import { MESSAGES, STRINGS, APP_CONFIG } from '../constants';
 import { ROUTES } from '../constants/routes';
-import { hasScope, isSetupPending, canRunSetupWizard } from '../utils/permissions';
+import { isSetupPending } from '../utils/permissions';
+import { PRIMARY_NAV, visibleNavItems } from '../config/navigation';
 import { toast } from 'react-toastify';
 import './Navbar.css';
 
@@ -16,11 +17,11 @@ const Navbar = () => {
   if (!user) return null;
 
   const isGuest = !user.tid || user.onboardingStatus !== 'APPROVED';
-  // Tenant has not finished the first-time wizard: collapse the menu to the only
-  // destinations the route guards and the API will actually allow.
+  // Tenant has not finished the first-time wizard: the menu collapses to the
+  // only destinations the route guards and the API will actually allow. That
+  // rule, and every permission rule below it, lives in config/navigation.js.
   const setupPending = isSetupPending(user);
-  // The wizard entry point disappears for good once setup is done.
-  const showSetupWizard = canRunSetupWizard(user);
+  const links = visibleNavItems(PRIMARY_NAV, user);
 
   const handleLogout = () => {
     logout();
@@ -45,41 +46,14 @@ const Navbar = () => {
   // be duplicated, which is exactly the kind of drift the setup gate cannot
   // afford (a link left visible in one menu is a way around the gate).
   //
-  // While setup is pending only Home and Audit Logs survive; the wizard has its
-  // own always-visible entry below, and Logout lives in the profile dropdown.
+  // What is IN the list is decided by config/navigation.js from the user's
+  // scopes, so this component renders whatever it is given and decides nothing.
+  // Logout lives in the profile dropdown rather than here.
   const renderNavLinks = (onClick) => (
     <>
-      <Link to={ROUTES.DASHBOARD} onClick={onClick}>{STRINGS.nav.home}</Link>
-
-      {!setupPending && (
-        <Link to={ROUTES.MASTER} onClick={onClick}>{STRINGS.nav.masterData}</Link>
-      )}
-
-      {showSetupWizard && (
-        <Link to={ROUTES.MASTER_SETUP} onClick={onClick}>{STRINGS.nav.masterSetup}</Link>
-      )}
-
-      {!setupPending &&
-        hasScope(user, [SCOPES.REPORTS_READ, SCOPES.REPORTS_WRITE, SCOPES.TENANT_ADMIN]) && (
-        <Link to={ROUTES.REPORTS} onClick={onClick}>{STRINGS.nav.reports}</Link>
-      )}
-
-      {!setupPending && hasScope(user, [SCOPES.ADMIN_ACCESS]) && (
-        <Link to={ROUTES.ADMIN} onClick={onClick}>{STRINGS.nav.access}</Link>
-      )}
-
-      {!setupPending &&
-        hasScope(user, [
-          SCOPES.POS_ORDER_READ, SCOPES.POS_CONFIG_READ, SCOPES.POS_KITCHEN_READ,
-          SCOPES.POS_BILLING_READ, SCOPES.POS_CRM_READ, SCOPES.POS_OPS_READ,
-          SCOPES.POS_REPORTS_READ, SCOPES.TENANT_ADMIN,
-        ]) && (
-        <Link to={ROUTES.FRONTDESK} onClick={onClick}>{STRINGS.nav.frontDesk}</Link>
-      )}
-
-      {hasScope(user, [SCOPES.AUDIT_READ, SCOPES.ADMIN_ACCESS]) && (
-        <Link to={ROUTES.AUDIT} onClick={onClick}>{STRINGS.nav.auditLogs}</Link>
-      )}
+      {links.map(({ key, path, label }) => (
+        <Link key={key} to={path} onClick={onClick}>{label}</Link>
+      ))}
     </>
   );
 

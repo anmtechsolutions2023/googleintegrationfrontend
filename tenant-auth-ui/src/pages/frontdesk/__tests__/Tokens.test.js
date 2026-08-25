@@ -18,6 +18,13 @@ jest.mock('../../../services/posService', () => ({
 jest.mock('react-toastify', () => ({
   toast: { success: jest.fn(), error: jest.fn(), warn: jest.fn(), info: jest.fn() },
 }));
+// The queue is offered on POS_OPS:READ; issuing, calling and handing over move
+// it and need WRITE. Default to somebody who can work the counter.
+jest.mock('../../../context/AuthContext', () => ({ useAuth: jest.fn() }));
+const { useAuth } = require('../../../context/AuthContext');
+const asUser = (scopes) => useAuth.mockReturnValue({
+  user: { tid: 't1', onboardingStatus: 'APPROVED', scopes },
+});
 
 // The LOCAL calendar date, matching utils/businessDate. These expectations used
 // toISOString().slice(0, 10) — the UTC date — which is the very bug being
@@ -39,6 +46,7 @@ const token = (over = {}) => ({
 });
 
 beforeEach(() => {
+  asUser(['POS_OPS:READ', 'POS_OPS:WRITE']);
   jest.clearAllMocks();
   localStorage.clear();
   posService.getPosBranches.mockResolvedValue([{ Id: BRANCH, BranchName: 'Central' }]);
@@ -223,5 +231,25 @@ describe('Customer display', () => {
     ]);
     await renderDisplay();
     expect(await screen.findByLabelText(/Branch/i)).toBeInTheDocument();
+  });
+});
+
+// Watching the queue and working it are different permissions.
+describe('who may work the queue', () => {
+  it('offers no Call, Serve or Blank token to a read-only watcher', async () => {
+    asUser(['POS_OPS:READ']);
+    render(<MemoryRouter><Tokens /></MemoryRouter>);
+    await waitFor(() => expect(posService.getTokens).toHaveBeenCalled());
+
+    expect(screen.queryByRole('button', { name: /^Call$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Serve/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Blank token/i })).not.toBeInTheDocument();
+  });
+
+  it('still shows them the queue itself — that is what READ is for', async () => {
+    asUser(['POS_OPS:READ']);
+    render(<MemoryRouter><Tokens /></MemoryRouter>);
+    await waitFor(() => expect(posService.getTokens).toHaveBeenCalled());
+    expect(screen.getByRole('button', { name: /Refresh/i })).toBeInTheDocument();
   });
 });

@@ -14,6 +14,13 @@ jest.mock('../../../services/posService', () => ({
 jest.mock('react-toastify', () => ({
   toast: { success: jest.fn(), error: jest.fn(), warn: jest.fn() },
 }));
+// The ledger is offered on TRANSACTIONS:READ; refunding needs WRITE. Default to
+// somebody who holds it, so the existing cases exercise the refund path.
+jest.mock('../../../context/AuthContext', () => ({ useAuth: jest.fn() }));
+const { useAuth } = require('../../../context/AuthContext');
+const asUser = (scopes) => useAuth.mockReturnValue({
+  user: { tid: 't1', onboardingStatus: 'APPROVED', scopes },
+});
 
 const DOCS = [
   { Id: 'l1', TransactionNo: 'INV-0042', TransactionDate: '2026-07-01', StatusName: 'SETTLED',
@@ -37,6 +44,7 @@ const DETAIL = {
 };
 
 beforeEach(() => {
+  asUser(['TRANSACTIONS:READ', 'TRANSACTIONS:WRITE']);
   posService.getLedgerDocuments.mockResolvedValue(DOCS);
   posService.getLedgerDocument.mockResolvedValue(DETAIL);
   posService.refundLedgerDocument.mockResolvedValue({ status: 'REFUNDED' });
@@ -155,5 +163,30 @@ describe('Refund', () => {
 
     await waitFor(() =>
       expect(posService.refundLedgerDocument).toHaveBeenCalledWith('l1', 'Wrong order'));
+  });
+});
+
+// Reading the books and reversing an entry in them are different permissions.
+describe('who may refund', () => {
+  const openInvoice = async () => {
+    render(<Ledger />);
+    fireEvent.click(await screen.findByText('INV-0042'));
+    await screen.findByText(/Masala Dosa/);
+  };
+
+  it('offers no Refund to somebody who may only read the ledger', async () => {
+    asUser(['TRANSACTIONS:READ']);
+    await openInvoice();
+    expect(screen.queryByRole('button', { name: /Refund/i })).not.toBeInTheDocument();
+    // …and the document is still fully readable. (INV-0042 appears in both the
+    // list row and the open invoice, hence getAllByText.)
+    expect(screen.getAllByText('INV-0042').length).toBeGreaterThan(0);
+    expect(screen.getByText(/Masala Dosa/)).toBeInTheDocument();
+  });
+
+  it('offers it to a tenant admin, who holds no TRANSACTIONS scope at all', async () => {
+    asUser(['TENANT:ADMIN']);
+    await openInvoice();
+    expect(await screen.findByRole('button', { name: /Refund/i })).toBeInTheDocument();
   });
 });
