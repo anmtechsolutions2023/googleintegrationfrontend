@@ -99,31 +99,33 @@ const OrderDetailModal = ({ orderId, onClose }) => {
             {order.Items.length === 0 ? (
               <div className="fd-empty">No items on this round.</div>
             ) : (
-              <table className="fd-table fd-order-items">
-                <thead>
-                  <tr><th>Item</th><th className="num">Qty</th><th className="num">Amount</th></tr>
-                </thead>
-                <tbody>
-                  {order.Items.map((it, i) => (
-                    <tr key={i}>
-                      <td>
-                        {itemLabel(it)}
-                        {itemVariants(it).length > 0 && (
-                          <span className="ci-variants">
-                            {itemVariants(it).map((v, vi) => (
-                              <span className="ci-variant-chip" key={v.id || vi}>
-                                {v.name}{Number(v.price) > 0 ? ` +₹${money(v.price)}` : ''}
-                              </span>
-                            ))}
-                          </span>
-                        )}
-                      </td>
-                      <td className="num">{itemQty(it)}</td>
-                      <td className="num">₹{money(it.grossAmount ?? it.price)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className="fd-table-scroll">
+                <table className="fd-table fd-order-items">
+                  <thead>
+                    <tr><th>Item</th><th className="num">Qty</th><th className="num">Amount</th></tr>
+                  </thead>
+                  <tbody>
+                    {order.Items.map((it, i) => (
+                      <tr key={i}>
+                        <td>
+                          {itemLabel(it)}
+                          {itemVariants(it).length > 0 && (
+                            <span className="ci-variants">
+                              {itemVariants(it).map((v, vi) => (
+                                <span className="ci-variant-chip" key={v.id || vi}>
+                                  {v.name}{Number(v.price) > 0 ? ` +₹${money(v.price)}` : ''}
+                                </span>
+                              ))}
+                            </span>
+                          )}
+                        </td>
+                        <td className="num">{itemQty(it)}</td>
+                        <td className="num">₹{money(it.grossAmount ?? it.price)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
 
             <div className="fd-order-totals">

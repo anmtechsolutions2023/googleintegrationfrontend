@@ -6,7 +6,7 @@
   padding: 0 16px;
   background-color: #1a202c;
   color: white;
-  height: 64px;
+  height: var(--navbar-height);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   position: relative;
   z-index: 100;
@@ -291,7 +291,7 @@
 /* ── Mobile slide-down nav menu ── */
 .mobile-menu {
   position: absolute;
-  top: 64px;
+  top: var(--navbar-height);
   left: 0;
   right: 0;
   background-color: #2d3748;

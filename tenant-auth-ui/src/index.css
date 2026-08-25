@@ -1,3 +1,30 @@
+/* ──────────────────────────────────────────────────────────────────────────
+   Global reset + layout invariants.
+
+   The border-box reset is load-bearing: roughly twenty rules across the app
+   pair `width: 100%` with padding and a border, and ten of them never opted
+   into border-box by hand. Those overflowed their container by exactly the
+   padding plus border. Setting it once here is the fix for all of them, and
+   the inherit/inherit pattern lets any component opt a subtree back out
+   without the reset fighting it.
+   ────────────────────────────────────────────────────────────────────────── */
+html {
+  box-sizing: border-box;
+}
+*,
+*::before,
+*::after {
+  box-sizing: inherit;
+}
+
+/* Shared chrome measurement. The navbar is 64px; three shells used to compute
+   their own height from a hardcoded 60px, which left every one of them 4px
+   too tall and slid their off-canvas drawers under the navbar. Everything
+   that needs the number now reads it from here. */
+:root {
+  --navbar-height: 64px;
+}
+
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
@@ -6,6 +33,13 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+/* No page should scroll sideways: wide content scrolls inside its own
+   container instead (.data-table-container, .fd-table-scroll,
+   .table-scroll-wrapper). Deliberately NOT `overflow-x: hidden` on body —
+   that hides the symptom, clips anything legitimately overhanging, and turns
+   body into a scroll container that breaks `position: sticky` descendants.
+   The containers below are the actual fix. */
 
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',

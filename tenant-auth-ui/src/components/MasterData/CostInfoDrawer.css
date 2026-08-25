@@ -111,3 +111,26 @@
 .ci-rate-muted { color: #8a94a6; }
 .ci-rate-parts { color: #2c7a4b; font-family: ui-monospace, Menlo, monospace; }
 .ci-drawer-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+
+/* ── Touch targets + narrow-screen stacking ───────────────────────────────
+   The drawer is capped at 460px, so on a 360px phone each half of .ci-costrow
+   was ~146px — not enough for a currency input with 20px of padding and a
+   two-word label. Below 420px it becomes one column. */
+@media (max-width: 420px) {
+  .ci-costrow { grid-template-columns: 1fr; }
+  .ci-addtype-row { flex-direction: column; }
+  .ci-addtype-rate input { width: 100%; }
+}
+
+@media (pointer: coarse) {
+  .ci-chip { padding: 8px 8px 8px 14px; }
+  .ci-chip-x { width: 28px; height: 28px; font-size: 15px; }
+  .ci-radio-row label { min-height: 44px; }
+  .ci-link, .ci-addtype-open { min-height: 44px; }
+  .ci-drawer-x {
+    min-width: 44px; min-height: 44px;
+    display: inline-flex; align-items: center; justify-content: center;
+    margin: -8px -8px -8px 0;
+  }
+}

@@ -6,7 +6,8 @@
 /* ── Layout ──────────────────────────────── */
 .frontdesk-layout {
   display: flex;
-  min-height: calc(100vh - 60px);
+  min-height: calc(100vh - var(--navbar-height));
+  min-height: calc(100dvh - var(--navbar-height));
   background-color: #f5f7fa;
 }
 
@@ -259,7 +260,11 @@
    the order list scroll, so the totals and the primary action never move. */
 .fd-billing {
   max-width: 1600px;
-  height: calc(100vh - 150px);
+  /* Derived, not guessed. The 150px here was measured against the old 60px
+     navbar assumption and never updated; the real chrome is the navbar plus
+     the content area's 24px padding top and bottom, plus the billing bar. */
+  height: calc(100vh - var(--navbar-height) - 96px);
+  height: calc(100dvh - var(--navbar-height) - 96px);
   min-height: 520px;
   display: flex;
   flex-direction: column;
@@ -312,7 +317,13 @@
 
 .fd-billing-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 380px;
+  /* The cart used to be a hard 380px track, which failed at both ends: at
+     1024px with the sidebar out it left the menu 356px (two columns), and on a
+     2560px monitor it stayed exactly as wide as it was on a laptop while the
+     menu took the entire surplus. As an elastic track it yields when space is
+     scarce (floor 320px, still enough for the totals and the primary action)
+     and takes a share when it is plentiful (ceiling 460px). */
+  grid-template-columns: minmax(0, 1fr) clamp(320px, 26%, 460px);
   gap: 16px;
   flex: 1;
   min-height: 0; /* lets the children scroll rather than stretching the page */
@@ -490,6 +501,7 @@
   width: 100%;
   max-width: 400px;
   max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
   overflow-y: auto;
   box-sizing: border-box;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.18);
@@ -740,7 +752,7 @@
 /* Narrow screens (portrait tablet): the order rail stops being a column and
    sits under the menu, and the page returns to normal document flow — a fixed
    viewport height only helps when there are two columns to fill. */
-@media (max-width: 900px) {
+@media (max-width: 767px) {
   .fd-billing { height: auto; min-height: 0; }
   .fd-billing-layout { grid-template-columns: 1fr; }
   .fd-menu-grid { max-height: 46vh; }
@@ -936,7 +948,7 @@
 
 .fd-kds-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr));
   gap: 16px;
 }
 
@@ -1168,12 +1180,15 @@
 .fd-badge-settled  { background: #d5f5e3; color: #1e8449; }
 
 /* ── Responsive ──────────────────────────── */
-@media (max-width: 900px) {
+/* Off-canvas at ≤1023px, matching Navbar's hamburger and Admin's tab bar.
+   See the note in MasterData.css — this closes the 901–1023px dead band. */
+@media (max-width: 1023px) {
   .frontdesk-sidebar {
     position: fixed;
-    top: 60px;
+    top: var(--navbar-height);
     left: 0;
-    height: calc(100vh - 60px);
+    height: calc(100vh - var(--navbar-height));
+    height: calc(100dvh - var(--navbar-height));
     z-index: 250;
     transform: translateX(-100%);
   }
@@ -1192,14 +1207,9 @@
     justify-content: center;
   }
 
-  .fd-billing-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .fd-cart-panel {
-    position: static;
-  }
-
+  /* Billing deliberately keeps two columns here. With the sidebar off-canvas
+     the content area is 240px wider than it was, so the menu/cart split stays
+     workable well below 1024px; it stacks at ≤767px instead (see above). */
   .frontdesk-content {
     padding: 16px;
   }
@@ -1209,6 +1219,12 @@
   .fd-kpi-grid {
     grid-template-columns: 1fr 1fr;
   }
+
+  /* Tighter internals so the figure and its label still fit the ~136px card
+     that two columns leave on a 320px screen. */
+  .fd-kpi-card { padding: 14px 12px; }
+  .fd-kpi-card .kpi-label { letter-spacing: 0.02em; font-size: 11px; }
+  .fd-kpi-card .kpi-value { font-size: 19px; }
 
   .fd-table-grid {
     grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
@@ -1232,17 +1248,39 @@
   margin-bottom: 32px;
 }
 
-/* Each trend table scrolls horizontally instead of squishing */
+/* The single horizontal-scroll container for every wide table in the app.
+   `min-width: 0` is the load-bearing half: a grid or flex child defaults to
+   min-width:auto, which floors it at its content width and lets the table push
+   the whole page sideways no matter what overflow says. Without it the
+   overflow-x never engages inside .fd-billing-layout or .fd-reports-2col. */
 .fd-reports-2col .fd-table-scroll,
 .fd-table-scroll {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+  min-width: 0;
+  max-width: 100%;
 }
 
-@media (max-width: 768px) {
+/* Collapse against the panel's own width rather than the window's. A viewport
+   breakpoint was measuring the wrong thing here: at 800px the sidebar was
+   still taking 240px, so two trend tables got ~248px each and both inner
+   scrollers sat permanently scrolled. */
+.fd-reports-2col { container-type: inline-size; }
+
+@container (max-width: 720px) {
   .fd-reports-2col {
     grid-template-columns: 1fr;
     gap: 20px;
+  }
+}
+
+/* Fallback for browsers without container queries (Safari < 16). */
+@supports not (container-type: inline-size) {
+  @media (max-width: 1023px) {
+    .fd-reports-2col {
+      grid-template-columns: 1fr;
+      gap: 20px;
+    }
   }
 }
 
@@ -1669,6 +1707,7 @@
   width: 100%;
   max-width: 720px;
   max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1682,6 +1721,15 @@
 .fd-transfer-x { border: none; background: none; font-size: 22px; line-height: 1; color: #7f8c8d; cursor: pointer; }
 .fd-transfer-panes { display: grid; grid-template-columns: 1fr 1fr; gap: 0; overflow-y: auto; }
 @media (max-width: 600px) { .fd-transfer-panes { grid-template-columns: 1fr; } }
+/* The option row kept a rigid 18px | 1fr | auto grid at every width; on a
+   360px phone the trailing tag pushed the name to two or three lines. */
+@media (max-width: 420px) {
+  .fd-transfer-opt {
+    grid-template-columns: 18px minmax(0, 1fr);
+    row-gap: 4px;
+  }
+  .fd-transfer-opt > :last-child { grid-column: 2; }
+}
 .fd-transfer-pane { padding: 16px; }
 .fd-transfer-pane:first-child { border-right: 1px solid #e6eaf0; }
 .fd-transfer-panehead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
@@ -2253,3 +2301,40 @@
 .fd-confirm h3 { margin: 0 0 10px; font-size: 16px; color: #2c3e50; }
 .fd-confirm .fd-confirm-sub { font-size: 13px; color: #5c6b6a; line-height: 1.55; margin: 0 0 10px; }
 .fd-confirm .fd-confirm-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+
+
+/* ── Touch target floor (WCAG 2.5.5) ──────────────────────────────────────
+   Every control the till tablet is actually tapped with already cleared 44px
+   (menu cards, table cards, the cart's primary actions). These are the
+   controls inherited from the desktop chrome, which never did. Keyed on
+   pointer type rather than viewport width: a 12.9" iPad reports 1024px+ and
+   is still operated by a finger, while a 900px desktop window is not. */
+@media (pointer: coarse) {
+  .fd-btn-sm {
+    min-height: 44px;
+    padding: 8px 14px;
+    font-size: 13px;
+  }
+
+  .fd-chip {
+    min-height: 44px;
+    padding: 10px 14px;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .fd-modal-close {
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin: -8px -8px -8px 0; /* absorb the growth so the header keeps its height */
+  }
+
+  .fd-link-btn {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+}

@@ -249,21 +249,23 @@ const Tokens = () => {
           No tokens issued today. Take a counter order from Billing → Counter.
         </div>
       ) : (
-        <table className="fd-table">
-          <thead>
-            <tr>
-              <th>Token</th>
-              <th>Status</th>
-              <th>Order</th>
-              <th>Total</th>
-              <th>Issued</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {[...called, ...waiting, ...done].map(renderRow)}
-          </tbody>
-        </table>
+        <div className="fd-table-scroll">
+          <table className="fd-table">
+            <thead>
+              <tr>
+                <th>Token</th>
+                <th>Status</th>
+                <th>Order</th>
+                <th>Total</th>
+                <th>Issued</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[...called, ...waiting, ...done].map(renderRow)}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   )

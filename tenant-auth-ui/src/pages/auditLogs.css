@@ -1,0 +1,260 @@
+/* Audit log viewer.
+ *
+ * This page was previously styled entirely through inline style objects, which
+ * meant it could not carry a single media query — there was no mechanism by
+ * which it could respond to width at all. Moving it to a stylesheet is what
+ * makes everything below possible.
+ */
+
+.al-page {
+  padding: clamp(16px, 4vw, 30px);
+}
+
+/* ── Header ───────────────────────────────────────────────────────────────── */
+.al-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.al-head h1 {
+  margin: 0;
+  font-size: clamp(1.15rem, 3.2vw, 1.6rem);
+  color: #212529;
+}
+.al-badge {
+  border-radius: 12px;
+  padding: 2px 10px;
+  font-size: 13px;
+  background: #e9ecef;
+  color: #495057;
+  white-space: nowrap;
+}
+.al-badge-filtered {
+  background: #dbeafe;
+  color: #1e40af;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* ── Filter bar ───────────────────────────────────────────────────────────
+   A grid, not a wrapping flex row. Flex-wrap left the controls at ragged
+   widths that reflowed unpredictably; auto-fit tracks give every control the
+   same width and collapse cleanly to one column on a phone. */
+.al-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+  margin-bottom: 10px;
+  align-items: center;
+}
+
+.al-input,
+.al-select {
+  width: 100%;
+  min-width: 0;
+  padding: 8px 12px;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+  font-size: 14px;
+  font-family: inherit;
+  color: #212529;
+  background: #fff;
+}
+.al-input:focus,
+.al-select:focus {
+  outline: none;
+  border-color: #0d6efd;
+  box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15);
+}
+
+/* The two date fields were hard-set to 150px inline, which with padding
+   rendered 176px each and could not be overridden. They now share the grid. */
+.al-btn {
+  padding: 8px 16px;
+  border-radius: 5px;
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+  border: 1px solid #ccc;
+  background: #fff;
+  color: #212529;
+  white-space: nowrap;
+}
+.al-btn-primary {
+  background: #0d6efd;
+  border-color: #0d6efd;
+  color: #fff;
+}
+.al-btn-primary:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+/* ── Active-filter note ───────────────────────────────────────────────────── */
+.al-note {
+  margin-bottom: 10px;
+  font-size: 13px;
+  color: #6c757d;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.al-note-clear {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #dc3545;
+  font-size: 13px;
+  padding: 0 4px;
+  font-family: inherit;
+}
+
+/* ── Table ────────────────────────────────────────────────────────────────── */
+.al-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+}
+.al-table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+  text-align: left;
+}
+.al-table thead tr {
+  background-color: #f8f9fa;
+  border-bottom: 2px solid #dee2e6;
+}
+.al-table th {
+  padding: 12px 16px;
+  font-weight: 600;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.al-table td {
+  padding: 10px 16px;
+  font-size: 14px;
+  border-bottom: 1px solid #f0f0f0;
+}
+.al-table tbody tr {
+  transition: background 0.1s;
+}
+.al-cell-center {
+  padding: 30px;
+  text-align: center;
+  color: #6c757d;
+}
+
+/* ── Badges ───────────────────────────────────────────────────────────────── */
+.al-pill {
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  display: inline-block;
+}
+.al-pill-category { background: #ede9fe; color: #5b21b6; font-weight: 400; }
+
+.al-pill-success  { background: #d1fae5; color: #065f46; }
+.al-pill-denied   { background: #fee2e2; color: #991b1b; }
+.al-pill-other    { background: #fef9c3; color: #854d0e; }
+
+.al-pill-error    { background: #fee2e2; color: #991b1b; }
+.al-pill-warn     { background: #fef9c3; color: #854d0e; }
+.al-pill-info     { background: #dbeafe; color: #1e40af; }
+.al-pill-debug    { background: #f3f4f6; color: #6b7280; }
+
+/* ── Pagination ───────────────────────────────────────────────────────────── */
+.al-pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.al-rows-per-page {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #6c757d;
+  font-size: 14px;
+  white-space: nowrap;
+}
+.al-rows-per-page .al-select {
+  width: auto;
+  padding: 4px 8px;
+}
+.al-count {
+  font-size: 14px;
+  color: #6c757d;
+}
+.al-pager {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.al-pager-label {
+  font-size: 14px;
+  font-weight: 500;
+  min-width: 100px;
+  text-align: center;
+}
+.al-pager-btn {
+  padding: 6px 14px;
+  border-radius: 5px;
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+  background: #fff;
+  border: 1px solid #dee2e6;
+  color: #212529;
+}
+.al-pager-btn:disabled {
+  cursor: not-allowed;
+  background: #f8f9fa;
+  color: #adb5bd;
+}
+
+/* ── Narrow screens ───────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  /* One control per row: at two columns the date pickers and the longer
+     category names were both truncated by the native control. */
+  .al-filters {
+    grid-template-columns: 1fr;
+  }
+
+  /* Pagination becomes three stacked, full-width rows so the pager buttons are
+     not pinned to opposite edges of the screen. */
+  .al-pagination {
+    justify-content: stretch;
+  }
+  .al-pagination > * {
+    width: 100%;
+  }
+  .al-pager {
+    justify-content: space-between;
+  }
+  .al-count {
+    order: -1;
+  }
+}
+
+/* ── Touch target floor (WCAG 2.5.5) ──────────────────────────────────────── */
+@media (pointer: coarse) {
+  .al-btn,
+  .al-pager-btn,
+  .al-input,
+  .al-select {
+    min-height: 44px;
+  }
+  .al-note-clear {
+    min-height: 44px;
+  }
+}

@@ -186,8 +186,15 @@
 .mds-btn-primary:not(:disabled):hover { background: #3182ce; }
 .mds-btn-ghost { background: #fff; color: #475569; border-color: #cbd5e1; }
 .mds-btn-ghost:not(:disabled):hover { background: #f8fafc; }
-@media (max-width: 420px) {
+/* Raised from 420px: between 421 and 480px the two buttons stayed small and
+   pinned to opposite edges by `justify-content: space-between` — the least
+   reachable arrangement on a phone held one-handed. */
+@media (max-width: 480px) {
   .mds-btn { flex: 1; padding: 0.7rem 0.5rem; }
+}
+
+@media (pointer: coarse) {
+  .mds-btn { min-height: 44px; }
 }
 
 /* ── Success ─────────────────────────────────────────── */

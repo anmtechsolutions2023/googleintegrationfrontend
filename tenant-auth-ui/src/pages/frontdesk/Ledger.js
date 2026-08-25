@@ -201,34 +201,36 @@ const Ledger = () => {
                   </div>
                 )}
 
-                <table className="fd-invoice-lines">
-                  <thead>
-                    <tr><th>#</th><th>Item</th><th className="num">Qty</th><th className="num">Rate</th><th className="num">Amount</th></tr>
-                  </thead>
-                  <tbody>
-                    {(selected.Lines || []).map((l) => (
-                      <tr key={l.Id}>
-                        <td>{l.LineNo}</td>
-                        <td>
-                          {l.ItemName || l.Comment || l.ItemId}
-                          {/* Options as sold, so the customer can see what they got. */}
-                          {(l.Variants || []).length > 0 && (
-                            <div className="fd-invoice-variants">
-                              {l.Variants.map((v, i) => (
-                                <span className="ci-variant-chip" key={v.id || i}>
-                                  {v.name}{Number(v.price) > 0 ? ` +₹${money(v.price)}` : ''}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </td>
-                        <td className="num">{Number(l.Quantity)}</td>
-                        <td className="num">₹{money(l.UnitPrice)}</td>
-                        <td className="num">₹{money(l.GrossAmount)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div className="fd-table-scroll">
+                  <table className="fd-invoice-lines">
+                    <thead>
+                      <tr><th>#</th><th>Item</th><th className="num">Qty</th><th className="num">Rate</th><th className="num">Amount</th></tr>
+                    </thead>
+                    <tbody>
+                      {(selected.Lines || []).map((l) => (
+                        <tr key={l.Id}>
+                          <td>{l.LineNo}</td>
+                          <td>
+                            {l.ItemName || l.Comment || l.ItemId}
+                            {/* Options as sold, so the customer can see what they got. */}
+                            {(l.Variants || []).length > 0 && (
+                              <div className="fd-invoice-variants">
+                                {l.Variants.map((v, i) => (
+                                  <span className="ci-variant-chip" key={v.id || i}>
+                                    {v.name}{Number(v.price) > 0 ? ` +₹${money(v.price)}` : ''}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </td>
+                          <td className="num">{Number(l.Quantity)}</td>
+                          <td className="num">₹{money(l.UnitPrice)}</td>
+                          <td className="num">₹{money(l.GrossAmount)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
 
                 <div className="fd-invoice-totals">
                   <div><span>Net</span><span>₹{money(selected.NetAmount)}</span></div>

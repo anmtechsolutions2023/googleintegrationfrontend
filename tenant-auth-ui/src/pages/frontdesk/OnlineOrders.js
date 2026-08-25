@@ -70,42 +70,44 @@ const OnlineOrders = () => {
       ) : filtered.length === 0 ? (
         <div className="fd-empty">No orders in this category.</div>
       ) : (
-        <table className="fd-table">
-          <thead>
-            <tr>
-              <th>Platform</th>
-              <th>External Ref</th>
-              <th>Status</th>
-              <th>Created</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((o) => {
-              const oid = o.id || o.Id
-              const s = (o.Status || '').toLowerCase()
-              return (
-                <tr key={oid}>
-                  <td><strong>{o.Platform || '—'}</strong></td>
-                  <td>{o.ExternalRef || '—'}</td>
-                  <td>{statusBadge(o.Status)}</td>
-                  <td>{o.CreatedOn ? new Date(o.CreatedOn).toLocaleString() : '—'}</td>
-                  <td style={{ display: 'flex', gap: 6 }}>
-                    {(!s || s === 'new') && canDispatch && (
-                      <button className="fd-btn fd-btn-warning" onClick={() => handleStatus(o, 'processing')}>Accept</button>
-                    )}
-                    {s === 'processing' && canDispatch && (
-                      <button className="fd-btn fd-btn-success" onClick={() => handleStatus(o, 'delivered')}>Delivered</button>
-                    )}
-                    {s !== 'cancelled' && s !== 'delivered' && s !== 'completed' && canDispatch && (
-                      <button className="fd-btn fd-btn-danger" onClick={() => handleStatus(o, 'cancelled')}>Cancel</button>
-                    )}
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
+        <div className="fd-table-scroll">
+          <table className="fd-table">
+            <thead>
+              <tr>
+                <th>Platform</th>
+                <th>External Ref</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((o) => {
+                const oid = o.id || o.Id
+                const s = (o.Status || '').toLowerCase()
+                return (
+                  <tr key={oid}>
+                    <td><strong>{o.Platform || '—'}</strong></td>
+                    <td>{o.ExternalRef || '—'}</td>
+                    <td>{statusBadge(o.Status)}</td>
+                    <td>{o.CreatedOn ? new Date(o.CreatedOn).toLocaleString() : '—'}</td>
+                    <td style={{ display: 'flex', gap: 6 }}>
+                      {(!s || s === 'new') && canDispatch && (
+                        <button className="fd-btn fd-btn-warning" onClick={() => handleStatus(o, 'processing')}>Accept</button>
+                      )}
+                      {s === 'processing' && canDispatch && (
+                        <button className="fd-btn fd-btn-success" onClick={() => handleStatus(o, 'delivered')}>Delivered</button>
+                      )}
+                      {s !== 'cancelled' && s !== 'delivered' && s !== 'completed' && canDispatch && (
+                        <button className="fd-btn fd-btn-danger" onClick={() => handleStatus(o, 'cancelled')}>Cancel</button>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   )

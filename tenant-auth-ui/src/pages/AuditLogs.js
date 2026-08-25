@@ -3,6 +3,7 @@ import { getAuditLogs, getAuditCategories } from '../services/dataService'
 import { toast } from 'react-toastify'
 import { MESSAGES, STRINGS, ERROR_CODES } from '../constants'
 import logger from '../utils/logger'
+import './auditLogs.css'
 
 const LOG_LEVELS = ['DEBUG', 'INFO', 'WARN', 'ERROR']
 const PAGE_SIZE_OPTIONS = [25, 50, 100]
@@ -187,22 +188,22 @@ const AuditLogs = () => {
     endDate
 
   return (
-    <div style={containerStyle}>
-      <div style={headerRowStyle}>
-        <h2 style={{ margin: 0 }}>{STRINGS.pages.auditLogs.title}</h2>
-        <span style={totalBadgeStyle}>{total.toLocaleString()} total</span>
+    <div className="al-page">
+      <div className="al-head">
+        <h1>{STRINGS.pages.auditLogs.title}</h1>
+        <span className="al-badge">{total.toLocaleString()} total</span>
         {hasActiveFilter && (
-          <span style={filterActiveBadgeStyle}>Filtered</span>
+          <span className="al-badge al-badge-filtered">Filtered</span>
         )}
       </div>
 
       {/* Filter Bar */}
-      <div style={filterBarStyle}>
+      <div className="al-filters">
         {/* Email dropdown */}
         <select
           value={emailFilter}
           onChange={handleEmailChange}
-          style={selectStyle}
+          className="al-select"
           title="Filter by user email"
         >
           <option value="">All Emails</option>
@@ -217,7 +218,7 @@ const AuditLogs = () => {
         <select
           value={actionFilter}
           onChange={handleActionChange}
-          style={selectStyle}
+          className="al-select"
           title="Filter by action (current page)"
         >
           <option value="">All Actions</option>
@@ -232,7 +233,7 @@ const AuditLogs = () => {
         <select
           value={categoryFilter}
           onChange={handleFilterChange(setCategoryFilter, 'category')}
-          style={selectStyle}
+          className="al-select"
         >
           <option value="">{STRINGS.filters.allCategories}</option>
           {categories.map((c) => (
@@ -246,7 +247,7 @@ const AuditLogs = () => {
         <select
           value={logLevelFilter}
           onChange={handleFilterChange(setLogLevelFilter, 'logLevel')}
-          style={selectStyle}
+          className="al-select"
         >
           <option value="">{STRINGS.filters.allLevels}</option>
           {LOG_LEVELS.map((l) => (
@@ -261,24 +262,24 @@ const AuditLogs = () => {
           type="date"
           value={startDate}
           onChange={handleFilterChange(setStartDate, 'startDate')}
-          style={{ ...inputStyle, width: '150px' }}
+          className="al-input"
           title="From date"
         />
         <input
           type="date"
           value={endDate}
           onChange={handleFilterChange(setEndDate, 'endDate')}
-          style={{ ...inputStyle, width: '150px' }}
+          className="al-input"
           title="To date"
         />
 
-        <button onClick={handleReset} style={resetBtnStyle}>
+        <button onClick={handleReset} className="al-btn">
           Reset
         </button>
 
         <button
           onClick={handleRefresh}
-          style={refreshBtnStyle}
+          className="al-btn al-btn-primary"
           disabled={loading}
         >
           {loading ? '…' : STRINGS.buttons.refresh}
@@ -287,61 +288,61 @@ const AuditLogs = () => {
 
       {/* Action filter note */}
       {actionFilter && (
-        <div style={actionNoteStyle}>
+        <div className="al-note">
           Showing actions matching <strong>{actionFilter}</strong> from current
           page.
-          <button onClick={() => setActionFilter('')} style={clearActionStyle}>
+          <button onClick={() => setActionFilter('')} className="al-note-clear">
             ✕ Clear
           </button>
         </div>
       )}
 
       {/* Table */}
-      <div style={tableWrapStyle}>
-        <table style={tableStyle}>
+      <div className="al-table-wrap">
+        <table className="al-table">
           <thead>
-            <tr style={theadRowStyle}>
-              <th style={thStyle}>#</th>
-              <th style={thStyle}>{STRINGS.tableHeaders.timestamp}</th>
-              <th style={thStyle}>{STRINGS.tableHeaders.email}</th>
-              <th style={thStyle}>{STRINGS.tableHeaders.action}</th>
-              <th style={thStyle}>Category</th>
-              <th style={thStyle}>Level</th>
-              <th style={thStyle}>{STRINGS.tableHeaders.status}</th>
+            <tr>
+              <th>#</th>
+              <th>{STRINGS.tableHeaders.timestamp}</th>
+              <th>{STRINGS.tableHeaders.email}</th>
+              <th>{STRINGS.tableHeaders.action}</th>
+              <th>Category</th>
+              <th>Level</th>
+              <th>{STRINGS.tableHeaders.status}</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={7} style={centeredCellStyle}>
+                <td colSpan={7} className="al-cell-center">
                   {MESSAGES.info.loading}
                 </td>
               </tr>
             ) : displayedLogs.length === 0 ? (
               <tr>
-                <td colSpan={7} style={centeredCellStyle}>
+                <td colSpan={7} className="al-cell-center">
                   {STRINGS.emptyStates.noLogs}
                 </td>
               </tr>
             ) : (
               displayedLogs.map((log) => (
-                <tr key={log.log_id} style={rowStyle}>
-                  <td style={tdStyle}>{log.log_id}</td>
-                  <td style={tdStyle}>
+                <tr key={log.log_id} >
+                  <td>{log.log_id}</td>
+                  <td>
                     {new Date(log.timestamp).toLocaleString()}
                   </td>
-                  <td style={tdStyle}>{log.user_email}</td>
-                  <td style={tdStyle}>{log.action}</td>
-                  <td style={tdStyle}>
-                    <span style={categoryBadgeStyle()}>{log.category}</span>
+                  <td>{log.user_email}</td>
+                  <td>{log.action}</td>
+                  <td>
+                    <span className="al-pill al-pill-category">{log.category}</span>
                   </td>
-                  <td style={tdStyle}>
-                    <span style={levelBadgeStyle(log.log_level)}>
+                  <td>
+                    <span className={`al-pill ${levelPill(log.log_level)}`}>
                       {log.log_level}
                     </span>
                   </td>
-                  <td style={tdStyle}>
-                    <span style={statusBadgeStyle(log.status)}>
+                  <td>
+                    <span className={`al-pill ${statusPill(log.status)}`}>
                       {log.status}
                     </span>
                   </td>
@@ -353,21 +354,13 @@ const AuditLogs = () => {
       </div>
 
       {/* Pagination */}
-      <div style={paginationBarStyle}>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            color: '#6c757d',
-            fontSize: '14px',
-          }}
-        >
+      <div className="al-pagination">
+        <div className="al-rows-per-page">
           {STRINGS.pagination.rowsPerPage}
           <select
             value={limit}
             onChange={handleLimitChange}
-            style={{ ...selectStyle, padding: '4px 8px' }}
+            className="al-select"
           >
             {PAGE_SIZE_OPTIONS.map((n) => (
               <option key={n} value={n}>
@@ -377,36 +370,29 @@ const AuditLogs = () => {
           </select>
         </div>
 
-        <span style={{ fontSize: '14px', color: '#6c757d' }}>
+        <span className="al-count">
           {total > 0
             ? STRINGS.pagination.showingOf(from, to, total)
             : 'No results'}
         </span>
 
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+        <div className="al-pager">
           <button
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page <= 1 || loading}
-            style={pageNavBtnStyle(page <= 1 || loading)}
+            className="al-pager-btn"
           >
             {STRINGS.pagination.previous}
           </button>
 
-          <span
-            style={{
-              fontSize: '14px',
-              fontWeight: '500',
-              minWidth: '100px',
-              textAlign: 'center',
-            }}
-          >
+          <span className="al-pager-label">
             {STRINGS.pagination.pageOf(page, totalPages || 1)}
           </span>
 
           <button
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             disabled={page >= totalPages || loading}
-            style={pageNavBtnStyle(page >= totalPages || loading)}
+            className="al-pager-btn"
           >
             {STRINGS.pagination.next}
           </button>
@@ -416,184 +402,24 @@ const AuditLogs = () => {
   )
 }
 
-// ── Styles ────────────────────────────────────────────────────────────────────
+// ── State → badge class ──────────────────────────────────────────────────────
+// The only two styles that ever depended on data. Everything else is in
+// auditLogs.css, where it can carry a media query.
 
-const containerStyle = { padding: 'clamp(16px, 4vw, 30px)' }
-const headerRowStyle = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: '12px',
-  marginBottom: '20px',
-  flexWrap: 'wrap',
-}
-const totalBadgeStyle = {
-  background: '#e9ecef',
-  borderRadius: '12px',
-  padding: '2px 10px',
-  fontSize: '13px',
-  color: '#495057',
-}
-const filterActiveBadgeStyle = {
-  background: '#dbeafe',
-  borderRadius: '12px',
-  padding: '2px 10px',
-  fontSize: '12px',
-  color: '#1e40af',
-  fontWeight: '600',
+const statusPill = (status) =>
+  status === 'SUCCESS'
+    ? 'al-pill-success'
+    : status === 'DENIED'
+      ? 'al-pill-denied'
+      : 'al-pill-other'
+
+const LEVEL_PILL = {
+  ERROR: 'al-pill-error',
+  WARN: 'al-pill-warn',
+  INFO: 'al-pill-info',
+  DEBUG: 'al-pill-debug',
 }
 
-const filterBarStyle = {
-  display: 'flex',
-  gap: '10px',
-  marginBottom: '10px',
-  flexWrap: 'wrap',
-  alignItems: 'center',
-}
-const inputStyle = {
-  padding: '8px 12px',
-  borderRadius: '5px',
-  border: '1px solid #ccc',
-  fontSize: '14px',
-}
-const selectStyle = {
-  padding: '8px 12px',
-  borderRadius: '5px',
-  border: '1px solid #ccc',
-  fontSize: '14px',
-  maxWidth: '220px',
-}
-
-const resetBtnStyle = {
-  padding: '8px 16px',
-  cursor: 'pointer',
-  background: '#fff',
-  border: '1px solid #ccc',
-  borderRadius: '5px',
-  fontSize: '14px',
-}
-const refreshBtnStyle = {
-  padding: '8px 16px',
-  cursor: 'pointer',
-  background: '#0d6efd',
-  color: '#fff',
-  border: 'none',
-  borderRadius: '5px',
-  fontSize: '14px',
-}
-
-const actionNoteStyle = {
-  marginBottom: '10px',
-  fontSize: '13px',
-  color: '#6c757d',
-  display: 'flex',
-  alignItems: 'center',
-  gap: '8px',
-}
-const clearActionStyle = {
-  background: 'none',
-  border: 'none',
-  cursor: 'pointer',
-  color: '#dc3545',
-  fontSize: '13px',
-  padding: '0 4px',
-}
-
-const tableWrapStyle = {
-  overflowX: 'auto',
-  background: '#fff',
-  borderRadius: '8px',
-  boxShadow: '0 2px 10px rgba(0,0,0,0.08)',
-}
-const tableStyle = {
-  width: '100%',
-  minWidth: '760px',
-  borderCollapse: 'collapse',
-  textAlign: 'left',
-}
-const theadRowStyle = {
-  backgroundColor: '#f8f9fa',
-  borderBottom: '2px solid #dee2e6',
-}
-const thStyle = {
-  padding: '12px 16px',
-  fontWeight: '600',
-  fontSize: '13px',
-  whiteSpace: 'nowrap',
-}
-const tdStyle = {
-  padding: '10px 16px',
-  fontSize: '14px',
-  borderBottom: '1px solid #f0f0f0',
-}
-const rowStyle = { transition: 'background 0.1s' }
-const centeredCellStyle = {
-  padding: '30px',
-  textAlign: 'center',
-  color: '#6c757d',
-}
-
-const paginationBarStyle = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  marginTop: '16px',
-  flexWrap: 'wrap',
-  gap: '12px',
-}
-
-const pageNavBtnStyle = (disabled) => ({
-  padding: '6px 14px',
-  borderRadius: '5px',
-  fontSize: '14px',
-  cursor: disabled ? 'not-allowed' : 'pointer',
-  background: disabled ? '#f8f9fa' : '#fff',
-  border: '1px solid #dee2e6',
-  color: disabled ? '#adb5bd' : '#212529',
-})
-
-const statusBadgeStyle = (status) => ({
-  padding: '3px 8px',
-  borderRadius: '4px',
-  fontSize: '12px',
-  fontWeight: '600',
-  backgroundColor:
-    status === 'SUCCESS'
-      ? '#d1fae5'
-      : status === 'DENIED'
-        ? '#fee2e2'
-        : '#fef9c3',
-  color:
-    status === 'SUCCESS'
-      ? '#065f46'
-      : status === 'DENIED'
-        ? '#991b1b'
-        : '#854d0e',
-})
-
-const levelBadgeStyle = (level) => {
-  const map = {
-    ERROR: { bg: '#fee2e2', color: '#991b1b' },
-    WARN: { bg: '#fef9c3', color: '#854d0e' },
-    INFO: { bg: '#dbeafe', color: '#1e40af' },
-    DEBUG: { bg: '#f3f4f6', color: '#6b7280' },
-  }
-  const s = map[level] || map.DEBUG
-  return {
-    padding: '3px 8px',
-    borderRadius: '4px',
-    fontSize: '12px',
-    fontWeight: '600',
-    backgroundColor: s.bg,
-    color: s.color,
-  }
-}
-
-const categoryBadgeStyle = () => ({
-  padding: '3px 8px',
-  borderRadius: '4px',
-  fontSize: '12px',
-  backgroundColor: '#ede9fe',
-  color: '#5b21b6',
-})
+const levelPill = (level) => LEVEL_PILL[level] || LEVEL_PILL.DEBUG
 
 export default AuditLogs

@@ -200,7 +200,10 @@
 /* ── Cash sessions ────────────────────────────────────────────────────────── */
 .fd-session-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  /* min(300px, 100%) rather than a bare 300px: auto-fill keeps a 300px track
+     even when the container is narrower than that, which overflows a 320px
+     phone by the difference. The min() clamps the track to the container. */
+  grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
   gap: 16px;
 }
 

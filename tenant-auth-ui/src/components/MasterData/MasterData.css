@@ -5,7 +5,8 @@
 /* Main Layout Container */
 .master-layout {
   display: flex;
-  min-height: calc(100vh - 60px);
+  min-height: calc(100vh - var(--navbar-height));
+  min-height: calc(100dvh - var(--navbar-height));
   background-color: #f5f7fa;
 }
 
@@ -266,6 +267,7 @@
   letter-spacing: 0.5px;
   border-bottom: 1px solid #e1e5eb;
   white-space: nowrap;
+  -webkit-user-select: none;
   user-select: none;
 }
 
@@ -343,10 +345,22 @@
 }
 
 .table-actions .btn-icon {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   padding: 0;
   font-size: 14px;
+}
+
+/* Touch input gets the full 44px WCAG 2.5.5 target; a mouse does not need it
+   and the extra 8px per row costs real density in a 50-row table. Keyed on the
+   input device rather than width, because the 12.9" iPad reports 1024px+ and
+   is still driven by a finger. */
+@media (pointer: coarse) {
+  .table-actions .btn-icon {
+    width: 44px;
+    height: 44px;
+    font-size: 16px;
+  }
 }
 
 /* Keep the actions column visible: make the last column sticky to the right */
@@ -362,6 +376,25 @@
 
 .data-table thead th:last-child {
   z-index: 4;
+}
+
+/* Below the tablet breakpoint the frozen actions column costs more than it
+   returns: it reserves 120px of a 320px viewport permanently, leaving the six
+   data columns to be read through 200px. Here it scrolls with everything else
+   and the user swipes to reach it. */
+/* Actions column width, previously an inline style on the <th>. As CSS it can
+   be overridden by the narrow-screen rule below; inline it could not. */
+.data-table th.col-actions { width: 120px; }
+.data-table th.col-actions-3 { width: 160px; }
+
+@media (max-width: 768px) {
+  .data-table th:last-child,
+  .data-table td:last-child {
+    position: static;
+    min-width: 0;
+  }
+  .data-table th.col-actions,
+  .data-table th.col-actions-3 { width: auto; }
 }
 
 /* Pagination */
@@ -440,6 +473,7 @@
   max-width: 600px;
   /* leave some vertical space from the edges */
   max-height: calc(100vh - 80px);
+  max-height: calc(100dvh - 80px);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -519,6 +553,7 @@
 /* Limit modal body height so internal scrolling appears and footer remains visible */
 .modal-body {
   max-height: calc(100vh - 220px);
+  max-height: calc(100dvh - 220px);
   -webkit-overflow-scrolling: touch;
 }
 
@@ -714,11 +749,11 @@
    ======================================== */
 
 /* Tablet */
-@media (max-width: 1024px) {
-  .master-sidebar {
-    width: 220px;
-  }
-
+/* The old `.master-sidebar { width: 220px }` step lived here. It narrowed the
+   sidebar just before the next breakpoint hid it and reopened it at 280px, so
+   the tablet rendering was the most cramped of the three — the opposite of the
+   progression intended. The sidebar now holds 260px until it goes off-canvas. */
+@media (max-width: 1023px) {
   .master-content {
     padding: 20px;
   }
@@ -728,16 +763,19 @@
   }
 }
 
-/* Off-canvas sidebar — aligned with Front Desk (≤900px) so all iPad
-   portrait sizes (768–834px) behave consistently across modules. */
-@media (max-width: 900px) {
+/* Off-canvas sidebar at ≤1023px — the same width at which Navbar swaps to the
+   hamburger and Admin swaps to its tab bar. Previously 900px, which left a
+   901–1023px band where Admin had already dropped its sidebar while this shell
+   still rendered a fixed 220px one: the same user at the same width got two
+   different navigation models depending on the module. */
+@media (max-width: 1023px) {
   .master-layout {
     flex-direction: column;
   }
 
   .master-sidebar {
     position: fixed;
-    top: 60px;
+    top: var(--navbar-height);
     left: 0;
     bottom: 0;
     width: 280px;
@@ -821,6 +859,7 @@
   .modal {
     max-width: 100%;
     max-height: 100vh;
+    max-height: 100dvh;
     border-radius: 0;
   }
 
@@ -846,8 +885,12 @@
     font-size: 13px;
   }
 
+  /* Buttons stay in a row. Stacking them made every row 112px tall while the
+     sticky column still reserved its full 120px floor, so a 320px phone lost
+     37% of its width to three 36px buttons. */
   .table-actions {
-    flex-direction: column;
+    flex-direction: row;
+    gap: 6px;
   }
 
   .pagination-controls {
@@ -908,3 +951,19 @@
 }
 .tax-badge-in  { background: #dcfce7; color: #166534; }
 .tax-badge-out { background: #f1f5f9; color: #475569; }
+
+
+/* ── Touch target floor (WCAG 2.5.5) ────────────────────────────────────── */
+@media (pointer: coarse) {
+  .pagination-btn {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 10px 14px;
+  }
+  .btn-sm { min-height: 44px; }
+  .modal-close {
+    min-width: 44px; min-height: 44px;
+    display: inline-flex; align-items: center; justify-content: center;
+    margin: -8px -8px -8px 0;
+  }
+}

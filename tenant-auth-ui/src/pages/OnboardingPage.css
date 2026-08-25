@@ -1,6 +1,7 @@
 /* ── Onboarding Page ── */
 .onboarding-page {
   min-height: 100vh;
+  min-height: 100dvh;
   background: #f7fafc;
   display: flex;
   align-items: flex-start;
@@ -290,4 +291,13 @@
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+/* ── Touch target floor (WCAG 2.5.5) ──────────────────────────────────────── */
+@media (pointer: coarse) {
+  .onboarding-page .btn-secondary,
+  .onboarding-page .btn-ghost,
+  .onboarding-page .btn-primary {
+    min-height: 44px;
+  }
 }

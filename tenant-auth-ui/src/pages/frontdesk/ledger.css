@@ -44,7 +44,8 @@
 /* ── Invoice view ───────────────────────────────────────────────────────── */
 .fd-invoice-view {
   background: #fff; border-radius: 10px; padding: 22px; width: 100%;
-  max-width: 560px; max-height: calc(100vh - 32px); overflow-y: auto;
+  max-width: 560px; overflow-y: auto;
+  max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px);
   box-sizing: border-box; box-shadow: 0 4px 24px rgba(0,0,0,0.18);
 }
 .fd-invoice-head {

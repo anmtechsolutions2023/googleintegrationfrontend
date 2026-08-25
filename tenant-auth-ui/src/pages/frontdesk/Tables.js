@@ -276,45 +276,47 @@ const Tables = () => {
           {tables.length === 0 ? (
             <div className="fd-empty">No tables yet. Click "Add Table" to create one.</div>
           ) : (
-            <table className="fd-table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Capacity</th>
-                  <th>Status</th>
-                  <th>Floor</th>
-                  <th>Active</th>
-                  {canWrite && <th>Actions</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {tables.map((t) => {
-                  const tid = t.id || t.Id
-                  const floor = floors.find((f) => (f.id || f.Id) === t.FloorId)
-                  return (
-                    <tr key={tid}>
-                      <td>{t.Name}</td>
-                      <td>{t.Capacity ?? '—'}</td>
-                      <td>{statusLabel(t.Status)}</td>
-                      <td>{floor?.Name || t.FloorId || '—'}</td>
-                      <td>
-                        <span className={`fd-badge ${t.Active ? 'fd-badge-active' : 'fd-badge-closed'}`}>
-                          {t.Active ? 'Active' : 'Inactive'}
-                        </span>
-                      </td>
-                      {canWrite && (
+            <div className="fd-table-scroll">
+              <table className="fd-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Capacity</th>
+                    <th>Status</th>
+                    <th>Floor</th>
+                    <th>Active</th>
+                    {canWrite && <th>Actions</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {tables.map((t) => {
+                    const tid = t.id || t.Id
+                    const floor = floors.find((f) => (f.id || f.Id) === t.FloorId)
+                    return (
+                      <tr key={tid}>
+                        <td>{t.Name}</td>
+                        <td>{t.Capacity ?? '—'}</td>
+                        <td>{statusLabel(t.Status)}</td>
+                        <td>{floor?.Name || t.FloorId || '—'}</td>
                         <td>
-                          <div style={{ display: 'flex', gap: 6 }}>
-                            <button className="btn btn-secondary" style={{ fontSize: 12, padding: '3px 10px' }} onClick={() => handleEdit(t)}>Edit</button>
-                            <button className="btn btn-danger"    style={{ fontSize: 12, padding: '3px 10px' }} onClick={() => handleDelete(t)}>Delete</button>
-                          </div>
+                          <span className={`fd-badge ${t.Active ? 'fd-badge-active' : 'fd-badge-closed'}`}>
+                            {t.Active ? 'Active' : 'Inactive'}
+                          </span>
                         </td>
-                      )}
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+                        {canWrite && (
+                          <td>
+                            <div style={{ display: 'flex', gap: 6 }}>
+                              <button className="btn btn-secondary" style={{ fontSize: 12, padding: '3px 10px' }} onClick={() => handleEdit(t)}>Edit</button>
+                              <button className="btn btn-danger"    style={{ fontSize: 12, padding: '3px 10px' }} onClick={() => handleDelete(t)}>Delete</button>
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       )}

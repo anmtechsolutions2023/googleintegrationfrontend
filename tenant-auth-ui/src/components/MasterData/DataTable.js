@@ -168,8 +168,13 @@ const DataTable = ({
                 </span>
               </th>
             ))}
+            {/* Width is set in CSS, not inline: an inline width outranks the
+                responsive rule that releases this column below 768px, which is
+                what kept 120–160px frozen on a phone. */}
             {(onEdit || onView || onDelete) && (
-              <th style={{ width: onView ? '160px' : '120px' }}>Actions</th>
+              <th className={onView ? 'col-actions col-actions-3' : 'col-actions'}>
+                Actions
+              </th>
             )}
           </tr>
         </thead>

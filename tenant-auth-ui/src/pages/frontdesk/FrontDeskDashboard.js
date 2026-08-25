@@ -104,40 +104,42 @@ const FrontDeskDashboard = () => {
       {stats.recentOrders.length === 0 ? (
         <div className="fd-empty">No recent orders.</div>
       ) : (
-        <table className="fd-table">
-          <thead>
-            <tr>
-              <th>Order No</th>
-              <th>Token / Table</th>
-              <th>Type</th>
-              <th>Status</th>
-              <th>Total</th>
-              <th>Created</th>
-            </tr>
-          </thead>
-          <tbody>
-            {stats.recentOrders.map((o) => (
-              <tr key={o.id || o.Id}>
-                <td><OrderNoLink orderId={o.Id || o.id}>{o.OrderNo || '—'}</OrderNoLink></td>
-                {/* The identifier the CUSTOMER is holding. The table was joined
-                    server-side already; the token was not, so every counter
-                    order showed a dash in the one column that could say which
-                    order it was. */}
-                <td>
-                  {o.TokenLabel ? (
-                    <span className="fd-source-chip is-token">🎫 {o.TokenLabel}</span>
-                  ) : o.TableName ? (
-                    <span className="fd-source-chip is-table">🪑 {o.TableName}</span>
-                  ) : <span className="muted">—</span>}
-                </td>
-                <td>{statusLabel(o.OrderType)}</td>
-                <td>{statusBadge(o.Status)}</td>
-                <td>{o.Total != null ? fmt(o.Total) : '—'}</td>
-                <td>{o.CreatedOn ? new Date(o.CreatedOn).toLocaleString() : '—'}</td>
+        <div className="fd-table-scroll">
+          <table className="fd-table">
+            <thead>
+              <tr>
+                <th>Order No</th>
+                <th>Token / Table</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Total</th>
+                <th>Created</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {stats.recentOrders.map((o) => (
+                <tr key={o.id || o.Id}>
+                  <td><OrderNoLink orderId={o.Id || o.id}>{o.OrderNo || '—'}</OrderNoLink></td>
+                  {/* The identifier the CUSTOMER is holding. The table was joined
+                      server-side already; the token was not, so every counter
+                      order showed a dash in the one column that could say which
+                      order it was. */}
+                  <td>
+                    {o.TokenLabel ? (
+                      <span className="fd-source-chip is-token">🎫 {o.TokenLabel}</span>
+                    ) : o.TableName ? (
+                      <span className="fd-source-chip is-table">🪑 {o.TableName}</span>
+                    ) : <span className="muted">—</span>}
+                  </td>
+                  <td>{statusLabel(o.OrderType)}</td>
+                  <td>{statusBadge(o.Status)}</td>
+                  <td>{o.Total != null ? fmt(o.Total) : '—'}</td>
+                  <td>{o.CreatedOn ? new Date(o.CreatedOn).toLocaleString() : '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   )

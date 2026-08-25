@@ -46,43 +46,45 @@ const BillSummary = ({ rounds, title = 'Bill Summary', defaultOpenBreakup = fals
             {showBreakup ? '▾' : '▸'} GST by item
           </button>
           {showBreakup && (
-            <table className="fd-bill-gst-table">
-              <thead>
-                <tr>
-                  <th>Item</th>
-                  <th>Taxable</th>
-                  <th>GST %</th>
-                  <th>GST</th>
-                  <th>Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {session.items.map((it, i) => (
-                  <tr key={`${it.name}-${it.rate}-${i}`}>
-                    <td>
-                      {it.name}
-                      <span className="fd-bill-gst-qty">×{it.qty}</span>
-                      {it.isTaxIncluded && <span className="tax-flag incl">incl.</span>}
-                    </td>
-                    <td>₹{money(it.net)}</td>
-                    {/* The rate is the SUM of the group's components, which is
-                        why a "GST 5%" group entered as CGST 5 + SGST 5 charges
-                        10%. Showing the make-up alongside it turns that from an
-                        unexplained number into a visible setup choice. */}
-                    <td>
-                      {it.rate ? `${it.rate}%` : '—'}
-                      {it.rate > 0 && it.components?.length > 1 && (
-                        <span className="fd-bill-gst-parts">
-                          {it.components.map((c) => `${c.name} ${c.rate}`).join(' + ')}
-                        </span>
-                      )}
-                    </td>
-                    <td>₹{money(it.tax)}</td>
-                    <td>₹{money(it.gross)}</td>
+            <div className="fd-table-scroll">
+              <table className="fd-bill-gst-table">
+                <thead>
+                  <tr>
+                    <th>Item</th>
+                    <th>Taxable</th>
+                    <th>GST %</th>
+                    <th>GST</th>
+                    <th>Total</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {session.items.map((it, i) => (
+                    <tr key={`${it.name}-${it.rate}-${i}`}>
+                      <td>
+                        {it.name}
+                        <span className="fd-bill-gst-qty">×{it.qty}</span>
+                        {it.isTaxIncluded && <span className="tax-flag incl">incl.</span>}
+                      </td>
+                      <td>₹{money(it.net)}</td>
+                      {/* The rate is the SUM of the group's components, which is
+                          why a "GST 5%" group entered as CGST 5 + SGST 5 charges
+                          10%. Showing the make-up alongside it turns that from an
+                          unexplained number into a visible setup choice. */}
+                      <td>
+                        {it.rate ? `${it.rate}%` : '—'}
+                        {it.rate > 0 && it.components?.length > 1 && (
+                          <span className="fd-bill-gst-parts">
+                            {it.components.map((c) => `${c.name} ${c.rate}`).join(' + ')}
+                          </span>
+                        )}
+                      </td>
+                      <td>₹{money(it.tax)}</td>
+                      <td>₹{money(it.gross)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       )}
