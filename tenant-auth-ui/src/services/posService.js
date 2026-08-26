@@ -184,6 +184,102 @@ export const updateOnlineOrder = async (id, data) => {
 }
 export const deleteOnlineOrder = async (id) => api.delete(`/api/pos/online-orders/${id}`)
 
+// The expo queue's feed: open work only, oldest first. Its own endpoint rather
+// than a filter over the list, because this is polled every few seconds and
+// wants the orders that need a decision — not page one of a night's history.
+export const getOnlineOrderQueue = async (params = {}) => {
+  const res = await api.get('/api/pos/online-orders/queue', { params })
+  return toArray(res.data)
+}
+// Accept: creates the pos_order, fires the KOT and links them. The step that
+// puts an aggregator order on the same road as every other sale.
+export const acceptOnlineOrder = async (id, data = {}) => {
+  const res = await api.post(`/api/pos/online-orders/${id}/accept`, data)
+  return toObject(res.data)
+}
+export const rejectOnlineOrder = async (id, data) => {
+  const res = await api.post(`/api/pos/online-orders/${id}/reject`, data)
+  return toObject(res.data)
+}
+// The single validated writer for every stage after accept. Illegal moves come
+// back 409 rather than being silently applied.
+export const setOnlineOrderStatus = async (id, data) => {
+  const res = await api.put(`/api/pos/online-orders/${id}/status`, data)
+  return toObject(res.data)
+}
+
+// ── Portals ───────────────────────────────────────────────────────────────────
+// The aggregators that sell on our behalf. A portal is a SELLER ON a channel,
+// not a channel — its colour, monogram and commission are data the order queue
+// reads, so adding one needs no code change here.
+export const getPortals = async (params = {}) => {
+  const res = await api.get('/api/pos/portals', { params })
+  return toArray(res.data)
+}
+export const getPortal = async (id) => {
+  const res = await api.get(`/api/pos/portals/${id}`)
+  return toObject(res.data)
+}
+export const createPortal = async (data) => {
+  const res = await api.post('/api/pos/portals', data)
+  return toObject(res.data)
+}
+export const updatePortal = async (id, data) => {
+  const res = await api.put(`/api/pos/portals/${id}`, data)
+  return toObject(res.data)
+}
+export const deletePortal = async (id) => api.delete(`/api/pos/portals/${id}`)
+
+// Write-only: there is no GET counterpart, and the response is a receipt rather
+// than the secrets.
+export const savePortalCredentials = async (id, data) => {
+  const res = await api.put(`/api/pos/portals/${id}/credentials`, data)
+  return toObject(res.data)
+}
+
+export const getPortalBranches = async (id) => {
+  const res = await api.get(`/api/pos/portals/${id}/branches`)
+  return toArray(res.data)
+}
+export const createPortalBranch = async (data) => {
+  const res = await api.post('/api/pos/portals/branches', data)
+  return toObject(res.data)
+}
+export const updatePortalBranch = async (id, data) => {
+  const res = await api.put(`/api/pos/portals/branches/${id}`, data)
+  return toObject(res.data)
+}
+export const deletePortalBranch = async (id) => api.delete(`/api/pos/portals/branches/${id}`)
+// The kill switch. Its own call so pausing cannot roll back whatever else
+// changed since the form was loaded.
+export const setPortalBranchOnline = async (id, data) => {
+  const res = await api.put(`/api/pos/portals/branches/${id}/online`, data)
+  return toObject(res.data)
+}
+
+export const getPortalListings = async (id) => {
+  const res = await api.get(`/api/pos/portals/${id}/listings`)
+  return toArray(res.data)
+}
+export const createPortalListing = async (data) => {
+  const res = await api.post('/api/pos/portals/listings', data)
+  return toObject(res.data)
+}
+export const updatePortalListing = async (id, data) => {
+  const res = await api.put(`/api/pos/portals/listings/${id}`, data)
+  return toObject(res.data)
+}
+export const deletePortalListing = async (id) => api.delete(`/api/pos/portals/listings/${id}`)
+// Bulk stock toggle — the operation the listings screen exists for.
+export const setPortalListingAvailability = async (data) => {
+  const res = await api.post('/api/pos/portals/listings/availability', data)
+  return toObject(res.data)
+}
+export const publishPortalMenu = async (id) => {
+  const res = await api.post(`/api/pos/portals/${id}/publish-menu`)
+  return toObject(res.data)
+}
+
 // ── Feedback ──────────────────────────────────────────────────────────────────
 export const getFeedback = async (params = {}) => {
   const res = await api.get('/api/pos/feedback', { params })
@@ -556,6 +652,12 @@ const posService = {
   getKots, createKot, updateKot, markKotReady, deleteKot,
   getBills, getBill, createBill, updateBill, settleBill, deleteBill,
   getOnlineOrders, createOnlineOrder, updateOnlineOrder, deleteOnlineOrder,
+  getOnlineOrderQueue, acceptOnlineOrder, rejectOnlineOrder, setOnlineOrderStatus,
+  getPortals, getPortal, createPortal, updatePortal, deletePortal, savePortalCredentials,
+  getPortalBranches, createPortalBranch, updatePortalBranch, deletePortalBranch,
+  setPortalBranchOnline,
+  getPortalListings, createPortalListing, updatePortalListing, deletePortalListing,
+  setPortalListingAvailability, publishPortalMenu,
   getFeedback, createFeedback, updateFeedback, deleteFeedback,
   getTokens, createToken, updateToken, deleteToken, callToken, serveToken,
   getPosBranches, getPosSettings, updatePosSettings,

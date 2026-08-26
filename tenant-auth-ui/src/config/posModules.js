@@ -32,8 +32,24 @@ export const POS_BRANCH_REFERENCE = {
   searchFields: ['BranchName'],
 }
 
+// Portals, as a reference source for any select that points at one. Not a
+// screen: /frontdesk/portals is hand-built because a portal owns a store-mapping
+// table and a write-only credential set, which a field-driven form cannot express.
+export const POS_PORTAL_REFERENCE = {
+  key: 'posPortals',
+  name: 'Portals',
+  endpoint: '/api/pos/portals',
+  icon: '🔀',
+  category: POS_CATEGORIES.CONFIG,
+  displayField: 'Name',
+  fields: [],
+  tableColumns: ['Name', 'Code'],
+  searchFields: ['Name', 'Code'],
+}
+
 export const POS_MODULES = {
   posBranches: POS_BRANCH_REFERENCE,
+  posPortals: POS_PORTAL_REFERENCE,
 
   posFloors: {
     key: 'posFloors',

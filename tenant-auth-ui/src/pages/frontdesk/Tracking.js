@@ -71,16 +71,32 @@ const Tracking = () => {
 
   useEffect(() => { load() }, [load])
 
+  // Advances through the SAME validated endpoint the queue uses, rather than a
+  // bare PUT that would write any status it was handed. This board and the
+  // queue used to disagree about the workflow — the queue jumped 'new' straight
+  // to 'processing' while this drew 'accepted' as stage one — so the server now
+  // owns which move is legal and both screens ask it.
+  //
+  // An illegal move comes back 409 with a message naming what IS allowed, which
+  // is worth showing verbatim rather than replacing with a generic failure.
   const handleAdvance = async (order) => {
     const id = order.id || order.Id
     const idx = stageIndex(order.Status)
     if (idx >= 4) return
     const nextStatus = STAGES[Math.min(idx + 1, 4)]
     try {
-      await posService.updateOnlineOrder(id, { Status: nextStatus })
+      const result = await posService.setOnlineOrderStatus(id, { Status: nextStatus })
       toast.success(`Order moved to: ${statusLabel(nextStatus)}`)
+      // Delivering settles the bill through the ledger. The delivery stands
+      // either way — the food arrived — so a settle failure is surfaced rather
+      // than hidden behind a success toast.
+      if (result?.Settlement && result.Settlement.settled === false) {
+        toast.warn(`Delivered, but not settled: ${result.Settlement.error}`)
+      }
       load()
-    } catch { toast.error('Failed to update order status') }
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Failed to update order status')
+    }
   }
 
   const filtered = orders.filter((o) => {

@@ -101,6 +101,8 @@ export const FRONT_DESK_NAV = [
     { key: 'fd-menu',       path: '/frontdesk/menu',       label: 'Menu Master',  icon: '🍽️', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
     { key: 'fd-food-types', path: '/frontdesk/food-types', label: 'Food Types',   icon: '🥗', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
     { key: 'fd-channels',   path: '/frontdesk/channels',   label: 'Channels',     icon: '📡', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
+    // A portal is a SELLER ON a channel, so it sits directly under Channels.
+    { key: 'fd-portals',    path: '/frontdesk/portals',    label: 'Portals',      icon: '🔀', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
     { key: 'fd-variants',   path: '/frontdesk/variants',   label: 'Variants',     icon: '🧩', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
     { key: 'fd-floors',     path: '/frontdesk/floors',     label: 'Floors',       icon: '🏢', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
     { key: 'fd-settings',   path: '/frontdesk/settings',   label: 'POS Settings', icon: '⚙️', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },

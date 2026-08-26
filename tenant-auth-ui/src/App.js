@@ -52,6 +52,8 @@ import Tokens from './pages/frontdesk/Tokens';
 import TokenDisplay from './pages/frontdesk/TokenDisplay';
 import PosSettings from './pages/frontdesk/PosSettings';
 import OnlineOrders from './pages/frontdesk/OnlineOrders';
+import Portals from './pages/frontdesk/Portals';
+import PortalMenu from './pages/frontdesk/PortalMenu';
 import Tracking from './pages/frontdesk/Tracking';
 import Inventory from './pages/frontdesk/Inventory';
 import Reports from './pages/frontdesk/Reports'
@@ -246,6 +248,10 @@ const AppRoutes = () => {
           <Route path="kitchen"   element={<ScopeGuard requiredScopes={[SCOPES.POS_KITCHEN_READ, SCOPES.TENANT_ADMIN]}><Kitchen /></ScopeGuard>} />
           <Route path="tokens"    element={<ScopeGuard requiredScopes={[SCOPES.POS_OPS_READ,     SCOPES.TENANT_ADMIN]}><Tokens /></ScopeGuard>} />
           <Route path="online"    element={<ScopeGuard requiredScopes={[SCOPES.POS_OPS_READ,     SCOPES.TENANT_ADMIN]}><OnlineOrders /></ScopeGuard>} />
+          {/* Configuring a portal is master-data work a manager does; the queue
+              above is floor work a cashier does. Same split as channels vs billing. */}
+          <Route path="portals"   element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ,  SCOPES.TENANT_ADMIN]}><Portals /></ScopeGuard>} />
+          <Route path="portals/:portalId/menu" element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN]}><PortalMenu /></ScopeGuard>} />
           <Route path="menu"       element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ,  SCOPES.TENANT_ADMIN]}><MenuMaster /></ScopeGuard>} />
           <Route path="food-types" element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ,  SCOPES.TENANT_ADMIN]}><FoodTypes /></ScopeGuard>} />
           <Route path="channels"  element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ,  SCOPES.TENANT_ADMIN]}><Channels /></ScopeGuard>} />
