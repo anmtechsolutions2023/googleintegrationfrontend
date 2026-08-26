@@ -39,6 +39,9 @@ const TABS = [
   { key: 'discounts', label: 'Discounts', icon: '🏷️' },
   { key: 'cashflow', label: 'Cash Flow', icon: '🏦' },
   { key: 'expenses', label: 'Expenses',  icon: '💸' },
+  // Ten tabs answer WHAT was sold. These two answer WHO bought it.
+  { key: 'customers', label: 'Customers', icon: '👥' },
+  { key: 'visits',    label: 'Visit Pattern', icon: '🕒' },
 ]
 
 const LOADERS = {
@@ -52,6 +55,18 @@ const LOADERS = {
   discounts: posService.getDiscountReport,
   cashflow: posService.getCashFlowReport,
   expenses: posService.getExpenseReport,
+  // Two requests, one tab. allSettled rather than all: the lapsed list decorates
+  // this tab, and losing it must not blank the credibility table the tab exists
+  // for. A refused or failed panel says so where it would have rendered.
+  customers: async (range) => {
+    const [report, lapsed] = await Promise.allSettled([
+      posService.getCustomerReport(range),
+      posService.getLapsedReport({ days: 30 }),
+    ])
+    if (report.status === 'rejected') throw report.reason
+    return { ...report.value, lapsed: lapsed.status === 'fulfilled' ? lapsed.value : null }
+  },
+  visits: posService.getVisitPatternReport,
 }
 
 const Kpi = ({ label, value, accent, hint }) => (
@@ -179,6 +194,8 @@ const Finance = () => {
           {tab === 'discounts' && <DiscountsTab data={data} />}
           {tab === 'cashflow' && <CashFlowTab data={data} />}
           {tab === 'expenses' && <ExpensesTab data={data} range={range} />}
+          {tab === 'customers' && <CustomersTab data={data} />}
+          {tab === 'visits'    && <VisitPatternTab data={data} />}
         </div>
       )}
     </div>
@@ -813,6 +830,222 @@ const ExpensesTab = ({ data, range }) => {
           </table>
         </div>
       )}
+    </>
+  )
+}
+
+/* ── Customers ────────────────────────────────────────────────────────────── */
+// Credibility and repeat history. Reads settled documents, so a round that was
+// placed and never paid for is not counted as a visit, and a sale that was
+// refunded stops counting the moment it is reversed.
+const CustomersTab = ({ data }) => {
+  const rows = data.customers || []
+  const s = data.summary || {}
+  const lapsed = data.lapsed
+
+  return (
+    <>
+      <div className="fd-kpi-grid">
+        <Kpi
+          label="Identified sales" value={`${s.IdentifiedRate ?? 0}%`} accent="accent-blue"
+          hint={`${s.KnownOrders ?? 0} of ${s.Documents ?? 0} sales named a customer`}
+        />
+        <Kpi
+          label="Repeat customers" value={`${s.RepeatRate ?? 0}%`} accent="accent-green"
+          hint={`${s.RepeatCustomers ?? 0} of ${s.KnownCustomers ?? 0} came back`}
+        />
+        <Kpi label="Known customers" value={s.KnownCustomers ?? 0} accent="accent-orange" />
+        <Kpi label="Their spend" value={money(s.KnownSpend)} accent="accent-green" />
+      </div>
+
+      {/* A low identified rate is the size of the opportunity, not a failure —
+          say so, rather than leaving a manager to read it as a bad score. */}
+      {Number(s.Documents) > 0 && Number(s.IdentifiedRate) < 50 && (
+        <div className="fd-range-note">
+          Most sales here are walk-ins. Attaching a customer on the Billing screen is what
+          turns them into the history below.
+        </div>
+      )}
+
+      <div className="fd-section-title">Who buys, and how reliably</div>
+      {rows.length === 0 ? (
+        <Empty>No customer had a settled sale in this period.</Empty>
+      ) : (
+        <div className="fd-table-scroll">
+          <table className="fd-table">
+            <thead>
+              <tr>
+                <th>Customer</th><th>Phone</th>
+                <th className="num">Orders</th><th className="num">Spend</th>
+                <th className="num">Avg order</th><th className="num">Every</th>
+                <th>Last order</th><th className="num">Points</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((c) => (
+                <tr key={c.Id}>
+                  <td className="strong">
+                    {c.Name}
+                    {c.IsRepeat && <span className="fd-badge fd-badge-active" style={{ marginLeft: 8 }}>Repeat</span>}
+                  </td>
+                  <td>{c.Phone || <span className="muted">—</span>}</td>
+                  <td className="num">{c.Orders}</td>
+                  <td className="num strong">{money(c.Spend)}</td>
+                  <td className="num">{money(c.AverageOrder)}</td>
+                  {/* A one-time buyer has no interval. 0 would read as
+                      "comes every day", which is the opposite of the truth. */}
+                  <td className="num">
+                    {c.AvgDaysBetween == null
+                      ? <span className="muted">first visit</span>
+                      : `${c.AvgDaysBetween} days`}
+                  </td>
+                  <td>
+                    {c.LastOrder ? new Date(c.LastOrder).toLocaleDateString() : '—'}
+                    {c.DaysSinceLast > 0 && (
+                      <span className="muted small"> · {c.DaysSinceLast}d ago</span>
+                    )}
+                  </td>
+                  <td className="num">{c.LoyaltyPoints ?? 0}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <div className="fd-section-title">Stopped coming</div>
+      {!lapsed ? (
+        <Empty>The lapsed-customer list could not be loaded.</Empty>
+      ) : lapsed.customers.length === 0 ? (
+        <Empty>Nobody known has been away more than {lapsed.thresholdDays} days.</Empty>
+      ) : (
+        <>
+          {/* Sorted by lifetime spend: the customer worth winning back is not
+              the one who came most recently. */}
+          <p className="fd-lead">
+            Away more than {lapsed.thresholdDays} days, most valuable first.
+          </p>
+          <div className="fd-table-scroll">
+            <table className="fd-table">
+              <thead>
+                <tr>
+                  <th>Customer</th><th>Phone</th><th className="num">Visits</th>
+                  <th className="num">Lifetime spend</th><th className="num">Points</th>
+                  <th className="num">Away</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lapsed.customers.map((c) => (
+                  <tr key={c.Id}>
+                    <td className="strong">{c.Name}</td>
+                    <td>{c.Phone || <span className="muted">—</span>}</td>
+                    <td className="num">{c.Visits}</td>
+                    <td className="num strong">{money(c.TotalSpent)}</td>
+                    <td className="num">{c.LoyaltyPoints ?? 0}</td>
+                    <td className="num">{c.DaysSince} days</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </>
+  )
+}
+
+/* ── Visit pattern ────────────────────────────────────────────────────────── */
+// A shape you read rather than a table you scan. Both axes arrive pre-totalled
+// from the server, so nothing is recomputed here.
+const VisitPatternTab = ({ data }) => {
+  const cells = data.cells || []
+  const byDay = data.byDay || []
+  const byHour = (data.byHour || []).filter((h) => Number(h.Visits) > 0)
+  if (cells.length === 0) return <Empty>No settled sales in this period.</Empty>
+
+  const peak = Math.max(...cells.map((c) => Number(c.Visits) || 0), 1)
+  const at = (dow, hour) =>
+    cells.find((c) => Number(c.Dow) === dow && Number(c.Hour) === hour)
+  // Only the hours that ever trade — a 24-column grid is mostly empty for a
+  // restaurant, and the shape is easier to read without the dead columns.
+  const hours = byHour.map((h) => Number(h.Hour)).sort((a, b) => a - b)
+  const hourLabel = (h) => `${((h + 11) % 12) + 1}${h < 12 ? 'a' : 'p'}`
+
+  return (
+    <>
+      <div className="fd-kpi-grid">
+        <Kpi
+          label="Busiest slot"
+          value={data.Busiest ? `${data.Busiest.Day} ${hourLabel(data.Busiest.Hour)}` : '—'}
+          accent="accent-blue"
+          hint={data.Busiest ? `${data.Busiest.Visits} sales` : null}
+        />
+        <Kpi
+          label="Busiest day"
+          value={byDay.length ? [...byDay].sort((a, b) => b.Visits - a.Visits)[0].Day : '—'}
+          accent="accent-green"
+        />
+        <Kpi label="Trading hours" value={hours.length} accent="accent-orange"
+             hint="Hours that saw at least one sale" />
+      </div>
+
+      <div className="fd-section-title">Sales by day and hour</div>
+      <div className="fd-table-scroll">
+        <table className="fd-table fd-heatmap">
+          <thead>
+            <tr>
+              <th>Day</th>
+              {hours.map((h) => <th key={h} className="num">{hourLabel(h)}</th>)}
+              <th className="num">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {byDay.map((d) => (
+              <tr key={d.Dow}>
+                <td className="strong">{d.Day}</td>
+                {hours.map((h) => {
+                  const cell = at(Number(d.Dow), h)
+                  const v = Number(cell?.Visits) || 0
+                  return (
+                    <td
+                      key={h}
+                      className="num"
+                      title={v ? `${v} sales · ${money(cell.Spend)}` : 'No sales'}
+                      style={v ? {
+                        // One hue, varying weight: the count is the message,
+                        // and a rainbow would imply categories that do not exist.
+                        background: `rgba(39, 174, 96, ${0.12 + (v / peak) * 0.68})`,
+                        fontWeight: v === peak ? 700 : 400,
+                      } : undefined}
+                    >
+                      {v || <span className="muted">·</span>}
+                    </td>
+                  )
+                })}
+                <td className="num strong">{d.Visits}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="fd-section-title">By hour</div>
+      <div className="fd-table-scroll">
+        <table className="fd-table">
+          <thead>
+            <tr><th>Hour</th><th className="num">Sales</th><th className="num">Revenue</th></tr>
+          </thead>
+          <tbody>
+            {byHour.map((h) => (
+              <tr key={h.Hour}>
+                <td>{hourLabel(Number(h.Hour))}</td>
+                <td className="num">{h.Visits}</td>
+                <td className="num strong">{money(h.Spend)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </>
   )
 }

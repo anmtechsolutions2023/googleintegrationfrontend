@@ -1,9 +1,22 @@
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
+import { toast } from 'react-toastify'
 import posService from '../../services/posService'
 import { OrderNoLink } from './OrderLinkProvider'
 import { statusLabel } from '../../utils/posStatus'
+import useCan from '../../hooks/useCan'
+import { SCOPES } from '../../constants'
 
 const money = (n) => `₹${(Number(n) || 0).toFixed(2)}`
+
+// The stored vocabulary in the words a manager uses. REVERSAL in particular
+// needs saying plainly: it is what a refund does to points.
+const ENTRY_LABEL = {
+  EARN: 'Earned on a sale',
+  REVERSAL: 'Taken back — sale refunded',
+  REDEEM: 'Redeemed against a bill',
+  ADJUSTMENT: 'Adjusted by hand',
+  EXPIRY: 'Expired',
+}
 const when = (v) => (v ? new Date(v).toLocaleDateString() : '—')
 
 const Stars = ({ rating }) => (
@@ -27,6 +40,23 @@ const CustomerProfile = ({ customerId, onClose }) => {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [statement, setStatement] = useState(null)
+  const [adjusting, setAdjusting] = useState(false)
+  const [points, setPoints] = useState('')
+  const [reason, setReason] = useState('')
+  const [saving, setSaving] = useState(false)
+  // Reading a balance at the counter and creating one are different
+  // permissions. The server refuses either way; this only hides the form.
+  const canAdjust = useCan(SCOPES.POS_CRM_WRITE)
+
+  const loadStatement = useCallback(() => {
+    if (!customerId) return
+    posService.getLoyaltyStatement(customerId)
+      .then(setStatement)
+      // The points panel decorates this profile; losing it must not take the
+      // order history with it, so it fails to an explanation in its own place.
+      .catch(() => setStatement({ error: true }))
+  }, [customerId])
 
   useEffect(() => {
     if (!customerId) { setData(null); return undefined }
@@ -41,6 +71,43 @@ const CustomerProfile = ({ customerId, onClose }) => {
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [customerId])
+
+  useEffect(() => {
+    setStatement(null)
+    setAdjusting(false)
+    setPoints('')
+    setReason('')
+    loadStatement()
+  }, [customerId, loadStatement])
+
+  const submitAdjustment = async (e) => {
+    e.preventDefault()
+    const value = Number(points)
+    if (!Number.isInteger(value) || value === 0) {
+      toast.error('Enter a whole number of points, positive to grant or negative to take back')
+      return
+    }
+    if (!reason.trim()) {
+      toast.error('Say why — an unexplained adjustment is the one an auditor asks about')
+      return
+    }
+    setSaving(true)
+    try {
+      const result = await posService.adjustLoyalty(customerId, { Points: value, Reason: reason.trim() })
+      toast.success(`${value > 0 ? 'Granted' : 'Deducted'} ${Math.abs(value)} points · balance ${result.balance}`)
+      setAdjusting(false)
+      setPoints('')
+      setReason('')
+      loadStatement()
+      // The header counter is a cache of the ledger; refresh it rather than
+      // letting the two disagree on screen.
+      posService.getCustomerProfile(customerId).then(setData).catch(() => {})
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Could not adjust these points')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   useEffect(() => {
     if (!customerId) return undefined
@@ -135,6 +202,99 @@ const CustomerProfile = ({ customerId, onClose }) => {
                       </tr>
                     ))}
                   </tbody>
+                </table>
+              </div>
+            )}
+
+            <div className="fd-section-title">
+              Loyalty points
+              {canAdjust && !adjusting && (
+                <button
+                  type="button"
+                  className="fd-btn fd-btn-outline fd-btn-sm"
+                  style={{ marginLeft: 12 }}
+                  onClick={() => setAdjusting(true)}
+                >
+                  Adjust
+                </button>
+              )}
+            </div>
+
+            {canAdjust && adjusting && (
+              <form className="fd-loyalty-adjust" onSubmit={submitAdjustment}>
+                <label>
+                  Points
+                  <input
+                    type="number"
+                    value={points}
+                    onChange={(e) => setPoints(e.target.value)}
+                    placeholder="50, or −20 to take back"
+                    autoFocus
+                  />
+                </label>
+                <label className="grow">
+                  Reason
+                  <input
+                    type="text"
+                    value={reason}
+                    maxLength={255}
+                    onChange={(e) => setReason(e.target.value)}
+                    placeholder="Goodwill — delayed order"
+                  />
+                </label>
+                <div className="fd-loyalty-adjust-actions">
+                  <button type="submit" className="fd-btn fd-btn-primary" disabled={saving}>
+                    {saving ? 'Saving…' : 'Apply'}
+                  </button>
+                  <button
+                    type="button"
+                    className="fd-btn fd-btn-outline"
+                    onClick={() => setAdjusting(false)}
+                    disabled={saving}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {statement?.error ? (
+              <div className="fd-empty">Could not load the points history.</div>
+            ) : !statement ? (
+              <div className="fd-loading">Loading points…</div>
+            ) : statement.entries.length === 0 ? (
+              <div className="fd-empty">
+                No points yet. They are earned automatically when a bill with this
+                customer attached is settled.
+              </div>
+            ) : (
+              <div className="fd-table-scroll">
+                <table className="fd-table">
+                  <thead>
+                    <tr>
+                      <th>When</th><th>What</th><th>Why</th><th className="num">Points</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {statement.entries.map((e) => (
+                      <tr key={e.Id}>
+                        <td>{when(e.CreatedOn)}</td>
+                        <td>{ENTRY_LABEL[e.EntryType] || e.EntryType}</td>
+                        <td>{e.Reason || <span className="muted">—</span>}</td>
+                        {/* Signed, and shown signed: the ledger records the
+                            movement, not its magnitude. */}
+                        <td className={`num strong ${Number(e.Points) < 0 ? 'is-negative' : ''}`}>
+                          {Number(e.Points) > 0 ? `+${e.Points}` : e.Points}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr>
+                      <td colSpan={3} className="strong">Balance</td>
+                      <td className="num strong">{statement.balance}</td>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
             )}

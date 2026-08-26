@@ -393,6 +393,31 @@ export const getVenueReport = ledgerReport('venue')
 export const getDiscountReport = ledgerReport('discounts')
 /** Revenue by where the sale happened: dine-in, counter, delivery. */
 const getChannelRevenue = ledgerReport('channels')
+/** Who buys, how often, and how reliably — the credibility view. */
+export const getCustomerReport = ledgerReport('customers')
+/** Day of week against hour of day, both axes pre-totalled. */
+export const getVisitPatternReport = ledgerReport('visit-pattern')
+/**
+ * Known customers who have stopped coming.
+ * Not timeframe-bound like the reports above: it asks "how long since", so it
+ * takes a `days` threshold rather than a range.
+ */
+export const getLapsedReport = async ({ days = 30, limit } = {}) => {
+  const res = await api.get('/api/ledger/reports/lapsed', { params: { days, limit } })
+  return toObject(res.data)
+}
+
+// ── Loyalty ─────────────────────────────────────────────────────────────────
+/** What a customer holds, and every movement that got them there. */
+export const getLoyaltyStatement = async (customerId) => {
+  const res = await api.get(`/api/pos/loyalty/${customerId}/statement`)
+  return toObject(res.data)
+}
+/** A manual grant or correction. Points are signed; a reason is required. */
+export const adjustLoyalty = async (customerId, { Points, Reason }) => {
+  const res = await api.post(`/api/pos/loyalty/${customerId}/adjust`, { Points, Reason })
+  return toObject(res.data)
+}
 
 /** How the counter queue performed — issued, served, and how long people waited. */
 export const getTokenStats = async (range = {}) => {
@@ -525,6 +550,8 @@ const posService = {
   getItemMeta, createItemMeta, updateItemMeta, deleteItemMeta,
   getCustomers, createCustomer, updateCustomer, deleteCustomer,
   searchCustomers, getCustomerProfile,
+  getCustomerReport, getVisitPatternReport, getLapsedReport,
+  getLoyaltyStatement, adjustLoyalty,
   getOrders, getOrder, getOrderDetail, createOrder, updateOrder, deleteOrder, transferOrder, fireKot,
   getKots, createKot, updateKot, markKotReady, deleteKot,
   getBills, getBill, createBill, updateBill, settleBill, deleteBill,

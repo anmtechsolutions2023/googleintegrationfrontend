@@ -2116,6 +2116,37 @@
 .fd-customer-feedback .comment { color: #2c3e50; font-size: 13px; font-style: italic; }
 .fd-stars { color: #f39c12; letter-spacing: 1px; }
 
+/* ── Loyalty ─────────────────────────────────────────────────────────────── */
+/* A deduction has to read as one at a glance — the sign alone is easy to miss
+   in a column of numbers. */
+.fd-table td.is-negative { color: #c0392b; }
+.fd-loyalty-adjust {
+  display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end;
+  background: #f8fafc; border: 1px solid #e1e5eb; border-radius: 10px;
+  padding: 14px 16px; margin-bottom: 14px;
+}
+.fd-loyalty-adjust label {
+  display: flex; flex-direction: column; gap: 4px;
+  font-size: 12px; color: #7f8c8d; font-weight: 600;
+}
+.fd-loyalty-adjust label.grow { flex: 1 1 220px; }
+.fd-loyalty-adjust input {
+  padding: 8px 10px; border: 1px solid #d0d4da; border-radius: 6px;
+  font-size: 14px; color: #2c3e50; font-weight: 400;
+}
+.fd-loyalty-adjust-actions { display: flex; gap: 8px; }
+@media (max-width: 560px) {
+  /* Stack rather than wrap: two half-width fields side by side are unusable
+     on a phone held at the counter. */
+  .fd-loyalty-adjust { flex-direction: column; align-items: stretch; }
+  .fd-loyalty-adjust-actions button { flex: 1; }
+}
+
+/* The heatmap is a shape, so its cells must stay square-ish and compact
+   rather than stretching to the table's usual comfortable padding. */
+.fd-heatmap td, .fd-heatmap th { padding: 6px 8px; text-align: center; }
+.fd-heatmap td:first-child, .fd-heatmap th:first-child { text-align: left; }
+
 /* ── Invitations ─────────────────────────────────────────────────────────── */
 .fd-invite-form {
   display: flex; flex-direction: column; gap: 14px; align-items: flex-start;

@@ -9,6 +9,7 @@ import ConfirmDialog from '../MasterData/ConfirmDialog'
 import { genericGet, genericPost, genericPut, genericDelete } from '../../services/posService'
 import crudService from '../../services/crudService'
 import { MODULES } from '../../config/modules'
+import { POS_MODULES } from '../../config/posModules'
 import './frontdesk.css'
 
 // Resolve a reference id to a human label using loaded reference data.
@@ -18,7 +19,7 @@ const referenceLabel = (id, options, reference) => {
   if (id === null || id === undefined || id === '') return id
   const opt = (options || []).find((o) => (o.id || o.Id) === id)
   if (!opt) return id
-  const displayField = MODULES[reference]?.displayField
+  const displayField = (MODULES[reference] || POS_MODULES[reference])?.displayField
   if (displayField && opt[displayField] !== undefined && opt[displayField] !== null) {
     return opt[displayField]
   }
@@ -39,6 +40,8 @@ const SYSTEM_FIELDS = [
   // from a GET response, so without this they would be echoed back and rejected
   // as unknown keys by the write schemas.
   'CostInfoAmount', 'FoodTypeName', 'FoodTypeIsVeg',
+  // Computed live by the pricing enricher on every read, never stored.
+  'TaxBreakdown',
 ]
 
 const stripSystemFields = (data) => {

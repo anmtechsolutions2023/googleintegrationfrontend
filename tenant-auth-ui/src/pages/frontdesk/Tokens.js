@@ -8,6 +8,7 @@ import { parseOrderItems, itemLabel, itemQty } from '../../utils/posRounds'
 import { APP_CONFIG, SCOPES } from '../../constants'
 import { useCan } from '../../hooks/useCan'
 import { businessDate as today } from '../../utils/businessDate'
+import { usePosBranch } from '../../hooks/usePosBranch'
 
 const { MAX_LIMIT } = APP_CONFIG.PAGINATION
 
@@ -35,30 +36,10 @@ const Tokens = () => {
   // it. Issuing, calling and handing over move the queue and need WRITE.
   const canRunQueue = useCan(SCOPES.POS_OPS_WRITE)
   const [tokens, setTokens] = useState([])
-  const [branches, setBranches] = useState([])
-  const [branchId, setBranchId] = useState(() => localStorage.getItem(BRANCH_KEY) || '')
-  // Gates the first queue read so it does not fire once with no branch and
-  // again a tick later with one.
-  const [branchesLoaded, setBranchesLoaded] = useState(false)
   const [loading, setLoading] = useState(true)
   const [busyId, setBusyId] = useState(null)
   const [issuing, setIssuing] = useState(false)
-
-  useEffect(() => {
-    posService.getPosBranches()
-      .then((list) => {
-        setBranches(list)
-        // One branch is the common case; making the cashier pick it would be
-        // a question with one answer.
-        setBranchId((cur) => cur || (list.length > 0 ? (list[0].Id || list[0].id) : ''))
-      })
-      .catch(() => setBranches([]))
-      .finally(() => setBranchesLoaded(true))
-  }, [])
-
-  useEffect(() => {
-    if (branchId) localStorage.setItem(BRANCH_KEY, branchId)
-  }, [branchId])
+  const { branches, branchId, setBranchId, branchesLoaded } = usePosBranch(BRANCH_KEY)
 
   // Today's queue, filtered on the server. This screen used to pull every token
   // the tenant had ever issued and keep today's in the browser, which stops

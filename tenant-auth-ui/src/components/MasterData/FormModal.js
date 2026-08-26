@@ -1,6 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { MODULES } from '../../config/modules'
+import { POS_MODULES } from '../../config/posModules'
 import './MasterData.css'
+
+// A reference select may point at a core module (MODULES) or a POS module
+// (POS_MODULES) — crudService resolves the endpoint the same way. Looking only
+// at MODULES made POS references (e.g. Floor → posBranches) fall through to the
+// generic label chain and render raw ids.
+const referenceModule = (key) => MODULES[key] || POS_MODULES[key]
 
 // Render one part of a `derived` field's read-only summary. `format` decides the
 // presentation: a tax-included flag becomes a coloured badge, everything else is
@@ -413,7 +420,7 @@ const FormModal = ({
                 }
                 const optId = opt.id || opt.Id
                 // Prefer module-configured displayField (e.g., Tag)
-                const displayField = MODULES[field.reference]?.displayField
+                const displayField = referenceModule(field.reference)?.displayField
                 let optName = ''
                 if (displayField && opt[displayField] !== undefined) {
                   optName = opt[displayField]
@@ -497,7 +504,7 @@ const FormModal = ({
         // a checkbox list so several channels/variants can be picked per item.
         const options = referenceData[field.reference] || []
         const selected = Array.isArray(value) ? value : []
-        const displayField = MODULES[field.reference]?.displayField
+        const displayField = referenceModule(field.reference)?.displayField
         const optLabel = (opt) => {
           if (displayField && opt[displayField] !== undefined) return opt[displayField]
           return opt.DisplayLabel || opt.name || opt.Name || opt.Title || opt.id || opt.Id

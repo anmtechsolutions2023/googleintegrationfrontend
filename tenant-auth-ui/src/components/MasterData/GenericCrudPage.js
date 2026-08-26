@@ -22,6 +22,9 @@ const SYSTEM_FIELDS = [
   'createdAt', 'updatedAt', 'createdOn', 'updatedOn',
   'CreatedBy', 'UpdatedBy', 'createdBy', 'updatedBy',
   'DeletedAt', 'deletedAt', 'DeletedBy', 'deletedBy',
+  // Computed by the pricing enricher on `expand` reads (items, cost info,
+  // batches) and echoed back by a form seeded from the GET — never stored.
+  'TaxBreakdown',
 ]
 
 const stripSystemFields = (data) => {

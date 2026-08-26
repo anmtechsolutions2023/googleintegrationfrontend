@@ -18,6 +18,9 @@ jest.mock('../../../services/posService', () => ({
     getVenueReport: jest.fn(),
     getChannelReport: jest.fn(),
     getDiscountReport: jest.fn(),
+    getCustomerReport: jest.fn(),
+    getVisitPatternReport: jest.fn(),
+    getLapsedReport: jest.fn(),
     // Filter options for the timeframe picker.
     getFloors: jest.fn(),
     getTables: jest.fn(),
@@ -135,8 +138,59 @@ const CHANNELS = {
   },
 };
 
+const CUSTOMERS = {
+  range: RANGE,
+  summary: {
+    Documents: 10, KnownCustomers: 2, RepeatCustomers: 1,
+    KnownOrders: 5, KnownSpend: 4250, IdentifiedRate: 50, RepeatRate: 50,
+  },
+  customers: [
+    { Id: 'c1', Name: 'Priya R', Phone: '9876543210', Orders: 4, Spend: 4000,
+      AverageOrder: 1000, FirstVisit: '2026-08-01', LastOrder: '2026-08-20',
+      DaysSinceLast: 6, AvgDaysBetween: 6.3, IsRepeat: true, LoyaltyPoints: 20 },
+    { Id: 'c2', Name: 'Arjun', Phone: null, Orders: 1, Spend: 250,
+      AverageOrder: 250, FirstVisit: '2026-08-10', LastOrder: '2026-08-10',
+      DaysSinceLast: 16, AvgDaysBetween: null, IsRepeat: false, LoyaltyPoints: 2 },
+  ],
+};
+
+const LAPSED = {
+  thresholdDays: 30,
+  customers: [
+    { Id: 'c9', Name: 'Meera', Phone: '90000', Visits: 8, TotalSpent: 9000,
+      LoyaltyPoints: 40, LastVisitAt: '2026-05-01', DaysSince: 117 },
+  ],
+};
+
+const VISITS = {
+  range: RANGE,
+  cells: [
+    { Dow: 4, Day: 'Wednesday', Hour: 13, Visits: 2, Spend: 400 },
+    { Dow: 4, Day: 'Wednesday', Hour: 20, Visits: 7, Spend: 2100 },
+    { Dow: 6, Day: 'Friday', Hour: 20, Visits: 5, Spend: 1500 },
+  ],
+  byDay: [
+    { Dow: 1, Day: 'Sunday', Visits: 0, Spend: 0 },
+    { Dow: 2, Day: 'Monday', Visits: 0, Spend: 0 },
+    { Dow: 3, Day: 'Tuesday', Visits: 0, Spend: 0 },
+    { Dow: 4, Day: 'Wednesday', Visits: 9, Spend: 2500 },
+    { Dow: 5, Day: 'Thursday', Visits: 0, Spend: 0 },
+    { Dow: 6, Day: 'Friday', Visits: 5, Spend: 1500 },
+    { Dow: 7, Day: 'Saturday', Visits: 0, Spend: 0 },
+  ],
+  byHour: Array.from({ length: 24 }, (_, h) => ({
+    Hour: h,
+    Visits: h === 13 ? 2 : h === 20 ? 12 : 0,
+    Spend: h === 13 ? 400 : h === 20 ? 3600 : 0,
+  })),
+  Busiest: { Day: 'Wednesday', Hour: 20, Visits: 7 },
+};
+
 beforeEach(() => {
   posService.getFinanceOverview.mockResolvedValue(OVERVIEW);
+  posService.getCustomerReport.mockResolvedValue(CUSTOMERS);
+  posService.getVisitPatternReport.mockResolvedValue(VISITS);
+  posService.getLapsedReport.mockResolvedValue(LAPSED);
   posService.getSalesReport.mockResolvedValue(SALES);
   posService.getProductReport.mockResolvedValue(PRODUCTS);
   posService.getPendingReport.mockResolvedValue(PENDING);
@@ -500,5 +554,100 @@ describe('channels tab — where the sale happened', () => {
     expect(posService.getChannelReport).toHaveBeenLastCalledWith(
       expect.objectContaining({ preset: 'month' }),
     );
+  });
+});
+
+
+// ── Who bought it ──────────────────────────────────────────────────────────
+// Ten tabs answer WHAT was sold. These two answer WHO bought it, which is the
+// question a loyalty programme is built on.
+describe('customers tab — credibility and repeat history', () => {
+  test('measures identified sales against every sale, walk-ins included', async () => {
+    await renderFinance();
+    await goToTab('Customers');
+    // 5 known orders of 10 documents. Computed over known customers only, the
+    // figure would always look wonderful and mean nothing.
+    expect(kpiValue('Identified sales')).toBe('50%');
+    expect(screen.getByText('5 of 10 sales named a customer')).toBeInTheDocument();
+  });
+
+  test('reports the repeat rate over known customers', async () => {
+    await renderFinance();
+    await goToTab('Customers');
+    expect(kpiValue('Repeat customers')).toBe('50%');
+  });
+
+  test('says what a low identified rate means rather than leaving it as a bad score', async () => {
+    posService.getCustomerReport.mockResolvedValue({
+      ...CUSTOMERS,
+      summary: { ...CUSTOMERS.summary, IdentifiedRate: 20 },
+    });
+    await renderFinance();
+    await goToTab('Customers');
+    expect(screen.getByText(/Most sales here are walk-ins/i)).toBeInTheDocument();
+  });
+
+  test('does not nag when most sales already name a customer', async () => {
+    posService.getCustomerReport.mockResolvedValue({
+      ...CUSTOMERS,
+      summary: { ...CUSTOMERS.summary, IdentifiedRate: 80 },
+    });
+    await renderFinance();
+    await goToTab('Customers');
+    expect(screen.queryByText(/Most sales here are walk-ins/i)).not.toBeInTheDocument();
+  });
+
+  test('marks who came back', async () => {
+    await renderFinance();
+    await goToTab('Customers');
+    expect(within(rowStartingWith('Priya RRepeat')).getByText('Repeat')).toBeInTheDocument();
+  });
+
+  test('shows a one-time buyer as a first visit, never as "every 0 days"', async () => {
+    await renderFinance();
+    await goToTab('Customers');
+    expect(within(rowStartingWith('Arjun')).getByText('first visit')).toBeInTheDocument();
+    expect(within(rowStartingWith('Priya RRepeat')).getByText('6.3 days')).toBeInTheDocument();
+  });
+
+  test('lists lapsed customers by value, not by recency', async () => {
+    await renderFinance();
+    await goToTab('Customers');
+    expect(screen.getByText(/Away more than 30 days, most valuable first/i)).toBeInTheDocument();
+    expect(screen.getByText('Meera')).toBeInTheDocument();
+  });
+
+  test('keeps the credibility table when the lapsed list fails', async () => {
+    // The lapsed panel decorates this tab; losing it must not blank the table
+    // the tab exists for.
+    posService.getLapsedReport.mockRejectedValue(new Error('nope'));
+    await renderFinance();
+    await goToTab('Customers');
+    expect(screen.getByText('Priya R')).toBeInTheDocument();
+    expect(screen.getByText(/lapsed-customer list could not be loaded/i)).toBeInTheDocument();
+  });
+});
+
+describe('visit pattern — when they actually come in', () => {
+  test('names the busiest slot in words a manager can act on', async () => {
+    await renderFinance();
+    await goToTab('Visit Pattern');
+    expect(kpiValue('Busiest slot')).toBe('Wednesday 8p');
+  });
+
+  test('drops the hours that never trade instead of drawing 24 empty columns', async () => {
+    await renderFinance();
+    await goToTab('Visit Pattern');
+    expect(kpiValue('Trading hours')).toBe('2');
+    expect(screen.getAllByRole('columnheader').map((h) => h.textContent))
+      .toEqual(expect.arrayContaining(['Day', '1p', '8p', 'Total']));
+  });
+
+  test('shows every day, including the quiet ones', async () => {
+    await renderFinance();
+    await goToTab('Visit Pattern');
+    ['Sunday', 'Monday', 'Wednesday', 'Saturday'].forEach((d) => {
+      expect(screen.getAllByText(d).length).toBeGreaterThan(0);
+    });
   });
 });

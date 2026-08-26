@@ -3,6 +3,7 @@ import posService from '../../services/posService'
 import { normalizeStatus } from '../../utils/posStatus'
 import { APP_CONFIG } from '../../constants'
 import { businessDate as today } from '../../utils/businessDate'
+import { usePosBranch } from '../../hooks/usePosBranch'
 import './tokenDisplay.css'
 
 const { MAX_LIMIT } = APP_CONFIG.PAGINATION
@@ -26,24 +27,8 @@ const BRANCH_KEY = 'fd.tokens.display.branch'
  */
 const TokenDisplay = () => {
   const [tokens, setTokens] = useState([])
-  const [branches, setBranches] = useState([])
-  const [branchId, setBranchId] = useState(() => localStorage.getItem(BRANCH_KEY) || '')
-  const [branchesLoaded, setBranchesLoaded] = useState(false)
   const [failed, setFailed] = useState(false)
-
-  useEffect(() => {
-    posService.getPosBranches()
-      .then((list) => {
-        setBranches(list)
-        setBranchId((cur) => cur || (list.length > 0 ? (list[0].Id || list[0].id) : ''))
-      })
-      .catch(() => setBranches([]))
-      .finally(() => setBranchesLoaded(true))
-  }, [])
-
-  useEffect(() => {
-    if (branchId) localStorage.setItem(BRANCH_KEY, branchId)
-  }, [branchId])
+  const { branches, branchId, setBranchId, branchesLoaded } = usePosBranch(BRANCH_KEY)
 
   // Falls back to every branch's queue when no branch could be resolved — a
   // sign showing nothing is worse than a sign showing one outlet too many.
