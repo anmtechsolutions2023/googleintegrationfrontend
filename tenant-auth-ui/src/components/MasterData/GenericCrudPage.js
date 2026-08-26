@@ -3,13 +3,14 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import { MODULES } from '../../config/modules'
 import crudService from '../../services/crudService'
-import { MESSAGES, STRINGS, APP_CONFIG } from '../../constants'
+import { MESSAGES, STRINGS, APP_CONFIG, SCOPES } from '../../constants'
 import DataTable from './DataTable'
 import FormModal from './FormModal'
 import ConfirmDialog from './ConfirmDialog'
 import CostInfoDrawer from './CostInfoDrawer'
 import { useAuth } from '../../context/AuthContext'
-import { hasScope, CATEGORY_READ_SCOPE, CATEGORY_WRITE_SCOPE } from '../../utils/permissions'
+import { hasScope, isTenantAdmin, CATEGORY_READ_SCOPE, CATEGORY_WRITE_SCOPE } from '../../utils/permissions'
+import ImportDrawer from './ImportDrawer'
 import './MasterData.css'
 
 const { DEFAULT_PAGE, DEFAULT_LIMIT } = APP_CONFIG.PAGINATION
@@ -155,8 +156,20 @@ const GenericCrudPage = () => {
   const { user } = useAuth()
   const readScope = module ? CATEGORY_READ_SCOPE[module.category] : undefined
   const writeScope = module ? CATEGORY_WRITE_SCOPE[module.category] : undefined
-  const hasRead = !readScope || hasScope(user, [readScope])
-  const hasWrite = !writeScope || hasScope(user, [writeScope])
+  // TENANT:ADMIN is included because every master-data route already admits it
+  // — checkScope on /api/itemdetails and the rest lists TENANT_ADMIN alongside
+  // the category scope. Without it here the SCREEN was stricter than the API it
+  // calls: an administrator holding no INVENTORY:READ was refused a page the
+  // server would have served them. The same class of mismatch as a menu
+  // offering what the API refuses, just pointing the other way.
+  const hasRead = !readScope || hasScope(user, [readScope, SCOPES.TENANT_ADMIN])
+  const hasWrite = !writeScope || hasScope(user, [writeScope, SCOPES.TENANT_ADMIN])
+  // Bulk import is a TENANT ADMIN act, deliberately narrower than the write
+  // scope that governs this screen: one run creates categories, units, tax
+  // groups and items across the whole tenancy, so the blast radius of a bad
+  // file is the catalogue rather than a row. The API refuses anybody else, and
+  // offering a button the server will refuse is the failure this mirrors.
+  const canImport = !!module?.bulkImport && isTenantAdmin(user)
 
   // Main list state
   const [data, setData] = useState([])
@@ -191,6 +204,7 @@ const GenericCrudPage = () => {
   const [quickCreate, setQuickCreate] = useState({ isOpen: false, fieldName: '', moduleKey: '' })
   const [quickCreateLoading, setQuickCreateLoading] = useState(false)
   const [quickCreateRefData, setQuickCreateRefData] = useState({})
+  const [importOpen, setImportOpen] = useState(false)
   // After a successful quick-create, push the new ID into the parent form field
   const [pendingFieldUpdate, setPendingFieldUpdate] = useState(null)
 
@@ -818,6 +832,11 @@ const GenericCrudPage = () => {
           {module.label || module.name}
         </h1>
         <div className="content-header-actions">
+          {canImport && (
+            <button className="btn btn-outline" onClick={() => setImportOpen(true)}>
+              ⬆ Import
+            </button>
+          )}
           {hasWrite && (
             <button className="btn btn-primary" onClick={handleCreate}>
               ➕ Add {module.label || module.name}
@@ -929,6 +948,15 @@ const GenericCrudPage = () => {
         type="danger"
         loading={deleteLoading}
       />
+
+      {/* Bulk import. Reloads the list on completion so the rows appear without
+          a manual refresh — they are ordinary rows, and behave like it. */}
+      {importOpen && (
+        <ImportDrawer
+          onClose={() => setImportOpen(false)}
+          onImported={fetchData}
+        />
+      )}
     </div>
   )
 }

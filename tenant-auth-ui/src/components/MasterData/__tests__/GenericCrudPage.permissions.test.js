@@ -149,3 +149,31 @@ describe('a dropdown whose list the role may not read', () => {
     expect(screen.queryByText(/do not have permission/i)).not.toBeInTheDocument();
   });
 });
+
+// Bulk import is a TENANT ADMIN act, deliberately narrower than the write scope
+// that governs this screen: one run creates categories, units, tax groups and
+// items across the whole tenancy. The API refuses everybody else, and offering a
+// button the server will refuse is exactly the failure this mirrors.
+describe('the Import button', () => {
+  it('is offered to a tenant admin on a screen that supports it', async () => {
+    renderAs(['TENANT:ADMIN'], 'itemDetails');
+    await waitFor(() => expect(crudService.getAll).toHaveBeenCalled());
+    expect(screen.getByRole('button', { name: /Import/i })).toBeInTheDocument();
+  });
+
+  it('is withheld from somebody who can only WRITE the category', async () => {
+    renderAs(['INVENTORY:READ', 'INVENTORY:WRITE'], 'itemDetails');
+    await waitFor(() => expect(crudService.getAll).toHaveBeenCalled());
+    // They can still add one item by hand — that is the point of the boundary.
+    expect(screen.getByRole('button', { name: /Add/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Import/i })).not.toBeInTheDocument();
+  });
+
+  // Only screens that opt in with bulkImport get it; a tax type or a UOM is not
+  // a catalogue and does not need one.
+  it('does not appear on a screen that has not opted in', async () => {
+    renderAs(['TENANT:ADMIN'], 'taxTypes');
+    await waitFor(() => expect(crudService.getAll).toHaveBeenCalled());
+    expect(screen.queryByRole('button', { name: /Import/i })).not.toBeInTheDocument();
+  });
+});

@@ -1,0 +1,112 @@
+/* Bulk import drawer.
+   Kept in the Master Data family (form-* / btn-*) rather than the Front Desk
+   one, because that is the screen it opens from. */
+
+.imp-overlay {
+  position: fixed; inset: 0; background: rgba(20, 28, 40, .45);
+  display: flex; align-items: center; justify-content: center; z-index: 900; padding: 16px;
+}
+.imp-drawer {
+  background: #fff; border-radius: 12px; width: 760px; max-width: 100%;
+  max-height: 90vh; display: flex; flex-direction: column;
+  box-shadow: 0 12px 40px rgba(20, 28, 40, .28);
+}
+
+.imp-head {
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
+  padding: 16px 20px; border-bottom: 1px solid #e6eaee;
+}
+.imp-head h3 { margin: 0 0 2px; font-size: 17px; color: #2c3e50; }
+.imp-head p { margin: 0; font-size: 12.5px; color: #7f8c8d; }
+.imp-x { background: none; border: 0; font-size: 21px; color: #7f8c8d; cursor: pointer; line-height: 1; }
+
+.imp-body { padding: 20px; overflow-y: auto; flex: 1; }
+.imp-foot {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: flex-end;
+  padding: 14px 20px; border-top: 1px solid #e6eaee; background: #f8fafc;
+  border-radius: 0 0 12px 12px;
+}
+.imp-spacer { margin-right: auto; font-size: 12.5px; }
+
+.imp-drop {
+  border: 2px dashed #cbd5e1; border-radius: 10px; padding: 34px 20px; text-align: center;
+  color: #7f8c8d; font-size: 13.5px; background: #f8fafc; cursor: pointer;
+}
+.imp-drop:hover { border-color: #3498db; background: #f4f9fe; }
+.imp-drop strong { display: block; color: #2c3e50; font-size: 16px; margin-bottom: 4px; }
+.imp-or {
+  text-align: center; font-size: 11.5px; color: #a0aec0; margin: 14px 0;
+  letter-spacing: .08em; text-transform: uppercase;
+}
+.imp-paste {
+  width: 100%; min-height: 96px; border: 1px solid #dce1e6; border-radius: 8px; padding: 11px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px;
+  color: #2c3e50; resize: vertical; box-sizing: border-box;
+}
+
+.imp-chips { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 14px; }
+.imp-chip {
+  font-size: 12px; padding: 4px 11px; border-radius: 999px; font-weight: 500;
+  background: #f1f5f9; color: #4a5568; border: 1px solid #e2e8f0;
+}
+.imp-chip.ok { background: #d5f5e3; color: #1e8449; border-color: transparent; }
+/* Amber, not red: an empty tax group is a warning worth reading, not a refusal —
+   a genuinely zero-rated group is legitimate. */
+.imp-chip.warn { background: #ffeaa7; color: #b9600f; border-color: transparent; }
+.imp-chip.bad { background: #fdecea; color: #b03a2e; border-color: transparent; }
+
+.imp-preview { border: 1px solid #e6eaee; border-radius: 9px; overflow: auto; max-height: 260px; }
+.imp-preview table { font-size: 13px; }
+.imp-preview th { position: sticky; top: 0; z-index: 1; }
+.imp-row-bad td { background: #fdecea; }
+.imp-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 7px; vertical-align: middle; }
+.imp-dot.g { background: #1e8449; }
+.imp-dot.a { background: #e67e22; }
+.imp-dot.r { background: #b03a2e; }
+
+.imp-opt {
+  display: flex; gap: 10px; align-items: flex-start; margin-top: 16px;
+  padding-top: 14px; border-top: 1px solid #f0f4f8; cursor: pointer; font-size: 13.5px;
+}
+.imp-opt input { margin-top: 3px; }
+.imp-opt strong { display: block; color: #2c3e50; }
+.imp-opt em { display: block; font-style: normal; font-size: 12.5px; color: #7f8c8d; margin-top: 2px; }
+.imp-opt select {
+  margin-top: 8px; padding: 7px 10px; border: 1px solid #dce1e6; border-radius: 7px;
+  font-size: 13px; background: #fff; color: #2c3e50;
+}
+
+.imp-running { text-align: center; padding: 44px 20px; }
+.imp-running p { margin: 0 0 6px; font-size: 14px; color: #4a5568; }
+.imp-bar { height: 7px; border-radius: 99px; background: #e6eaee; overflow: hidden; margin-bottom: 18px; }
+.imp-bar span {
+  display: block; height: 100%; width: 40%; background: #3498db; border-radius: 99px;
+  animation: imp-slide 1.1s ease-in-out infinite;
+}
+@keyframes imp-slide {
+  0% { margin-left: -40%; } 100% { margin-left: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .imp-bar span { animation: none; width: 100%; }
+}
+
+.imp-results { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); margin-bottom: 14px; }
+.imp-res { border: 1px solid #e6eaee; border-radius: 9px; padding: 11px 13px; background: #f8fafc; }
+.imp-res .n { display: block; font-size: 23px; font-weight: 600; font-variant-numeric: tabular-nums; color: #2c3e50; }
+.imp-res .l { font-size: 11.5px; color: #7f8c8d; }
+.imp-res.ok .n { color: #1e8449; }
+.imp-res.warn .n { color: #e67e22; }
+.imp-res.bad .n { color: #b03a2e; }
+
+.imp-next {
+  display: flex; gap: 10px; align-items: flex-start; margin-bottom: 14px;
+  padding: 12px 14px; background: #e4eefb; border: 1px solid #2b5f9e;
+  border-radius: 9px; font-size: 13px; color: #4a5568;
+}
+.imp-next strong { color: #2b5f9e; }
+
+@media (max-width: 620px) {
+  .imp-drawer { max-height: 100vh; border-radius: 0; }
+  .imp-foot { flex-direction: column-reverse; align-items: stretch; }
+  .imp-spacer { margin-right: 0; text-align: center; }
+}

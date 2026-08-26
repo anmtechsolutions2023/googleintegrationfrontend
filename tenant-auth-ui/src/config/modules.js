@@ -766,6 +766,10 @@ export const MODULES = {
     endpoint: '/api/itemdetails',
     icon: '🏷️',
     category: MODULE_CATEGORIES.INVENTORY,
+    // Opt-in: shows the Import button on this screen. Only meaningful where a
+    // whole catalogue arrives at once, and the API behind it is tenant-admin
+    // only — one run writes categories, units, tax groups and items at once.
+    bulkImport: true,
     displayField: 'Name',
     fields: [
       { name: 'Name', type: 'text', required: true, maxLength: 255 },
