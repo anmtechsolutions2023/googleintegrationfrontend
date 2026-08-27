@@ -282,3 +282,277 @@
   letter-spacing: 0.03em;
 }
 .mds-intro-cta { min-width: 12rem; }
+
+/* ── Step 3: where the items come from ───────────────────────────────────────
+   Two genuinely different acts, so a choice rather than a mode hidden behind a
+   modal. Opening the Item Details drawer on top of the wizard would hide the
+   stepper and stack a Back button on a Back button that means something else. */
+.mds-source {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+  flex-wrap: wrap;
+}
+.mds-source-opt {
+  flex: 1 1 15rem;
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+  text-align: left;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 0.75rem 0.9rem;
+  background: #fff;
+  cursor: pointer;
+  min-width: 0;
+  font-family: inherit;
+}
+.mds-source-opt.is-on {
+  border-color: #4299e1;
+  background: #f4f9fe;
+  box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.12);
+}
+.mds-source-opt strong { display: block; font-size: 0.88rem; color: #2d3748; }
+.mds-source-opt em {
+  display: block; font-style: normal; font-size: 0.78rem;
+  color: #7f8c8d; margin-top: 2px; line-height: 1.45;
+}
+.mds-source-radio {
+  flex: 0 0 auto;
+  width: 1.05rem; height: 1.05rem;
+  border-radius: 50%;
+  border: 1px solid #cbd5e1;
+  margin-top: 2px;
+  background: #fff;
+  box-sizing: border-box;
+}
+.mds-source-opt.is-on .mds-source-radio { border: 5px solid #4299e1; }
+
+/* ── The rates inside a tax group ────────────────────────────────────────────
+   A group with no rates prices at 0%, so these are not an optional extra —
+   they are what makes the group mean anything. */
+.mds-rates { margin-top: 0.9rem; padding-top: 0.75rem; border-top: 1px solid #edf2f7; }
+.mds-rates-head {
+  display: flex; align-items: baseline; gap: 0.6rem;
+  flex-wrap: wrap; margin-bottom: 0.5rem;
+}
+.mds-rates-title { font-size: 0.82rem; font-weight: 600; color: #475569; }
+.mds-rates-total {
+  margin-left: auto; font-size: 0.82rem; font-weight: 600; color: #2d3748;
+  font-variant-numeric: tabular-nums;
+}
+.mds-rates-rows {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 7rem 1.75rem;
+  gap: 0.5rem 0.6rem;
+  align-items: center;
+}
+.mds-rates-rows input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+.mds-rates-rows input:focus {
+  outline: none;
+  border-color: #4299e1;
+  box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.15);
+}
+.mds-rates-rows input.is-invalid { border-color: #e53e3e; }
+.mds-rate-x {
+  width: 1.75rem; height: 1.75rem;
+  border: 1px solid #e2e8f0; border-radius: 6px;
+  background: #fff; color: #a0aec0; font-size: 1rem; line-height: 1;
+  cursor: pointer; font-family: inherit;
+}
+.mds-rate-x:disabled { opacity: 0.4; cursor: not-allowed; }
+.mds-rates-note { display: block; margin-top: 0.5rem; }
+
+.mds-linkish {
+  background: none; border: 0; padding: 0;
+  color: #3182ce; font-size: 0.8rem; font-weight: 600;
+  cursor: pointer; font-family: inherit;
+}
+.mds-linkish:hover { color: #2c5282; }
+.mds-rates > .mds-linkish { margin-top: 0.6rem; }
+
+/* ── The file ────────────────────────────────────────────────────────────────
+   The Item Details import vocabulary, re-sited into the step. */
+.mds-drop {
+  display: block; width: 100%; box-sizing: border-box;
+  border: 2px dashed #cbd5e1; border-radius: 10px;
+  padding: 2.1rem 1.25rem; text-align: center;
+  color: #7f8c8d; font-size: 0.84rem; background: #f8fafc;
+  cursor: pointer; font-family: inherit;
+}
+.mds-drop:hover { border-color: #4299e1; background: #f4f9fe; }
+.mds-drop strong { display: block; color: #2d3748; font-size: 1rem; margin-bottom: 4px; }
+.mds-or {
+  text-align: center; font-size: 0.72rem; color: #a0aec0; margin: 0.85rem 0;
+  letter-spacing: 0.08em; text-transform: uppercase;
+}
+.mds-paste {
+  width: 100%; box-sizing: border-box; min-height: 5.5rem;
+  border: 1px solid #dce1e6; border-radius: 8px; padding: 0.7rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.78rem; color: #2d3748; resize: vertical;
+}
+.mds-drop-actions {
+  display: flex; align-items: center; gap: 0.85rem;
+  flex-wrap: wrap; margin-top: 0.85rem;
+}
+.mds-drop-actions .mds-btn-sm { margin-left: auto; }
+.mds-btn-sm { padding: 0.45rem 0.9rem; font-size: 0.82rem; }
+
+.mds-file {
+  display: flex; align-items: center; gap: 0.6rem;
+  padding: 0.6rem 0.75rem; border: 1px solid #e2e8f0;
+  border-radius: 9px; background: #f8fafc; margin-bottom: 0.85rem;
+}
+.mds-file-name { font-size: 0.85rem; color: #2d3748; font-weight: 600; }
+.mds-file-x { margin-left: auto; }
+
+/* Says what happens when, on the step where it is decided. */
+.mds-note {
+  margin-top: 0.85rem;
+  padding: 0.7rem 0.8rem;
+  background: #f8fafc; border: 1px solid #e2e8f0;
+  border-radius: 9px; font-size: 0.78rem; color: #64748b; line-height: 1.5;
+}
+.mds-note strong { color: #2d3748; }
+
+.mds-chips { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-bottom: 0.85rem; }
+.mds-chip {
+  font-size: 0.75rem; padding: 0.25rem 0.7rem; border-radius: 999px; font-weight: 500;
+  background: #f1f5f9; color: #4a5568; border: 1px solid #e2e8f0;
+}
+.mds-chip.ok { background: #d5f5e3; color: #1e8449; border-color: transparent; }
+/* Amber, not red: a row stating no rate is a warning worth reading, not a
+   refusal — the standard split is applied and announced. */
+.mds-chip.warn { background: #ffeaa7; color: #b9600f; border-color: transparent; }
+.mds-chip.bad { background: #fdecea; color: #b03a2e; border-color: transparent; }
+
+.mds-preview { border: 1px solid #e6eaee; border-radius: 9px; overflow: hidden; }
+.mds-preview table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+.mds-preview th {
+  background: #f8fafc; text-align: left; padding: 0.5rem 0.75rem;
+  font-size: 0.68rem; font-weight: 700; color: #5a6c7d;
+  text-transform: uppercase; letter-spacing: 0.04em;
+  border-bottom: 1px solid #e6eaee;
+}
+.mds-preview td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #f0f4f8; color: #2d3748; }
+.mds-preview tr:last-child td { border-bottom: none; }
+.mds-preview .is-bad td { background: #fdecea; }
+.mds-preview-more {
+  padding: 0.5rem 0.75rem; background: #f8fafc;
+  border-top: 1px solid #f0f4f8; font-size: 0.75rem; color: #7f8c8d;
+}
+.mds-num { text-align: right; font-variant-numeric: tabular-nums; }
+.mds-dot {
+  display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+  margin-right: 7px; vertical-align: middle;
+}
+.mds-dot.g { background: #1e8449; }
+.mds-dot.r { background: #b03a2e; }
+
+.mds-opt {
+  display: flex; gap: 0.6rem; align-items: flex-start; margin-top: 1rem;
+  padding-top: 0.85rem; border-top: 1px solid #f0f4f8;
+  cursor: pointer; font-size: 0.85rem;
+}
+.mds-opt input { margin-top: 3px; }
+.mds-opt strong { display: block; color: #2d3748; }
+.mds-opt em {
+  display: block; font-style: normal; font-size: 0.78rem;
+  color: #7f8c8d; margin-top: 2px; line-height: 1.45;
+}
+
+/* ── Review: the items, and what confirming actually does ──────────────────── */
+.mds-review-items,
+.mds-phases,
+.mds-import-result {
+  margin-top: 1.1rem; padding-top: 1rem; border-top: 1px solid #e2e8f0;
+}
+.mds-review-items-head {
+  display: flex; align-items: baseline; gap: 0.6rem;
+  flex-wrap: wrap; margin-bottom: 0.6rem;
+}
+.mds-review-items-head h3 { margin: 0; font-size: 1.05rem; color: #1a202c; }
+.mds-review-items-head .mds-linkish { margin-left: auto; }
+.mds-review-items-list { margin: 0; font-size: 0.85rem; color: #4a5568; line-height: 1.5; }
+.mds-phases h3 { margin: 0 0 2px; font-size: 1.05rem; color: #1a202c; }
+.mds-phases > .mds-hint { display: block; margin-bottom: 0.4rem; }
+
+.mds-phase {
+  display: flex; gap: 0.75rem; align-items: flex-start;
+  padding: 0.8rem 0; border-bottom: 1px solid #f1f5f9;
+}
+.mds-phase:last-child { border-bottom: none; }
+.mds-phase-n {
+  flex: 0 0 auto; width: 1.6rem; height: 1.6rem; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.76rem; font-weight: 700; background: #eef2ff; color: #4f46e5;
+}
+.mds-phase-n.is-done { background: #e6fffa; color: #2c7a7b; }
+.mds-phase-t { display: block; font-size: 0.9rem; color: #2d3748; font-weight: 600; }
+.mds-phase-s { display: block; font-size: 0.8rem; color: #7f8c8d; margin-top: 2px; line-height: 1.5; }
+
+/* The progress card sits under the actions while both passes run. */
+.mds-progress { margin-top: 1rem; }
+.mds-progress h3 { margin: 0 0 2px; font-size: 1.05rem; color: #1a202c; }
+.mds-progress > .mds-hint { display: block; margin-bottom: 0.4rem; }
+
+/* ── What the second pass did ────────────────────────────────────────────── */
+.mds-results {
+  display: grid; gap: 0.6rem;
+  grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr));
+  margin-bottom: 0.85rem;
+}
+.mds-res {
+  border: 1px solid #e6eaee; border-radius: 9px;
+  padding: 0.7rem 0.8rem; background: #f8fafc; text-align: left;
+}
+.mds-res .n {
+  display: block; font-size: 1.45rem; font-weight: 600;
+  font-variant-numeric: tabular-nums; color: #2d3748;
+}
+.mds-res .l { font-size: 0.72rem; color: #7f8c8d; }
+.mds-res.ok .n { color: #1e8449; }
+.mds-res.warn .n { color: #e67e22; }
+.mds-res.bad .n { color: #b03a2e; }
+.mds-next {
+  text-align: left; margin-bottom: 0.85rem;
+  padding: 0.75rem 0.85rem; background: #e4eefb; border: 1px solid #2b5f9e;
+  border-radius: 9px; font-size: 0.8rem; color: #4a5568; line-height: 1.55;
+}
+.mds-next strong { color: #2b5f9e; }
+.mds-import-result { text-align: left; }
+.mds-import-result .mds-hint { display: block; margin: 0.5rem 0 0.75rem; }
+
+/* ── Actions ─────────────────────────────────────────────────────────────── */
+.mds-next-actions,
+.mds-actions .mds-next {
+  display: flex; align-items: center; gap: 0.85rem;
+  margin-left: auto; margin-bottom: 0;
+  padding: 0; background: none; border: 0;
+}
+.mds-enter-hint { font-size: 0.75rem; color: #94a3b8; }
+.mds-enter-hint kbd {
+  display: inline-block; padding: 1px 6px; border-radius: 5px;
+  border: 1px solid #cbd5e1; border-bottom-width: 2px; background: #f8fafc;
+  font-size: 0.68rem; font-weight: 600; color: #475569; font-family: inherit;
+}
+
+/* The step name is hidden on phones — the number and the active pill carry the
+   position, and four full labels do not fit without scrolling the stepper. */
+.mds-step-label { white-space: nowrap; }
+
+@media (max-width: 560px) {
+  .mds-rates-rows { grid-template-columns: minmax(0, 1fr) 4.5rem 1.75rem; }
+  .mds-source-opt { flex: 1 1 100%; }
+  .mds-enter-hint { display: none; }
+  .mds-drop-actions .mds-btn-sm { margin-left: 0; }
+}

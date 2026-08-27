@@ -1,6 +1,9 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react'
 import { toast } from 'react-toastify'
-import { parseCsvToObjects, toCsv } from '../../utils/csv'
+import { toCsv } from '../../utils/csv'
+import {
+  COLUMNS, DEFAULT_TAX, TEMPLATE_ROWS, checkFile, download,
+} from '../../utils/itemImport'
 import importService from '../../services/importService'
 import posService from '../../services/posService'
 import './ImportDrawer.css'
@@ -14,97 +17,13 @@ import './ImportDrawer.css'
  * and whether the tax group it names will price the whole menu at 0%.
  *
  * Nothing is written until the third state. The first two are entirely local.
+ *
+ * What a row MEANS lives in utils/itemImport, shared with step 3 of the
+ * first-time setup wizard: two screens reading the same file must not disagree
+ * about which columns are required or what CGST:2.5|SGST:2.5 means.
  */
-
-const COLUMNS = ['name', 'category', 'unit', 'price', 'tax_group', 'tax_components',
-  'food_type', 'code', 'description', 'tax_included']
-
-// What a tax group is worth when the file does not say. Mirrors
-// IMPORT.DEFAULT_TAX_COMPONENTS on the server — shown in the preview so the
-// person sees it before it is applied, never after.
-const DEFAULT_TAX = 'CGST:2.5|SGST:2.5'
-const REQUIRED = ['name', 'category', 'unit', 'price', 'taxgroup']
-
-const TEMPLATE_ROWS = [
-  ['Plain Tea', 'Tea', 'Glass', '15', 'GST 5%', DEFAULT_TAX, 'Veg', 'TEA-01', '', 'true'],
-  ['Mango Lassi', 'Lassi', 'Glass', '80', 'GST 5%', DEFAULT_TAX, 'Veg', 'LAS-02', '', 'true'],
-  // A non-veg row in the template, because that is the value that used to be
-  // silently published as Veg.
-  ['Chicken Roll', 'Snacks', 'Plate', '120', 'GST 5%', DEFAULT_TAX, 'Non-Veg', 'SNK-01', '', 'true'],
-]
 
 const STATE = { CHOOSE: 'choose', CHECK: 'check', RUN: 'run', DONE: 'done' }
-
-/**
- * Read `CGST:2.5|SGST:2.5` into the shape the API takes.
- *
- * Stated rather than inferred from the group name: splitting 5% into CGST and
- * SGST is an Indian intra-state rule, not arithmetic, and a group called
- * "Standard" carries no rate at all.
- *
- * @param {string} raw
- * @returns {{value?: Array, error?: string}}
- */
-const parseTaxComponents = (raw) => {
-  const text = String(raw || '').trim()
-  if (!text) return { value: [] }
-
-  const parts = text.split('|').map((p) => p.trim()).filter(Boolean)
-  const value = []
-  for (const part of parts) {
-    const [name, rate] = part.split(':').map((x) => (x || '').trim())
-    if (!name || rate === undefined || rate === '') {
-      return { error: `tax_components “${part}” should look like CGST:2.5` }
-    }
-    const num = Number(rate)
-    if (Number.isNaN(num)) return { error: `tax rate “${rate}” is not a number` }
-    value.push({ name, value: num })
-  }
-  return { value }
-}
-
-// Turn a parsed CSV row into the API's shape, or say why it cannot be.
-const validateRow = (r) => {
-  const missing = REQUIRED.filter((k) => !r[k])
-  if (missing.length) {
-    return { error: `${missing.join(', ')} ${missing.length > 1 ? 'are' : 'is'} required` }
-  }
-  // Catches '1O9' — a letter O for a zero, the way a real spreadsheet fails.
-  const price = Number(r.price)
-  if (Number.isNaN(price)) return { error: `price “${r.price}” is not a number` }
-  if (price < 0) return { error: 'price cannot be negative' }
-
-  const tax = parseTaxComponents(r.taxcomponents)
-  if (tax.error) return { error: tax.error }
-
-  return {
-    value: {
-      name: r.name,
-      category: r.category,
-      unit: r.unit,
-      price,
-      taxGroup: r.taxgroup,
-      taxComponents: tax.value,
-      taxIncluded: String(r.taxincluded || 'true').toLowerCase() !== 'false',
-      code: r.code || null,
-      description: r.description || null,
-      foodType: r.foodtype || null,
-    },
-  }
-}
-
-// Browser-only download. This is the app, not a sandboxed page, so a blob link
-// works — it is how the template and the failed rows get back to a spreadsheet.
-const download = (filename, text) => {
-  const url = URL.createObjectURL(new Blob([text], { type: 'text/csv;charset=utf-8;' }))
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  URL.revokeObjectURL(url)
-}
 
 const ImportDrawer = ({ onClose, onImported }) => {
   const [state, setState] = useState(STATE.CHOOSE)
@@ -120,30 +39,13 @@ const ImportDrawer = ({ onClose, onImported }) => {
   const fileRef = useRef(null)
 
   const check = useCallback(async (raw) => {
-    const { rows, errors } = parseCsvToObjects(raw)
-    if (rows.length === 0) {
-      toast.error(errors[0] || 'That file has no rows')
+    const { valid, invalid, fileErrors, counts: summary } = checkFile(raw)
+    if (valid.length === 0 && invalid.length === 0) {
+      toast.error(fileErrors[0] || 'That file has no rows')
       return
     }
 
-    const valid = []
-    const invalid = []
-    const seen = new Set()
-    rows.forEach((r) => {
-      const { value, error } = validateRow(r)
-      if (error) { invalid.push({ line: r.__line, name: r.name || '—', error }); return }
-      // A file that names the same drink twice would have the second row skip
-      // the first — worth catching here rather than explaining afterwards.
-      const key = value.name.toLowerCase()
-      if (seen.has(key)) {
-        invalid.push({ line: r.__line, name: value.name, error: 'This name appears twice in the file' })
-        return
-      }
-      seen.add(key)
-      valid.push({ line: r.__line, ...value })
-    })
-
-    setParsed({ valid, invalid, fileErrors: errors })
+    setParsed({ valid, invalid, fileErrors, summary })
     setState(STATE.CHECK)
 
     // Two things the browser cannot know on its own.
@@ -205,24 +107,7 @@ const ImportDrawer = ({ onClose, onImported }) => {
     }
   }
 
-  const counts = useMemo(() => {
-    if (!parsed) return null
-    const taxTypes = new Set()
-    parsed.valid.forEach((v) => {
-      const list = v.taxComponents.length ? v.taxComponents : DEFAULT_TAX.split('|')
-        .map((c) => ({ name: c.split(':')[0] }))
-      list.forEach((c) => taxTypes.add(c.name.toUpperCase()))
-    })
-    return {
-      valid: parsed.valid.length,
-      invalid: parsed.invalid.length,
-      categories: new Set(parsed.valid.map((v) => v.category.toLowerCase())).size,
-      units: new Set(parsed.valid.map((v) => v.unit.toLowerCase())).size,
-      taxTypes: taxTypes.size,
-      // Rows that will be given the standard split because they state none.
-      defaulted: parsed.valid.filter((v) => v.taxComponents.length === 0).length,
-    }
-  }, [parsed])
+  const counts = useMemo(() => parsed?.summary || null, [parsed])
 
   const failedRows = result?.items?.rows?.filter((r) => r.status === 'failed') || []
 
