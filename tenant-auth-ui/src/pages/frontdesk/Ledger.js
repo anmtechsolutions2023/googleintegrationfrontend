@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import posService from '../../services/posService'
 import { OrderNoLink } from '../../components/frontdesk/OrderLinkProvider'
@@ -10,7 +11,35 @@ import './ledger.css'
 const money = (n) => (Number(n) || 0).toFixed(2)
 const dateOnly = (d) => (d ? String(d).slice(0, 10) : '—')
 
-const STATUS_FILTERS = ['', 'SETTLED', 'PARTIALLY_PAID', 'REFUNDED', 'CANCELLED']
+// DRAFT belongs here: a bill posted but not yet tendered sits in the ledger as
+// a DRAFT document, and leaving it out of the filter meant the one status
+// somebody actually needs to chase was the one status they could not select.
+const STATUS_FILTERS = ['', 'DRAFT', 'PARTIALLY_PAID', 'SETTLED', 'REFUNDED', 'CANCELLED']
+
+// WHICH KIND of document. The ledger holds sales, expenses and credit notes in
+// one table — without this a CN-0007 sits in the list looking exactly like a
+// sale of the same value.
+const DOC_TYPES = [
+  { value: '', label: 'All documents' },
+  { value: 'POS Sale', label: 'Sales' },
+  { value: 'POS Return', label: 'Credit notes' },
+  { value: 'Expense', label: 'Expenses' },
+]
+
+// A separate axis from status, because a partly-refunded sale is still SETTLED
+// — which is exactly what lets a second return happen against it.
+const REFUND_STATES = [
+  { value: '', label: 'Any refund state' },
+  { value: 'NONE', label: 'Never returned' },
+  { value: 'PARTIALLY_REFUNDED', label: 'Partly refunded' },
+  { value: 'REFUNDED', label: 'Fully refunded' },
+]
+
+const TYPE_BADGE = {
+  'POS Sale': { label: 'Sale', cls: 'sale' },
+  'POS Return': { label: 'Credit note', cls: 'return' },
+  Expense: { label: 'Expense', cls: 'expense' },
+}
 
 // How refunded a sale is, as the API derives it. Deliberately NOT the document
 // status: the sale stays SETTLED forever now — a return is its own credit note
@@ -35,6 +64,10 @@ const Ledger = () => {
   const [loading, setLoading] = useState(true)
   const [status, setStatus] = useState('')
   const [search, setSearch] = useState('')
+  const [docType, setDocType] = useState('')
+  const [refundStateFilter, setRefundStateFilter] = useState('')
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
   const [selected, setSelected] = useState(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [refundTarget, setRefundTarget] = useState(null)
@@ -46,6 +79,10 @@ const Ledger = () => {
   const [returnTarget, setReturnTarget] = useState(null)
   const [returning, setReturning] = useState(false)
   const [reasons, setReasons] = useState([])
+  // Deep link. The Returns register links a credit note back to the invoice it
+  // came off, and this is the receiving end — without it the link could only
+  // drop somebody on the list with the number to search for themselves.
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -53,13 +90,17 @@ const Ledger = () => {
       const params = { limit: 100 }
       if (status) params.status = status
       if (search) params.search = search
+      if (docType) params.docType = docType
+      if (refundStateFilter) params.refundState = refundStateFilter
+      if (fromDate) params.fromDate = fromDate
+      if (toDate) params.toDate = toDate
       setDocuments(await posService.getLedgerDocuments(params))
     } catch {
       toast.error('Failed to load ledger')
     } finally {
       setLoading(false)
     }
-  }, [status, search])
+  }, [status, search, docType, refundStateFilter, fromDate, toDate])
 
   useEffect(() => { load() }, [load])
 
@@ -77,7 +118,7 @@ const Ledger = () => {
     return () => { cancelled = true }
   }, [])
 
-  const openDocument = async (id) => {
+  const openDocument = useCallback(async (id) => {
     setDetailLoading(true)
     try {
       setSelected(await posService.getLedgerDocument(id))
@@ -86,7 +127,18 @@ const Ledger = () => {
     } finally {
       setDetailLoading(false)
     }
-  }
+  }, [])
+
+  // ?doc=<id> opens that document straight away, then drops out of the URL so
+  // closing the drawer and refreshing does not reopen it.
+  useEffect(() => {
+    const docId = searchParams.get('doc')
+    if (!docId) return
+    openDocument(docId)
+    const next = new URLSearchParams(searchParams)
+    next.delete('doc')
+    setSearchParams(next, { replace: true })
+  }, [searchParams, setSearchParams, openDocument])
 
   const handleReturn = async (payload) => {
     if (!returnTarget) return
@@ -145,11 +197,40 @@ const Ledger = () => {
           onChange={(e) => setSearch(e.target.value)}
           style={{ maxWidth: 320, marginBottom: 0 }}
         />
+        <select value={docType} onChange={(e) => setDocType(e.target.value)} aria-label="Document type">
+          {DOC_TYPES.map((t) => <option key={t.value || 'all'} value={t.value}>{t.label}</option>)}
+        </select>
         <select value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Status">
           {STATUS_FILTERS.map((s) => (
             <option key={s || 'all'} value={s}>{s || 'All statuses'}</option>
           ))}
         </select>
+        <select
+          value={refundStateFilter}
+          onChange={(e) => setRefundStateFilter(e.target.value)}
+          aria-label="Refund state"
+        >
+          {REFUND_STATES.map((r) => <option key={r.value || 'any'} value={r.value}>{r.label}</option>)}
+        </select>
+        <input
+          type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)}
+          aria-label="From date"
+        />
+        <input
+          type="date" value={toDate} onChange={(e) => setToDate(e.target.value)}
+          aria-label="To date"
+        />
+        {(status || search || docType || refundStateFilter || fromDate || toDate) && (
+          <button
+            className="fd-btn fd-btn-outline"
+            onClick={() => {
+              setStatus(''); setSearch(''); setDocType('')
+              setRefundStateFilter(''); setFromDate(''); setToDate('')
+            }}
+          >
+            Clear
+          </button>
+        )}
         <button className="fd-btn fd-btn-outline" onClick={load}>🔄 Refresh</button>
       </div>
 
@@ -176,7 +257,16 @@ const Ledger = () => {
             <tbody>
               {documents.map((d) => (
                 <tr key={d.Id} onClick={() => openDocument(d.Id)} className="is-clickable">
-                  <td className="fd-ledger-no">{d.TransactionNo}</td>
+                  <td className="fd-ledger-no">
+                    {d.TransactionNo}
+                    {/* A credit note that looks like a sale of the same value
+                        is how a refund gets counted as revenue by eye. */}
+                    {TYPE_BADGE[d.TypeName] && d.TypeName !== 'POS Sale' && (
+                      <div className={`fd-doctype-badge is-${TYPE_BADGE[d.TypeName].cls}`}>
+                        {TYPE_BADGE[d.TypeName].label}
+                      </div>
+                    )}
+                  </td>
                   <td>{dateOnly(d.TransactionDate)}</td>
                   {/* Which counter customer or which table this invoice came
                       from. Resolved server-side (Source), so the list and the
@@ -234,8 +324,22 @@ const Ledger = () => {
               <>
                 <div className="fd-invoice-head">
                   <div>
-                    <div className="muted small">Invoice</div>
+                    <div className="muted small">
+                      {TYPE_BADGE[selected.TypeName]?.label || 'Invoice'}
+                    </div>
                     <h3>{selected.TransactionNo}</h3>
+                    {/* A credit note is meaningless without the sale it came
+                        off. One click back, rather than copying a number into
+                        the search box. */}
+                    {selected.ReversesLogId && (
+                      <button
+                        type="button"
+                        className="fd-link-btn"
+                        onClick={() => openDocument(selected.ReversesLogId)}
+                      >
+                        ↩ against invoice {selected.OriginalNo || '—'}
+                      </button>
+                    )}
                   </div>
                   <span className={`fd-ledger-status ${String(selected.StatusName || '').toLowerCase()}`}>
                     {selected.StatusName}
@@ -402,7 +506,8 @@ const Ledger = () => {
                       left. The sale is no longer mutated by a refund, so a
                       partly-returned invoice is still SETTLED and can still be
                       returned against — which is the whole point. */}
-                  {selected.StatusName === 'SETTLED'
+                  {selected.TypeName === 'POS Sale'
+                    && selected.StatusName === 'SETTLED'
                     && selected.RefundState !== 'REFUNDED' && canRefund && (
                     <>
                       <button className="fd-btn fd-btn-warning" onClick={() => setReturnTarget(selected)}>

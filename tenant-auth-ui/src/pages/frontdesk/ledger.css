@@ -172,3 +172,39 @@
 /* A reason that means WE got it wrong reads differently from one that means the
    customer changed their mind — that distinction is the whole point of IsFault. */
 .fd-reason-fault { color: #b26a00; font-weight: 600; }
+
+/* ── Document type ──────────────────────────────────────────────────────────
+   The ledger holds sales, expenses AND credit notes in one table. Without a
+   badge a CN-0007 sits in the list looking exactly like a sale of the same
+   value — which is how a refund gets counted as revenue by eye. Only the
+   non-sale types are badged: badging every row would make the distinction
+   harder to see, not easier. */
+.fd-doctype-badge {
+  display: inline-block;
+  margin-top: 3px;
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 1px 6px;
+  border-radius: 9px;
+}
+.fd-doctype-badge.is-return  { background: #fde8e8; color: #c0392b; }
+.fd-doctype-badge.is-expense { background: #eaf2f8; color: #21618c; }
+
+/* The filter row grew from two controls to seven, so it wraps rather than
+   squeezing the search box down to nothing. */
+.fd-ledger-filters { flex-wrap: wrap; }
+.fd-ledger-filters input[type="date"] {
+  padding: 7px 10px;
+  border: 1px solid #d0d4da;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #2c3e50;
+  background: #fff;
+}
+
+/* A credit note is meaningless without the sale it came off; the link back sits
+   under the number rather than beside it, so a long invoice number cannot push
+   the status chip off the row. */
+.fd-invoice-head .fd-link-btn { display: inline-block; margin-top: 4px; }

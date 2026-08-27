@@ -114,6 +114,7 @@ export const FRONT_DESK_NAV = [
   // these read the accounting ledger rather than the POS tables.
   { group: 'Finance', items: [
     { key: 'fd-finance',  path: '/frontdesk/finance',       label: 'Finance',        icon: '💰', scopes: [SCOPES.TRANSACTIONS_READ, SCOPES.TRANSACTIONS_WRITE, SCOPES.TENANT_ADMIN] },
+    { key: 'fd-returns',  path: '/frontdesk/returns',       label: 'Returns',        icon: '↩️', scopes: [SCOPES.TRANSACTIONS_READ, SCOPES.TRANSACTIONS_WRITE, SCOPES.TENANT_ADMIN] },
     { key: 'fd-expenses', path: '/frontdesk/expenses',      label: 'Expenses',       icon: '💸', scopes: [SCOPES.POS_OPS_READ,      SCOPES.TENANT_ADMIN] },
     { key: 'fd-cash',     path: '/frontdesk/cash-sessions', label: 'Cash Sessions',  icon: '🧮', scopes: [SCOPES.POS_BILLING_READ,  SCOPES.POS_BILLING_WRITE, SCOPES.TENANT_ADMIN] },
     { key: 'fd-assets',   path: '/frontdesk/assets',        label: 'Asset Register', icon: '🏗️', scopes: [SCOPES.ASSET_READ,        SCOPES.ASSET_WRITE, SCOPES.TENANT_ADMIN] },

@@ -467,6 +467,18 @@ export const getLedgerReturns = async (id) => {
   const res = await api.get(`/api/ledger/documents/${id}/returns`)
   return toObject(res.data)
 }
+// THE REGISTER: every credit note across every invoice, filterable on any axis.
+// Deliberately NOT toArray — the response carries whole-set totals alongside the
+// page, and "₹6,240 returned this month" must not change when somebody turns
+// the page.
+export const getReturnsRegister = async (params = {}) => {
+  const res = await api.get('/api/ledger/returns', { params })
+  return {
+    data: Array.isArray(res.data?.data) ? res.data.data : [],
+    totals: res.data?.totals || {},
+    pagination: res.data?.pagination || {},
+  }
+}
 // Money owed but not yet handed back. The operational worklist.
 export const getRefundSettlementQueue = async () => {
   const res = await api.get('/api/ledger/returns/settlement-queue')
@@ -702,7 +714,8 @@ const posService = {
   getVariants,
   getPaymentModes,
   getLedgerDocuments, getLedgerDocument, refundLedgerDocument,
-  createLedgerReturn, getLedgerReturns, getRefundSettlementQueue, setRefundSettlement,
+  createLedgerReturn, getLedgerReturns, getReturnsRegister,
+  getRefundSettlementQueue, setRefundSettlement,
   getReturnReasonsReport, getReturnProductReport, getReturnReasons,
   getFinanceOverview, getSalesReport, getProductReport, getPendingReport,
   getTenderReport, getCashFlowReport, getExpenseReport,

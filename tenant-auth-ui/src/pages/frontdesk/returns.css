@@ -1,0 +1,226 @@
+/* ── Returns register ────────────────────────────────────────────────────────
+   The screen where a refund is tracked after it has happened.
+
+   The visual argument the layout makes: Gross, Returns and Net are THREE
+   measures sitting side by side, never one netted figure. That is not a styling
+   preference — netting them is exactly what the old refund model did, and it
+   meant a closed period's gross changed when somebody refunded days later. */
+
+.fd-returns { padding: 4px 0 40px; }
+
+.fd-returns .fd-lead { max-width: 78ch; }
+
+/* ── The strip ─────────────────────────────────────────────────────────────── */
+.fd-returns-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin: 16px 0 20px;
+}
+
+.fd-returns-metric {
+  background: #fff;
+  border: 1px solid #e1e5eb;
+  border-left: 3px solid #d0d4da;
+  border-radius: 8px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.fd-returns-metric-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #5a6c7d;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.fd-returns-metric-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: #2c3e50;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: break-word;
+}
+.fd-returns-metric-sub { font-size: 11.5px; color: #95a5a6; }
+
+/* Money that left carries the same red it carries everywhere else on these
+   screens, so a returned figure never has to be read twice. */
+.fd-returns-metric.is-out     { border-left-color: #e74c3c; }
+.fd-returns-metric.is-out     .fd-returns-metric-value { color: #c0392b; }
+.fd-returns-metric.is-net     { border-left-color: #27ae60; }
+.fd-returns-metric.is-net     .fd-returns-metric-value { color: #1e8449; }
+.fd-returns-metric.is-fault   { border-left-color: #f39c12; }
+.fd-returns-metric.is-fault   .fd-returns-metric-value { color: #b26a00; }
+.fd-returns-metric.is-pending { border-left-color: #f39c12; background: #fffaf3; }
+
+/* ── Panels ───────────────────────────────────────────────────────────────── */
+.fd-returns-panel {
+  background: #fff;
+  border: 1px solid #e1e5eb;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+  min-width: 0;
+}
+.fd-returns-panel.is-queue { border-color: #f5cba7; background: #fffaf3; }
+
+.fd-returns-panel .fd-section-title {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.fd-section-note {
+  font-size: 11.5px;
+  font-weight: 400;
+  color: #95a5a6;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* Two panels side by side on a desktop, stacked on anything narrower.
+   minmax(0, 1fr) rather than 1fr: a wide table inside a grid track sized to its
+   content would push the whole page sideways instead of scrolling itself. */
+.fd-returns-2col {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+.fd-returns-2col > * { min-width: 0; }
+
+/* ── Filters ──────────────────────────────────────────────────────────────── */
+.fd-returns-filters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.fd-returns-filters .fd-menu-search {
+  flex: 1 1 240px;
+  max-width: 340px;
+  margin-bottom: 0;
+}
+.fd-returns-filters select,
+.fd-returns-filters .fd-input-sm {
+  padding: 7px 10px;
+  border: 1px solid #d0d4da;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #2c3e50;
+  background: #fff;
+  font-family: inherit;
+}
+.fd-returns-filters .fd-input-sm { width: 130px; }
+.fd-returns-filters .fd-input-sm.num { width: 92px; }
+
+/* Whole-set, not this page — stated in words because a number that silently
+   meant "this page" would be worse than no number. */
+.fd-returns-subtotal {
+  font-size: 12.5px;
+  color: #5a6c7d;
+  padding: 8px 10px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  margin-bottom: 12px;
+}
+.fd-returns-subtotal strong { color: #2c3e50; }
+
+/* ── Rows ─────────────────────────────────────────────────────────────────── */
+.fd-returns .fd-table tbody tr.is-clickable { cursor: pointer; }
+.fd-returns .fd-table tbody tr.is-clickable:hover { background: #f8f9fa; }
+/* A clicked reason or dish is a live filter on the register below, so the row
+   has to keep saying so after the click. */
+.fd-returns .fd-table tbody tr.is-selected,
+.fd-returns .fd-table tbody tr.is-selected:hover {
+  background: #eaf4fb;
+  box-shadow: inset 3px 0 0 #2980b9;
+}
+
+.fd-returns-table td { vertical-align: top; }
+.fd-returns-items { max-width: 220px; }
+.fd-returns-by { white-space: nowrap; }
+.fd-returns-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.fd-returns .fd-doc-no { white-space: nowrap; }
+
+/* Matches .fd-link-btn, so a real anchor and a button that acts like one are
+   not two different-looking links in the same table. */
+.fd-returns .fd-link {
+  color: #2980b9;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.fd-returns .fd-link:hover { text-decoration: underline; }
+.fd-returns .fd-returned-amount { color: #c0392b; }
+
+/* A return rate in double figures is a kitchen problem, not a statistic. */
+.fd-returns .num.is-hot { color: #c0392b; font-weight: 700; }
+
+/* Share of the reason total, drawn under the number rather than in its own
+   column: it is a reading aid for the figure beside it, not a measure. */
+.fd-bar {
+  display: block;
+  height: 3px;
+  width: var(--w, 0%);
+  margin-top: 3px;
+  margin-left: auto;
+  background: #e74c3c;
+  border-radius: 2px;
+  opacity: 0.55;
+}
+
+/* WE got it wrong, as opposed to the customer changing their mind. Merged, the
+   number says nothing actionable — so the split is visible on every row. */
+.fd-fault-chip {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 1px 6px;
+  border-radius: 9px;
+  background: #ffeaa7;
+  color: #b26a00;
+  white-space: nowrap;
+}
+
+.fd-settle-chip {
+  display: inline-block;
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 2px 7px;
+  border-radius: 9px;
+  white-space: nowrap;
+}
+.fd-settle-chip.is-pending { background: #ffeaa7; color: #b26a00; }
+.fd-settle-chip.is-settled { background: #d4edda; color: #155724; }
+.fd-settle-chip.is-failed  { background: #fde8e8; color: #c0392b; }
+
+.fd-returns-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  font-size: 12.5px;
+  color: #7f8c8d;
+}
+
+/* Phones: the metric strip becomes two columns rather than one, because five
+   single-column cards push the register a full screen down the page. */
+@media (max-width: 600px) {
+  .fd-returns-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fd-returns-metric-value { font-size: 18px; }
+  .fd-returns-filters .fd-menu-search { max-width: none; }
+  .fd-returns-filters .fd-input-sm { flex: 1 1 100px; width: auto; }
+}
