@@ -17,6 +17,7 @@ jest.mock('../../../services/posService', () => ({
     createOrder: jest.fn(), updateOrder: jest.fn(), updateTable: jest.fn(),
     transferOrder: jest.fn(), deleteOrder: jest.fn(),
     fireKot: jest.fn(), createBill: jest.fn(), settleBill: jest.fn(),
+    getPosSettings: jest.fn(), getReceiptFormat: jest.fn(),
   },
 }));
 jest.mock('react-toastify', () => ({
@@ -74,6 +75,10 @@ beforeEach(() => {
   });
   posService.createOrder.mockResolvedValue({ id: 'o-counter' });
   posService.fireKot.mockResolvedValue({ KotNo: 'KOT-0001' });
+  // Counter orders fire their own ticket, so this screen now reads the branch's
+  // auto-print preference and its receipt format on the way past.
+  posService.getPosSettings.mockResolvedValue({ 'kot.auto_print': 'off' });
+  posService.getReceiptFormat.mockResolvedValue(null);
   posService.createBill.mockResolvedValue({ Id: 'b1' });
   posService.settleBill.mockResolvedValue({ TransactionNo: 'INV-0001', Total: 100, TokenLabel: '7' });
 });
@@ -135,6 +140,35 @@ describe('Counter mode — placing and paying', () => {
     expect(payload).toMatchObject({
       TableId: null, OrderType: 'takeaway', BranchDetailId: BRANCH,
     });
+  });
+
+  // The kitchen ticket reaching paper is the whole point of firing it. These
+  // two assert the SETTING gates it, not that window.print was reached — the
+  // receipt renders into a portal outside #root, so its presence in the
+  // document is the observable fact.
+  it('puts the kitchen ticket on paper when the branch prints automatically', async () => {
+    posService.getPosSettings.mockResolvedValue({ 'kot.auto_print': 'on' });
+    await openCounter();
+    addDosa();
+    await waitFor(() => expect(posService.quotePricing).toHaveBeenCalled());
+
+    fireEvent.click(screen.getByRole('button', { name: /Place & Pay/i }));
+    await waitFor(() => expect(posService.fireKot).toHaveBeenCalled());
+
+    await waitFor(() => expect(document.querySelector('.rc-paper')).toBeTruthy());
+    expect(document.body.textContent).toContain('KOT-0001');
+  });
+
+  it('prints nothing when the branch has automatic printing off', async () => {
+    posService.getPosSettings.mockResolvedValue({ 'kot.auto_print': 'off' });
+    await openCounter();
+    addDosa();
+    await waitFor(() => expect(posService.quotePricing).toHaveBeenCalled());
+
+    fireEvent.click(screen.getByRole('button', { name: /Place & Pay/i }));
+    await waitFor(() => expect(posService.fireKot).toHaveBeenCalled());
+
+    expect(document.querySelector('.rc-paper')).toBeNull();
   });
 
   // Counter food is being made now — there is no later moment at which the

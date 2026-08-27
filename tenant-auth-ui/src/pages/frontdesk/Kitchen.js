@@ -8,6 +8,9 @@ import {
   buildTableRounds, buildRoundIndex, itemLabel, itemQty, itemVariants, formatRoundTime,
 } from '../../utils/posRounds'
 import { normalizeStatus, statusLabel, isKotPending } from '../../utils/posStatus'
+import Receipt from '../../components/frontdesk/receipt/Receipt'
+import usePrintReceipt from '../../components/frontdesk/receipt/usePrintReceipt'
+import { buildKotPrintData } from '../../utils/kotPrint'
 
 const { MAX_LIMIT } = APP_CONFIG.PAGINATION
 
@@ -29,6 +32,15 @@ const Kitchen = () => {
 
   // KOT card clicked → show that table's rounds, with this ticket's round marked.
   const [detail, setDetail] = useState(null) // { tableId, orderId }
+
+  // Reprint. The pass shows tickets from every branch at once, so the format is
+  // loaded for whichever ticket is being reprinted rather than for the page.
+  const [printBranchId, setPrintBranchId] = useState(null)
+  const { job, format, shop, print, ready } = usePrintReceipt(printBranchId)
+  // Held between choosing a ticket and its branch's format arriving. Printing
+  // straight away would put the first reprint of a session on the fallback
+  // format — the one case where the copies setting silently would not apply.
+  const [pendingPrint, setPendingPrint] = useState(null)
 
   // Polling must not flash the loading state over a screen the kitchen is
   // reading; only the first load does.
@@ -71,6 +83,24 @@ const Kitchen = () => {
     },
     [tables],
   )
+
+  // Reprint a ticket. The pass is where someone stands when the paper is lost,
+  // smudged or never came out — so this is an explicit act by a person looking
+  // at the ticket, not an automatic second copy.
+  const handleReprint = useCallback((kot, round) => {
+    setPrintBranchId(kot.BranchDetailId || null)
+    setPendingPrint({
+      kot,
+      round,
+      tableName: kot.TableId ? tableName(kot.TableId) : null,
+    })
+  }, [tableName])
+
+  useEffect(() => {
+    if (!pendingPrint || !ready) return
+    print('kot', buildKotPrintData(pendingPrint))
+    setPendingPrint(null)
+  }, [pendingPrint, ready, print])
 
   // Which round each order is, so a ticket can say "Round 2 · ORD-0007" instead
   // of just an opaque number. pos_kot.OrderId was always returned and the orders
@@ -221,20 +251,35 @@ const Kitchen = () => {
                   {kot.FiredAt && <span>Fired: {new Date(kot.FiredAt).toLocaleTimeString()}</span>}
                 </div>
 
-                {sc === 'pending' && canCook && (
+                {/* Reprint sits beside Mark Ready rather than replacing it, and
+                    is offered on READ: reprinting a lost ticket is not a change
+                    to the pass, and the person holding an empty printer is not
+                    always the cook. */}
+                <div className="fd-kds-actions">
                   <button
-                    className="fd-btn fd-btn-success"
-                    style={{ width: '100%' }}
-                    onClick={(e) => { e.stopPropagation(); handleReady(id) }}
+                    className="fd-btn fd-btn-outline"
+                    onClick={(e) => { e.stopPropagation(); handleReprint(kot, round) }}
+                    title="Print this ticket again"
                   >
-                    Mark Ready
+                    Print
                   </button>
-                )}
+                  {sc === 'pending' && canCook && (
+                    <button
+                      className="fd-btn fd-btn-success"
+                      style={{ flex: 1 }}
+                      onClick={(e) => { e.stopPropagation(); handleReady(id) }}
+                    >
+                      Mark Ready
+                    </button>
+                  )}
+                </div>
               </div>
             )
           })}
         </div>
       )}
+
+      {job && <Receipt doc={job.doc} format={format} shop={shop} data={job.data} />}
 
       {detail && (
         <div className="fd-modal-overlay" onClick={() => setDetail(null)}>

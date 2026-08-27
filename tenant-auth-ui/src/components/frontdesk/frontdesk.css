@@ -2574,3 +2574,13 @@
   display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 6px;
 }
 .fd-invoice-print .fd-btn { flex: 1 1 auto; min-width: 8rem; }
+
+/* Ticket actions on the pass. Reprint is always offered; Mark Ready only to a
+   cook and only while the ticket is live, so the row has one or two children
+   and must read deliberately either way. */
+.fd-kds-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+.fd-kds-actions .fd-btn { min-height: 44px; }

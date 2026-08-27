@@ -3,6 +3,7 @@ import { toast } from 'react-toastify'
 import posService from '../../services/posService'
 import Receipt from '../../components/frontdesk/receipt/Receipt'
 import usePrintReceipt from '../../components/frontdesk/receipt/usePrintReceipt'
+import { buildKotPrintData } from '../../utils/kotPrint'
 import { APP_CONFIG, SCOPES } from '../../constants'
 import { useCan } from '../../hooks/useCan'
 import RoundsTimeline from '../../components/frontdesk/RoundsTimeline'
@@ -112,6 +113,11 @@ const Billing = () => {
   // Until now this screen minted an invoice number and offered only "Done".
   const [printBranchId, setPrintBranchId] = useState(null)
   const [printing, setPrinting] = useState(false)
+  // Whether sending a round also puts it on paper. Read per branch and held, so
+  // pressing Send never waits on a settings call — and a failed read leaves it
+  // ON, because a kitchen that expected a ticket and got none is the worse of
+  // the two failures.
+  const [kotAutoPrint, setKotAutoPrint] = useState(true)
   const { job, format, shop, taxMode, print } = usePrintReceipt(printBranchId)
   const [settling, setSettling] = useState(false)
   // Live discounted preview from the server (discount applied BEFORE tax), so the
@@ -357,6 +363,33 @@ const Billing = () => {
     const r = buildRoundIndex(activeOrders).get(counterOrderId)
     return r ? [r] : []
   }, [counterOrderId, activeOrders])
+
+  // Which branch's print format is in play. Resolved from the cart or the
+  // selected table's rounds rather than at settle time, because the KOT prints
+  // long before the bill does and needs the same format loaded and waiting.
+  const activeBranchId = useMemo(() => (
+    cartItems.find((c) => c.meta?.BranchDetailId)?.meta.BranchDetailId
+    || tableRounds[0]?.order?.BranchDetailId
+    || counterRounds[0]?.order?.BranchDetailId
+    || null
+  ), [cartItems, tableRounds, counterRounds])
+
+  // Settling sets this to the branch the document was actually posted under,
+  // which is the authority — so this only fills the gap before that happens.
+  useEffect(() => {
+    if (activeBranchId) setPrintBranchId((cur) => cur || activeBranchId)
+  }, [activeBranchId])
+
+  // Auto-print preference for that branch. Left ON when the read fails: a
+  // missing ticket stops the kitchen, an unwanted print dialog does not.
+  useEffect(() => {
+    let cancelled = false
+    if (!activeBranchId) return undefined
+    posService.getPosSettings(activeBranchId)
+      .then((cfg) => { if (!cancelled) setKotAutoPrint(cfg?.['kot.auto_print'] !== 'off') })
+      .catch(() => { if (!cancelled) setKotAutoPrint(true) })
+    return () => { cancelled = true }
+  }, [activeBranchId])
 
   // Everything downstream — the bill, the settle modal, the discounts — reads
   // this one list and does not care which kind of sale produced it.
@@ -758,7 +791,16 @@ const Billing = () => {
       // send it, which is why this fires the ticket rather than leaving it to a
       // second tap the way a dine-in round does.
       try {
-        await posService.fireKot(orderId)
+        const kot = await posService.fireKot(orderId)
+        // The cart is cleared immediately below, so the lines are taken from it
+        // here while they still exist rather than from a reload.
+        if (kotAutoPrint) {
+          print('kot', buildKotPrintData({
+            kot,
+            items: buildOrderItems(),
+            tableName: 'COUNTER',
+          }))
+        }
       } catch {
         toast.warn('Order placed, but the kitchen ticket did not send — check the KDS')
       }
@@ -820,9 +862,21 @@ const Billing = () => {
     try {
       const kot = await posService.fireKot(selectedOrderId)
       if (kot?.AlreadySent) {
+        // Deliberately no auto-print on a re-send: the ticket is already on the
+        // pass and a second one appearing by itself is how a kitchen ends up
+        // cooking a round twice. Reprint from the Kitchen board when it is
+        // genuinely lost — that is an explicit act by someone who can see it.
         toast.info(`Already in the kitchen (${kot.KotNo || 'KOT'})`)
       } else {
         toast.success(`Sent to the kitchen (${kot?.KotNo || 'KOT'})`)
+        if (kotAutoPrint) {
+          const round = sessionRounds.find((r) => r.orderId === selectedOrderId)
+          print('kot', buildKotPrintData({
+            kot,
+            round,
+            tableName: selectedTableName,
+          }))
+        }
       }
       load()
     } catch (e) {

@@ -7,6 +7,7 @@ import { SCOPES } from '../../constants'
 
 // Mirrors POS_SETTING_KEYS / TOKEN_NUMBERING in the backend's config/constants.js.
 const TOKEN_NUMBERING_KEY = 'token.numbering'
+const KOT_AUTO_PRINT_KEY = 'kot.auto_print'
 
 const NUMBERING_OPTIONS = [
   {
@@ -22,6 +23,24 @@ const NUMBERING_OPTIONS = [
         + 'are reconciled against paperwork later. The series is shared by every '
         + 'branch in this tenant, and the format is editable under Master Data → '
         + 'Transaction Type Config.',
+  },
+]
+
+const KOT_PRINT_OPTIONS = [
+  {
+    value: 'on',
+    label: 'Print when the round is sent',
+    hint: 'The ticket comes out the moment someone presses Send to Kitchen, so '
+        + 'nobody has to remember a second action on a busy pass. Re-sending a '
+        + 'round that already has a live ticket never prints again — that is how '
+        + 'a kitchen ends up cooking the same round twice.',
+  },
+  {
+    value: 'off',
+    label: 'Do not print automatically',
+    hint: 'For a kitchen that works off the screen, or a till with no printer '
+        + 'attached. Tickets can still be printed one at a time from the Kitchen '
+        + 'board when a paper copy is wanted.',
   },
 ]
 
@@ -99,6 +118,9 @@ const PosSettings = () => {
   }
 
   const numbering = settings?.[TOKEN_NUMBERING_KEY] || 'daily'
+  // Defaults ON, matching the server: a branch that has never saved this is
+  // not a branch that wants silence from its printer.
+  const kotPrint = settings?.[KOT_AUTO_PRINT_KEY] === 'off' ? 'off' : 'on'
 
   return (
     <div className="fd-crud-page">
@@ -146,6 +168,48 @@ const PosSettings = () => {
             </label>
           ))}
         </div>
+        {!canWrite && (
+          <p className="fd-setting-desc">
+            You have read-only access to POS configuration.
+          </p>
+        )}
+      </section>
+
+      <section className="fd-setting-card" style={{ marginTop: 16 }}>
+        <h2>Kitchen ticket printing</h2>
+        <p className="fd-setting-desc">
+          Whether sending a round to the kitchen also puts it on paper.
+        </p>
+        <div className="fd-setting-options" role="radiogroup" aria-label="Kitchen ticket printing">
+          {KOT_PRINT_OPTIONS.map((opt) => (
+            <label
+              key={opt.value}
+              className={`fd-setting-option ${kotPrint === opt.value ? 'is-active' : ''}`}
+            >
+              <input
+                type="radio"
+                name={KOT_AUTO_PRINT_KEY}
+                value={opt.value}
+                checked={kotPrint === opt.value}
+                disabled={!canWrite || saving}
+                onChange={() => save(KOT_AUTO_PRINT_KEY, opt.value)}
+              />
+              <span>
+                <strong>{opt.label}</strong>
+                <em>{opt.hint}</em>
+              </span>
+            </label>
+          ))}
+        </div>
+        {/* Deliberately NOT a second control here. How many copies come out —
+            one for the pass, a second for the customer — is already a field on
+            the kitchen ticket itself, and two settings for one behaviour is how
+            they end up disagreeing. */}
+        <p className="fd-setting-desc" style={{ marginTop: 12 }}>
+          What the ticket says, and how many copies print, are set under{' '}
+          <strong>Receipt Format → Kitchen ticket</strong>. Set Copies to 2 there
+          for a customer copy alongside the kitchen's.
+        </p>
         {!canWrite && (
           <p className="fd-setting-desc">
             You have read-only access to POS configuration.
