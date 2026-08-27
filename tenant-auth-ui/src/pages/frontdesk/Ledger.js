@@ -4,12 +4,21 @@ import posService from '../../services/posService'
 import { OrderNoLink } from '../../components/frontdesk/OrderLinkProvider'
 import { SCOPES } from '../../constants'
 import { useCan } from '../../hooks/useCan'
+import ReturnPicker from '../../components/frontdesk/ReturnPicker'
 import './ledger.css'
 
 const money = (n) => (Number(n) || 0).toFixed(2)
 const dateOnly = (d) => (d ? String(d).slice(0, 10) : '—')
 
 const STATUS_FILTERS = ['', 'SETTLED', 'PARTIALLY_PAID', 'REFUNDED', 'CANCELLED']
+
+// How refunded a sale is, as the API derives it. Deliberately NOT the document
+// status: the sale stays SETTLED forever now — a return is its own credit note
+// — so "partly refunded" is a separate axis from "settled / cancelled".
+const REFUND_STATE_LABEL = {
+  PARTIALLY_REFUNDED: 'Part refunded',
+  REFUNDED: 'Refunded',
+}
 
 /**
  * The accountant's view: settled sales as numbered documents.
@@ -31,6 +40,12 @@ const Ledger = () => {
   const [refundTarget, setRefundTarget] = useState(null)
   const [refundReason, setRefundReason] = useState('')
   const [refunding, setRefunding] = useState(false)
+  // ── Partial returns ───────────────────────────────────────────────────────
+  // A separate action from Refund: Refund reverses the whole document, this
+  // picks which lines and how many of each actually came back.
+  const [returnTarget, setReturnTarget] = useState(null)
+  const [returning, setReturning] = useState(false)
+  const [reasons, setReasons] = useState([])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -48,6 +63,20 @@ const Ledger = () => {
 
   useEffect(() => { load() }, [load])
 
+  // The reason taxonomy, fetched once. A picker with no reasons cannot submit,
+  // so this failing is worth surfacing rather than leaving an empty dropdown.
+  useEffect(() => {
+    let cancelled = false
+    // Promise.resolve wraps it so a service that throws synchronously, or
+    // returns nothing, cannot white-screen the whole ledger over an auxiliary
+    // dropdown. The reasons are needed to SUBMIT a return, not to read the books.
+    Promise.resolve()
+      .then(() => posService.getReturnReasons())
+      .then((rows) => { if (!cancelled) setReasons(Array.isArray(rows) ? rows : []) })
+      .catch(() => { if (!cancelled) toast.error('Failed to load return reasons') })
+    return () => { cancelled = true }
+  }, [])
+
   const openDocument = async (id) => {
     setDetailLoading(true)
     try {
@@ -56,6 +85,30 @@ const Ledger = () => {
       toast.error('Failed to load document')
     } finally {
       setDetailLoading(false)
+    }
+  }
+
+  const handleReturn = async (payload) => {
+    if (!returnTarget) return
+    setReturning(true)
+    try {
+      const result = await posService.createLedgerReturn(returnTarget.Id, payload)
+      toast.success(
+        `Return recorded as ${result.transactionNo} — ₹${money(result.grossAmount)} back`,
+      )
+      setReturnTarget(null)
+      // Re-open the document rather than closing it: the operator almost always
+      // wants to see what the invoice now says, and a screen that vanishes on
+      // success makes them go and find it again.
+      await openDocument(returnTarget.Id)
+      await load()
+    } catch (e) {
+      // The server's message names the invariant that was broken — "sold 3,
+      // already returned 2, asked for 2" — which is far more useful than a
+      // generic failure.
+      toast.error(e?.response?.data?.message || 'Failed to record the return')
+    } finally {
+      setReturning(false)
     }
   }
 
@@ -113,7 +166,11 @@ const Ledger = () => {
               <tr>
                 <th>Invoice</th><th>Date</th><th>Token / Table</th><th>Customer</th>
                 <th className="num">Net</th><th className="num">Tax</th>
-                <th className="num">Total</th><th>Status</th>
+                <th className="num">Total</th>
+                {/* Staff see "₹500 of ₹1,240 returned" without opening
+                    anything. Total is NOT reduced — the original is what the
+                    customer's printed bill says. */}
+                <th className="num">Returned</th><th>Status</th>
               </tr>
             </thead>
             <tbody>
@@ -139,10 +196,23 @@ const Ledger = () => {
                   <td className="num">₹{money(d.NetAmount)}</td>
                   <td className="num">₹{money(d.TaxAmount)}</td>
                   <td className="num strong">₹{money(d.GrossAmount)}</td>
+                  <td className="num">
+                    {Number(d.ReturnedAmount) > 0 ? (
+                      <>
+                        <span className="fd-returned-amount">−₹{money(d.ReturnedAmount)}</span>
+                        <div className="muted small">net ₹{money(d.NetOfReturns)}</div>
+                      </>
+                    ) : <span className="muted">—</span>}
+                  </td>
                   <td>
                     <span className={`fd-ledger-status ${String(d.StatusName || '').toLowerCase()}`}>
                       {d.StatusName}
                     </span>
+                    {REFUND_STATE_LABEL[d.RefundState] && (
+                      <div className={`fd-refund-chip is-${String(d.RefundState).toLowerCase()}`}>
+                        {REFUND_STATE_LABEL[d.RefundState]}
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -151,7 +221,11 @@ const Ledger = () => {
         </div>
       )}
 
-      {(selected || detailLoading) && (
+      {/* Hidden while the return picker is up. Two stacked backdrops darken to
+          near-black and the invoice behind it cannot be read or acted on
+          anyway; cancelling the picker leaves `selected` intact, so the
+          invoice comes straight back. */}
+      {(selected || detailLoading) && !returnTarget && (
         <div className="fd-modal-backdrop" role="dialog" aria-label="Invoice">
           <div className="fd-invoice-view">
             {detailLoading ? (
@@ -204,7 +278,10 @@ const Ledger = () => {
                 <div className="fd-table-scroll">
                   <table className="fd-invoice-lines">
                     <thead>
-                      <tr><th>#</th><th>Item</th><th className="num">Qty</th><th className="num">Rate</th><th className="num">Amount</th></tr>
+                      <tr>
+                        <th>#</th><th>Item</th><th className="num">Qty</th>
+                        <th className="num">Rate</th><th className="num">Amount</th>
+                      </tr>
                     </thead>
                     <tbody>
                       {(selected.Lines || []).map((l) => (
@@ -223,7 +300,18 @@ const Ledger = () => {
                               </div>
                             )}
                           </td>
-                          <td className="num">{Number(l.Quantity)}</td>
+                          <td className="num">
+                            {Number(l.Quantity)}
+                            {/* "2 of 3 returned" against the line, rather than
+                                mutating the quantity it was sold at — mutating
+                                it would make the document stop matching the
+                                printed bill the customer is holding. */}
+                            {Number(l.ReturnedQty) > 0 && (
+                              <div className="fd-line-returned">
+                                {Number(l.ReturnedQty)} of {Number(l.Quantity)} returned
+                              </div>
+                            )}
+                          </td>
                           <td className="num">₹{money(l.UnitPrice)}</td>
                           <td className="num">₹{money(l.GrossAmount)}</td>
                         </tr>
@@ -244,8 +332,47 @@ const Ledger = () => {
                   {Number(selected.RoundOff) !== 0 && (
                     <div className="sub"><span>Round off</span><span>₹{money(selected.RoundOff)}</span></div>
                   )}
+                  {/* The original total stays the primary figure. Overwriting
+                      it with the net would make the document stop matching the
+                      piece of paper the customer is holding. */}
                   <div className="grand"><span>Total</span><span>₹{money(selected.GrossAmount)}</span></div>
+                  {Number(selected.ReturnedAmount) > 0 && (
+                    <>
+                      <div className="fd-returned-line">
+                        <span>Returned</span><span>−₹{money(selected.ReturnedAmount)}</span>
+                      </div>
+                      <div className="grand"><span>Net of returns</span><span>₹{money(selected.NetOfReturns)}</span></div>
+                    </>
+                  )}
                 </div>
+
+                {/* ── Linked credit notes ──────────────────────────────────
+                    The difference between "this was partly refunded" and "here
+                    is exactly what happened": every note with its reason,
+                    amount and timestamp. */}
+                {(selected.Returns || []).length > 0 && (
+                  <div className="fd-invoice-returns">
+                    <h4>Returns against this invoice</h4>
+                    <ul>
+                      {selected.Returns.map((n) => (
+                        <li key={n.Id}>
+                          <span className="fd-ledger-no">{n.TransactionNo}</span>
+                          <span className="fd-returned-amount">−₹{money(n.GrossAmount)}</span>
+                          <span className={n.IsFault ? 'fd-reason-fault' : 'muted'}>
+                            {n.ReasonName || 'Unspecified'}
+                          </span>
+                          {n.Remarks && !String(n.Remarks).startsWith('idem:') && (
+                            <span className="muted small">{n.Remarks}</span>
+                          )}
+                          <span className="muted small">
+                            {n.CreatedOn ? new Date(n.CreatedOn).toLocaleString() : ''}
+                          </span>
+                          <span className="muted small">{n.CreatedBy}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
 
                 <div className="fd-invoice-section">Payments</div>
                 <ul className="fd-invoice-tenders">
@@ -271,10 +398,20 @@ const Ledger = () => {
 
                 <div className="fd-invoice-actions">
                   <button className="fd-btn fd-btn-outline" onClick={() => window.print()}>Print</button>
-                  {selected.StatusName === 'SETTLED' && canRefund && (
-                    <button className="fd-btn fd-btn-danger" onClick={() => setRefundTarget(selected)}>
-                      Refund
-                    </button>
+                  {/* Both actions stay available while ANY of the invoice is
+                      left. The sale is no longer mutated by a refund, so a
+                      partly-returned invoice is still SETTLED and can still be
+                      returned against — which is the whole point. */}
+                  {selected.StatusName === 'SETTLED'
+                    && selected.RefundState !== 'REFUNDED' && canRefund && (
+                    <>
+                      <button className="fd-btn fd-btn-warning" onClick={() => setReturnTarget(selected)}>
+                        Return items
+                      </button>
+                      <button className="fd-btn fd-btn-danger" onClick={() => setRefundTarget(selected)}>
+                        Refund all
+                      </button>
+                    </>
                   )}
                   <button className="fd-btn fd-btn-outline" onClick={() => setSelected(null)}>Close</button>
                 </div>
@@ -283,6 +420,14 @@ const Ledger = () => {
           </div>
         </div>
       )}
+
+      <ReturnPicker
+        document={returnTarget}
+        reasons={reasons}
+        busy={returning}
+        onCancel={() => setReturnTarget(null)}
+        onConfirm={handleReturn}
+      />
 
       {refundTarget && (
         <div className="fd-modal-backdrop" role="dialog" aria-label="Refund document">

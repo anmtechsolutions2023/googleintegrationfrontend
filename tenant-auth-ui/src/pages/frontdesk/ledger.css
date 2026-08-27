@@ -102,3 +102,73 @@
   .fd-invoice-view { box-shadow: none; max-height: none; max-width: 100%; }
   .fd-invoice-actions, .fd-invoice-section + .fd-invoice-history { display: none; }
 }
+
+/* ── Returns ─────────────────────────────────────────────────────────────────
+   Added with partial refunds. The rule these styles serve: a partly refunded
+   invoice must still READ as the invoice it was. The original total keeps the
+   primary weight; returns and net sit beside it, never over it. */
+
+.fd-returned-amount {
+  color: #c0392b;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* How refunded a sale is — a SEPARATE axis from its document status, because
+   the sale itself stays SETTLED forever now. */
+.fd-refund-chip {
+  display: inline-block;
+  margin-top: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 1px 6px;
+  border-radius: 9px;
+}
+.fd-refund-chip.is-partially_refunded { background: #ffeaa7; color: #b26a00; }
+.fd-refund-chip.is-refunded           { background: #fde8e8; color: #c0392b; }
+
+/* "2 of 3 returned" against a line, rather than mutating the quantity it was
+   sold at — mutating it would make the document stop matching the printed bill. */
+.fd-line-returned {
+  font-size: 10.5px;
+  color: #c0392b;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.fd-invoice-totals .fd-returned-line {
+  display: flex;
+  justify-content: space-between;
+  color: #c0392b;
+}
+
+.fd-invoice-returns {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid #e1e5eb;
+}
+.fd-invoice-returns h4 {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #7f8c8d;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.fd-invoice-returns ul { list-style: none; margin: 0; padding: 0; }
+.fd-invoice-returns li {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 7px 0;
+  border-bottom: 1px solid #f0f4f8;
+  font-size: 13px;
+}
+.fd-invoice-returns li:last-child { border-bottom: none; }
+
+/* A reason that means WE got it wrong reads differently from one that means the
+   customer changed their mind — that distinction is the whole point of IsFault. */
+.fd-reason-fault { color: #b26a00; font-weight: 600; }

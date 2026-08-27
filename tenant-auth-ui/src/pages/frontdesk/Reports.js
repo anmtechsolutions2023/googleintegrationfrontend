@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import { toast } from 'react-toastify'
 import posService from '../../services/posService'
+import { OrderNoLink } from '../../components/frontdesk/OrderLinkProvider'
 
 const fmt = (n) =>
   new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n || 0)
@@ -150,7 +151,12 @@ const Reports = () => {
           <tbody>
             {recentOrders.map((o) => (
               <tr key={o.Id || o.id}>
-                <td>{o.OrderNo || '—'}</td>
+                {/* Same linking mechanism the dashboard and the ledger use: the
+                    provider in FrontDeskLayout owns one modal for the whole
+                    section. /api/pos/reports has always returned o.Id for these
+                    rows — this screen was the one place that rendered the order
+                    number as plain text and dropped it. */}
+                <td><OrderNoLink orderId={o.Id || o.id}>{o.OrderNo || '—'}</OrderNoLink></td>
                 <td>{o.OrderType || '—'}</td>
                 <td>{statusBadge(o.Status)}</td>
                 <td>{o.Total != null ? fmt(o.Total) : '—'}</td>

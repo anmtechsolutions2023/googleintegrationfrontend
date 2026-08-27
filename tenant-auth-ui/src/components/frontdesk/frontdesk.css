@@ -2448,3 +2448,122 @@
   color: #2c3e50;
   vertical-align: middle;
 }
+
+/* ── Return picker ───────────────────────────────────────────────────────────
+   The dialog that chooses what actually comes back off an invoice.
+   
+   It renders on .fd-modal-backdrop like every other dialog here, but it is
+   opened FROM the invoice modal, so it needs a higher stacking context than the
+   one it was launched over — without it the two share z-index 500 and paint
+   into each other. */
+.fd-return-picker {
+  background: #fff;
+  border-radius: 10px;
+  padding: 22px;
+  width: 100%;
+  max-width: 760px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.18);
+}
+/* Above the invoice modal it is launched from. */
+.fd-return-picker-backdrop { z-index: 600; }
+
+.fd-return-head { border-bottom: 1px solid #e1e5eb; padding-bottom: 12px; margin-bottom: 14px; }
+.fd-return-head h3 {
+  margin: 0 0 4px;
+  font-size: 18px;
+  color: #0f3460;
+}
+.fd-return-head p { margin: 0; font-size: 13px; line-height: 1.5; }
+
+/* The quantity cell. Narrow on purpose — it takes single digits, and a wide box
+   invites somebody to type a number the line cannot honour. */
+.fd-return-qty {
+  width: 68px;
+  padding: 6px 8px;
+  border: 1px solid #d0d4da;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.fd-return-qty:disabled { background: #f5f7fa; color: #b2bec3; cursor: not-allowed; }
+
+/* A line with nothing left to give back. Dimmed rather than hidden: "already
+   all returned" is information, and removing the row would make the invoice
+   look like it never had that item. */
+.fd-return-picker tr.is-exhausted { background: #fafbfc; color: #7f8c8d; }
+
+.fd-restock-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.fd-return-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #f0f4f8;
+}
+.fd-return-controls label { font-size: 12px; color: #5a6c7d; white-space: nowrap; }
+.fd-return-controls select {
+  padding: 8px 10px;
+  border: 1px solid #d0d4da;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+  color: #2c3e50;
+  background: #fff;
+}
+.fd-return-note {
+  flex: 1 1 200px;
+  min-width: 160px;
+  padding: 8px 10px;
+  border: 1px solid #d0d4da;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+  color: #2c3e50;
+}
+
+.fd-return-foot {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid #e1e5eb;
+}
+/* The live total, given real weight: it is the number the customer is about to
+   be handed, and nobody should have to submit to find out what it is. */
+.fd-return-total {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 13px;
+  color: #5a6c7d;
+}
+.fd-return-total strong {
+  font-size: 20px;
+  color: #c0392b;
+  font-variant-numeric: tabular-nums;
+}
+.fd-return-actions { display: flex; gap: 8px; margin-left: auto; }
+.fd-return-actions .fd-btn { min-height: 40px; }
+
+@media (max-width: 720px) {
+  .fd-return-foot { flex-direction: column; align-items: stretch; }
+  .fd-return-actions { margin-left: 0; }
+  .fd-return-actions .fd-btn { flex: 1; }
+}

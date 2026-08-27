@@ -40,5 +40,11 @@
     "moduleNameMapper": {
       "^axios$": "axios/dist/browser/axios.cjs"
     }
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
   }
 }

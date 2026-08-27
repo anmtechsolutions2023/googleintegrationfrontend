@@ -455,6 +455,42 @@ export const refundLedgerDocument = async (id, Reason) => {
   return toObject(res.data)
 }
 
+// ── Returns ───────────────────────────────────────────────────────────────────
+// A PARTIAL return: selected lines, in the quantities that actually came back.
+// Raises a credit note; the invoice itself is never mutated.
+export const createLedgerReturn = async (id, payload) => {
+  const res = await api.post(`/api/ledger/documents/${id}/returns`, payload)
+  return toObject(res.data)
+}
+// Every credit note against one sale — the linked documents in the drawer.
+export const getLedgerReturns = async (id) => {
+  const res = await api.get(`/api/ledger/documents/${id}/returns`)
+  return toObject(res.data)
+}
+// Money owed but not yet handed back. The operational worklist.
+export const getRefundSettlementQueue = async () => {
+  const res = await api.get('/api/ledger/returns/settlement-queue')
+  return toArray(res.data)
+}
+export const setRefundSettlement = async (id, payload) => {
+  const res = await api.put(`/api/ledger/returns/${id}/settlement`, payload)
+  return toObject(res.data)
+}
+// Why goods came back, and which dishes come back most.
+export const getReturnReasonsReport = async (params = {}) => {
+  const res = await api.get('/api/ledger/reports/return-reasons', { params })
+  return toObject(res.data)
+}
+export const getReturnProductReport = async (params = {}) => {
+  const res = await api.get('/api/ledger/reports/return-products', { params })
+  return toObject(res.data)
+}
+// The reason taxonomy, for the picker's dropdown.
+export const getReturnReasons = async () => {
+  const res = await api.get('/api/pos/return-reasons', { params: { limit: 100 } })
+  return toArray(res.data)
+}
+
 // ── Financial reports ───────────────────────────────────────────────────────
 // Every report shares ONE query contract — preset | fromDate/toDate, bucket,
 // branchId — because daily, last-3, weekend-only and custom are the same query
@@ -666,6 +702,8 @@ const posService = {
   getVariants,
   getPaymentModes,
   getLedgerDocuments, getLedgerDocument, refundLedgerDocument,
+  createLedgerReturn, getLedgerReturns, getRefundSettlementQueue, setRefundSettlement,
+  getReturnReasonsReport, getReturnProductReport, getReturnReasons,
   getFinanceOverview, getSalesReport, getProductReport, getPendingReport,
   getTenderReport, getCashFlowReport, getExpenseReport,
   getVenueReport, getDiscountReport, getChannelReport, getTokenStats,

@@ -9,6 +9,12 @@ jest.mock('../../../services/posService', () => ({
     getLedgerDocuments: jest.fn(),
     getLedgerDocument: jest.fn(),
     refundLedgerDocument: jest.fn(),
+    // Partial returns.
+    createLedgerReturn: jest.fn(),
+    getReturnReasons: jest.fn(() => Promise.resolve([
+      { Id: 'r-1', Name: 'Wrong item served', Code: 'WRONG_ITEM', IsFault: 1 },
+      { Id: 'r-2', Name: 'Customer changed mind', Code: 'CHANGED_MIND', IsFault: 0 },
+    ])),
   },
 }));
 jest.mock('react-toastify', () => ({
@@ -35,7 +41,8 @@ const DETAIL = {
   CustomerName: 'Rahul Verma', CustomerMobile: '9876543210', BranchName: 'Main',
   TaxByComponent: [{ name: 'CGST', amount: 9 }, { name: 'SGST', amount: 9 }],
   Lines: [{
-    Id: 'ln1', LineNo: 1, ItemName: 'Masala Dosa', Quantity: 1, UnitPrice: 130, GrossAmount: 153.4,
+    Id: 'ln1', LineNo: 1, ItemName: 'Masala Dosa', Quantity: 2, ReturnedQty: 0,
+    UnitPrice: 130, GrossAmount: 306.8,
     Variants: [{ id: 'v1', name: 'Large', price: 30 }], TaxComponents: [],
   }],
   Tenders: [{ Amount: 118, PaymentMode: 'Card', RefNo: 'AUTH-1', ReceivedType: 'Full' }],
@@ -48,6 +55,13 @@ beforeEach(() => {
   posService.getLedgerDocuments.mockResolvedValue(DOCS);
   posService.getLedgerDocument.mockResolvedValue(DETAIL);
   posService.refundLedgerDocument.mockResolvedValue({ status: 'REFUNDED' });
+  posService.getReturnReasons.mockResolvedValue([
+    { Id: 'r-1', Name: 'Wrong item served', Code: 'WRONG_ITEM', IsFault: 1 },
+    { Id: 'r-2', Name: 'Customer changed mind', Code: 'CHANGED_MIND', IsFault: 0 },
+  ]);
+  posService.createLedgerReturn.mockResolvedValue({
+    transactionNo: 'CN-0001', grossAmount: 236, refundState: 'PARTIALLY_REFUNDED',
+  });
 });
 
 afterEach(() => jest.clearAllMocks());
@@ -147,7 +161,7 @@ describe('Refund', () => {
     await renderLedger();
     fireEvent.click(screen.getByText('INV-0042'));
     await screen.findByText('Masala Dosa');
-    fireEvent.click(screen.getByRole('button', { name: /^Refund$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Refund all$/i }));
 
     expect(await screen.findByText(/Nothing is deleted/i)).toBeInTheDocument();
   });
@@ -156,7 +170,7 @@ describe('Refund', () => {
     await renderLedger();
     fireEvent.click(screen.getByText('INV-0042'));
     await screen.findByText('Masala Dosa');
-    fireEvent.click(screen.getByRole('button', { name: /^Refund$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Refund all$/i }));
 
     fireEvent.change(await screen.findByLabelText(/Reason/i), { target: { value: 'Wrong order' } });
     fireEvent.click(screen.getByRole('button', { name: /Confirm Refund/i }));
@@ -188,5 +202,49 @@ describe('who may refund', () => {
     asUser(['TENANT:ADMIN']);
     await openInvoice();
     expect(await screen.findByRole('button', { name: /Refund/i })).toBeInTheDocument();
+  });
+});
+
+// ── The return picker ───────────────────────────────────────────────────────
+describe('Return items', () => {
+  const openPicker = async () => {
+    render(<Ledger />);
+    fireEvent.click(await screen.findByText('INV-0042'));
+    fireEvent.click(await screen.findByRole('button', { name: /Return items/i }));
+    return screen.findByRole('dialog', { name: /Return items/i });
+  };
+
+  it('opens a picker listing what can come back', async () => {
+    const picker = await openPicker();
+    expect(within(picker).getByText(/Return against INV-0042/)).toBeInTheDocument();
+  });
+
+  // Two stacked backdrops darken to near-black, and the invoice behind cannot
+  // be read or acted on anyway — which is what produced the unreadable overlap.
+  it('does not leave the invoice modal stacked behind it', async () => {
+    await openPicker();
+    expect(screen.queryByRole('dialog', { name: /^Invoice$/i })).toBeNull();
+  });
+
+  it('brings the invoice back when the return is cancelled', async () => {
+    const picker = await openPicker();
+    fireEvent.click(within(picker).getByRole('button', { name: /Cancel/i }));
+    expect(await screen.findByRole('dialog', { name: /^Invoice$/i })).toBeInTheDocument();
+  });
+
+  it('sends the selected lines to the API', async () => {
+    const picker = await openPicker();
+    const qty = within(picker).getAllByRole('spinbutton')[0];
+    fireEvent.change(qty, { target: { value: '1' } });
+    fireEvent.change(within(picker).getByLabelText(/^Reason$/i), { target: { value: 'r-1' } });
+    fireEvent.click(within(picker).getByRole('button', { name: /^Return ₹/ }));
+
+    await waitFor(() => expect(posService.createLedgerReturn).toHaveBeenCalledWith(
+      'l1',
+      expect.objectContaining({
+        reasonId: 'r-1',
+        lines: [{ lineId: 'ln1', quantity: 1 }],
+      }),
+    ));
   });
 });
