@@ -688,6 +688,27 @@ export const getDashboardStats = async () => {
   }
 }
 
+
+// ── Receipt format ──────────────────────────────────────────────────────────
+// What prints on paper, per branch. The resolved call is what a renderer reads;
+// the schema call is what the format editor reads.
+export const getReceiptFormat = async (branchId) => {
+  const res = await api.get('/api/pos/receipt-format', { params: { branchId } })
+  return toObject(res.data)
+}
+export const getReceiptFormatSchema = async (branchId, doc) => {
+  const res = await api.get('/api/pos/receipt-format/schema', { params: { branchId, doc } })
+  return toObject(res.data)
+}
+export const updateReceiptFormat = async (branchId, doc, values) => {
+  const res = await api.put('/api/pos/receipt-format', { values }, { params: { branchId, doc } })
+  return toObject(res.data)
+}
+export const setReceiptTaxMode = async (branchId, taxMode) => {
+  const res = await api.put('/api/pos/receipt-format/tax-mode', { taxMode }, { params: { branchId } })
+  return toObject(res.data)
+}
+
 const posService = {
   getFloors, createFloor, updateFloor, deleteFloor,
   getTables, createTable, updateTable, deleteTable,
@@ -717,6 +738,7 @@ const posService = {
   createLedgerReturn, getLedgerReturns, getReturnsRegister,
   getRefundSettlementQueue, setRefundSettlement,
   getReturnReasonsReport, getReturnProductReport, getReturnReasons,
+  getReceiptFormat, getReceiptFormatSchema, updateReceiptFormat, setReceiptTaxMode,
   getFinanceOverview, getSalesReport, getProductReport, getPendingReport,
   getTenderReport, getCashFlowReport, getExpenseReport,
   getVenueReport, getDiscountReport, getChannelReport, getTokenStats,

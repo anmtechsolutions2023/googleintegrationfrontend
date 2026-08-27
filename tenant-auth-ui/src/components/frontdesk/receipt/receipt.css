@@ -1,0 +1,102 @@
+/* Thermal paper.
+   NOT the app's design system, and it must not be: the printer has one ink, no
+   greys, no anti-aliasing, and 48 columns of Font A across 72mm of printable
+   width at 80mm, or 32 columns at 58mm. */
+
+.rc-root {
+  /* Off screen by default. It only exists to be printed — the format preview
+     renders the same markup through .rc-inline instead. */
+  display: none;
+}
+
+.rc-paper {
+  background: #fff;
+  color: #000;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 9.5px;
+  line-height: 1.45;
+  box-sizing: border-box;
+  padding: 4mm 4mm 8mm;
+}
+.rc-w80 .rc-paper, .rc-paper.rc-w80 { width: 80mm; }
+.rc-w58 .rc-paper, .rc-paper.rc-w58 { width: 58mm; font-size: 9px; padding: 3mm 3mm 8mm; }
+
+/* One copy per page, so the cutter fires between them rather than producing a
+   single long strip somebody has to tear by hand. */
+.rc-paper + .rc-paper { break-before: page; page-break-before: always; }
+
+.rc-c { text-align: center; }
+.rc-sub { font-size: 9px; }
+.rc-shop { font-size: 15px; font-weight: 700; letter-spacing: 0.06em; }
+.rc-w58 .rc-shop { font-size: 12.5px; letter-spacing: 0.02em; }
+.rc-title { font-weight: 700; letter-spacing: 0.14em; }
+.rc-invert { background: #000; color: #fff; padding: 3px 0; }
+.rc-rule  { border-top: 1px dashed #000; margin: 6px 0; }
+.rc-solid { border-top: 1px solid #000;  margin: 6px 0; }
+.rc-label {
+  font-size: 8px; letter-spacing: 0.18em; text-transform: uppercase; margin-top: 6px;
+}
+
+.rc-row { display: flex; justify-content: space-between; gap: 8px; }
+.rc-row > span:last-child { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rc-strong { font-weight: 700; }
+.rc-total { font-size: 13px; font-weight: 700; }
+.rc-w58 .rc-total { font-size: 11.5px; }
+
+.rc-item { margin-top: 3px; }
+.rc-qty { padding-left: 12px; }
+.rc-note { font-size: 8.5px; }
+.rc-back { font-size: 8.5px; }
+
+.rc-sign { margin-top: 22px; }
+.rc-sign > span { display: block; border-top: 1px solid #000; width: 60%; margin: 0 auto 3px; }
+
+.rc-token { font-size: 54px; font-weight: 700; line-height: 1.05; letter-spacing: 0.06em; }
+.rc-w58 .rc-token { font-size: 42px; }
+
+/* Kitchen ticket. Quantity first at double height: a "2" hidden after a long
+   dish name gets read as a 1. */
+.rc-kotno { font-size: 15px; }
+.rc-kothead { font-size: 13px; font-weight: 700; margin-top: 8px; }
+.rc-kotitem { margin-top: 9px; }
+.rc-kotline { display: flex; gap: 10px; align-items: baseline; }
+.rc-big { font-size: 20px; font-weight: 700; letter-spacing: 0.1em; }
+.rc-kotqty { font-size: 13px; font-weight: 700; }
+.rc-kotname { font-size: 15px; font-weight: 700; flex: 1; min-width: 0; }
+.rc-w58 .rc-kotname { font-size: 13px; }
+.rc-kotprice { font-variant-numeric: tabular-nums; }
+.rc-kotnote { font-size: 11px; padding-left: 12px; }
+
+/* ── The preview, on screen ─────────────────────────────────────────────────
+   Same markup, shown in place. The grey stage is what makes it read as paper
+   rather than as a panel of the app. */
+.rc-inline { background: #6b7280; border-radius: 8px; padding: 16px 0 20px; }
+.rc-inline .rc-root { display: block; }
+.rc-inline .rc-paper {
+  margin: 0 auto;
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.35);
+}
+/* On screen only — the preview shows ONE copy however many will print. */
+.rc-inline .rc-paper + .rc-paper { display: none; }
+
+/* ── Printing ───────────────────────────────────────────────────────────────
+   "Print only the bill" is a DOM problem, not a styling one. Hiding page
+   furniture element by element never finishes, because the next screen that
+   prints has its own. The receipt renders OUTSIDE #root as a sibling; here the
+   entire application is hidden and exactly one thing is left on the paper. */
+@media print {
+  html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; }
+  #root { display: none !important; }
+  /* Anything else a library has parked on the body — toasts, modal roots. */
+  body > div:not(.rc-root) { display: none !important; }
+
+  .rc-root { display: block !important; }
+  .rc-paper { box-shadow: none !important; margin: 0 !important; }
+  /* A preview left mounted on the configuring screen must not print alongside
+     the thing the user actually asked for. */
+  .rc-inline { display: none !important; }
+}
+
+/* The page is the paper: 80mm wide, and as long as the content needs. Without
+   this the job goes to A4 and the receipt sits in the middle of a blank sheet. */
+@page { size: 80mm auto; margin: 0; }

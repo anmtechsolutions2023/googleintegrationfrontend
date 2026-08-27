@@ -2567,3 +2567,10 @@
   .fd-return-actions { margin-left: 0; }
   .fd-return-actions .fd-btn { flex: 1; }
 }
+
+/* The settle confirmation grew two print buttons — the moment the customer is
+   standing at the counter is the moment paper matters most. */
+.fd-invoice-print {
+  display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 6px;
+}
+.fd-invoice-print .fd-btn { flex: 1 1 auto; min-width: 8rem; }

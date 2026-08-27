@@ -106,6 +106,7 @@ export const FRONT_DESK_NAV = [
     { key: 'fd-variants',   path: '/frontdesk/variants',   label: 'Variants',     icon: '🧩', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
     { key: 'fd-floors',     path: '/frontdesk/floors',     label: 'Floors',       icon: '🏢', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
     { key: 'fd-settings',   path: '/frontdesk/settings',   label: 'POS Settings', icon: '⚙️', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
+    { key: 'fd-receipt',    path: '/frontdesk/receipt-format', label: 'Receipt Format', icon: '🧾', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
     { key: 'fd-inventory',  path: '/frontdesk/inventory',  label: 'Inventory',    icon: '📦', scopes: [SCOPES.INVENTORY_READ,  SCOPES.TENANT_ADMIN] },
     { key: 'fd-expense-cats', path: '/frontdesk/expense-categories', label: 'Expense Categories', icon: '🏷️', scopes: [SCOPES.POS_OPS_READ, SCOPES.EXPENSE_APPROVE, SCOPES.TENANT_ADMIN] },
     { key: 'fd-asset-cats',   path: '/frontdesk/asset-categories',   label: 'Asset Categories',   icon: '🏷️', scopes: [SCOPES.ASSET_READ,   SCOPES.ASSET_WRITE,     SCOPES.TENANT_ADMIN] },

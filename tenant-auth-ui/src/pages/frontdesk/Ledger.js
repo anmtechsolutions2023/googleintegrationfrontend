@@ -6,6 +6,8 @@ import { OrderNoLink } from '../../components/frontdesk/OrderLinkProvider'
 import { SCOPES } from '../../constants'
 import { useCan } from '../../hooks/useCan'
 import ReturnPicker from '../../components/frontdesk/ReturnPicker'
+import Receipt from '../../components/frontdesk/receipt/Receipt'
+import usePrintReceipt from '../../components/frontdesk/receipt/usePrintReceipt'
 import './ledger.css'
 
 const money = (n) => (Number(n) || 0).toFixed(2)
@@ -84,6 +86,10 @@ const Ledger = () => {
   // drop somebody on the list with the number to search for themselves.
   const [searchParams, setSearchParams] = useSearchParams()
 
+  // The format follows the document's OWN branch — two outlets under one owner
+  // legitimately print different bills, and the ledger lists both.
+  const { job, format, shop, taxMode, print } = usePrintReceipt(selected?.BranchId)
+
   const load = useCallback(async () => {
     setLoading(true)
     try {
@@ -139,6 +145,28 @@ const Ledger = () => {
     next.delete('doc')
     setSearchParams(next, { replace: true })
   }, [searchParams, setSearchParams, openDocument])
+
+  /**
+   * Print the open document.
+   *
+   * A credit note prints as a CREDIT NOTE, not as a bill — money going the
+   * other way, mistaken for a sale, is a refund banked as revenue.
+   *
+   * Anything opened from the ledger is by definition a reprint: it has been
+   * settled and handed over already. Saying so on the paper is what stops one
+   * meal being paid for twice.
+   */
+  const printDocument = (doc) => {
+    if (!doc) return
+    const isNote = doc.TypeName === 'POS Return'
+    print(isNote ? 'creditNote' : 'bill', {
+      ...doc,
+      taxMode,
+      isReprint: !isNote,
+      tokenLabel: doc.Source?.kind === 'token' ? doc.Source.label : null,
+      tableName: doc.Source?.kind === 'table' ? doc.Source.label : null,
+    })
+  }
 
   const handleReturn = async (payload) => {
     if (!returnTarget) return
@@ -310,6 +338,11 @@ const Ledger = () => {
           </table>
         </div>
       )}
+
+      {/* Outside #root. The print stylesheet hides the application, so what
+          comes out is the receipt and nothing else — no navbar, no heading, no
+          filter row, no ledger table behind the modal. */}
+      {job && <Receipt doc={job.doc} format={format} shop={shop} data={job.data} />}
 
       {/* Hidden while the return picker is up. Two stacked backdrops darken to
           near-black and the invoice behind it cannot be read or acted on
@@ -501,7 +534,9 @@ const Ledger = () => {
                 </ul>
 
                 <div className="fd-invoice-actions">
-                  <button className="fd-btn fd-btn-outline" onClick={() => window.print()}>Print</button>
+                  <button className="fd-btn fd-btn-outline" onClick={() => printDocument(selected)}>
+                    Print
+                  </button>
                   {/* Both actions stay available while ANY of the invoice is
                       left. The sale is no longer mutated by a refund, so a
                       partly-returned invoice is still SETTLED and can still be

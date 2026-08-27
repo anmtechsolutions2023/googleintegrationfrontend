@@ -1,0 +1,121 @@
+/* Receipt format — the app's vocabulary, unlike the paper it configures. */
+
+.rf-page { padding: 4px 0 40px; }
+.rf-head h1 { font-size: 22px; margin: 0 0 4px; color: #2c3e50; }
+.rf-lead { font-size: 13px; color: #7f8c8d; margin: 0 0 16px; max-width: 76ch; line-height: 1.55; }
+
+.rf-bar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 12px 16px; background: #fff;
+  border: 1px solid #e1e5eb; border-radius: 8px; margin-bottom: 12px;
+}
+.rf-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+.rf-tab {
+  padding: 7px 14px; border-radius: 7px; border: 1px solid transparent;
+  background: none; font-size: 13px; font-weight: 600; color: #7f8c8d;
+  cursor: pointer; font-family: inherit; white-space: nowrap;
+}
+.rf-tab.is-on { background: #eaf4fb; color: #2b5f9e; border-color: #aed6f1; }
+.rf-bar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.rf-inline { display: flex; align-items: center; gap: 7px; font-size: 11.5px; color: #95a5a6; }
+.rf-inline select {
+  padding: 7px 10px; border: 1px solid #d0d4da; border-radius: 7px;
+  font-size: 13px; background: #fff; color: #2c3e50; font-family: inherit;
+}
+
+/* The mode, above the fields, because changing it re-locks them. */
+.rf-mode {
+  background: #fff; border: 1px solid #e1e5eb; border-radius: 8px;
+  padding: 13px 16px; margin-bottom: 14px;
+}
+.rf-mode-label {
+  display: block; font-size: 11px; font-weight: 700; color: #5a6c7d;
+  text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 9px;
+}
+.rf-mode-opts { display: flex; gap: 8px; flex-wrap: wrap; }
+.rf-mode-opt {
+  flex: 1 1 14rem; text-align: left; min-width: 0;
+  border: 1px solid #cbd5e1; border-radius: 9px; padding: 10px 13px;
+  background: #fff; cursor: pointer; font-family: inherit;
+}
+.rf-mode-opt.is-on {
+  border-color: #3498db; background: #f4f9fe; box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.12);
+}
+.rf-mode-opt:disabled { opacity: 0.6; cursor: not-allowed; }
+.rf-mode-opt strong { display: block; font-size: 13px; color: #2c3e50; }
+.rf-mode-opt em {
+  display: block; font-style: normal; font-size: 11.5px;
+  color: #7f8c8d; margin-top: 2px; line-height: 1.45;
+}
+
+/* Controls left, paper right. The preview is sticky: on a long field list the
+   thing you are changing must stay in view, or the two halves are just two
+   lists that happen to share a screen. */
+.rf-split { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 18px; align-items: start; }
+
+.rf-sect {
+  background: #fff; border: 1px solid #e1e5eb; border-radius: 8px;
+  overflow: hidden; margin-bottom: 12px;
+}
+.rf-sect-head {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 11px 15px; background: #f8fafc; border: 0;
+  border-bottom: 1px solid #e1e5eb; cursor: pointer; font-family: inherit; text-align: left;
+}
+.rf-sect.is-shut .rf-sect-head { border-bottom: none; }
+.rf-sect-head h3 { margin: 0; font-size: 13.5px; font-weight: 700; color: #2c3e50; }
+.rf-count { margin-left: auto; font-size: 11.5px; color: #95a5a6; }
+
+.rf-field {
+  display: flex; align-items: center; gap: 14px;
+  padding: 10px 15px; border-bottom: 1px solid #f2f5f7;
+}
+.rf-field:last-child { border-bottom: none; }
+.rf-field.is-locked { background: #fbfcfd; }
+.rf-field-name { flex: 1; min-width: 0; }
+.rf-field-name strong { display: block; font-size: 13px; font-weight: 600; color: #2c3e50; }
+.rf-field-name em {
+  display: block; font-style: normal; font-size: 11.5px;
+  color: #95a5a6; margin-top: 2px; line-height: 1.45;
+}
+
+/* Three states, not two — see receiptFields.js. */
+.rf-tri { display: flex; flex: 0 0 auto; border: 1px solid #d0d4da; border-radius: 7px; overflow: hidden; }
+.rf-tri button {
+  padding: 6px 11px; font-size: 11.5px; font-weight: 600; color: #7f8c8d;
+  background: #fff; border: 0; border-right: 1px solid #e8ebee;
+  cursor: pointer; font-family: inherit; white-space: nowrap;
+}
+.rf-tri button:last-child { border-right: none; }
+.rf-tri button.is-on { background: #3498db; color: #fff; }
+.rf-tri button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.rf-lock {
+  display: flex; align-items: center; gap: 6px; flex: 0 0 auto;
+  font-size: 11.5px; font-weight: 600; color: #b9600f;
+  background: #ffeaa7; padding: 5px 10px; border-radius: 7px; white-space: nowrap;
+}
+.rf-text {
+  flex: 0 0 190px; padding: 6px 9px; border: 1px solid #d0d4da;
+  border-radius: 6px; font-size: 12.5px; font-family: inherit; color: #2c3e50;
+}
+
+.rf-preview { position: sticky; top: 0; }
+.rf-preview-head { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; flex-wrap: wrap; }
+.rf-preview-head h3 { margin: 0; font-size: 13px; font-weight: 700; color: #2c3e50; }
+.rf-live {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;
+  background: #d5f5e3; color: #1e8449; padding: 2px 8px; border-radius: 10px;
+}
+.rf-preview-note { margin-left: auto; font-size: 11.5px; color: #95a5a6; }
+.rf-preview-foot {
+  font-size: 11.5px; color: #95a5a6; line-height: 1.55; margin: 10px 2px 0;
+}
+
+@media (max-width: 900px) {
+  /* Paper first on a narrow screen: it is the thing being changed. */
+  .rf-split { grid-template-columns: minmax(0, 1fr); }
+  .rf-preview { position: static; order: -1; }
+  .rf-field { flex-wrap: wrap; }
+  .rf-text { flex: 1 1 100%; }
+}

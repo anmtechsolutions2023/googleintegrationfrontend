@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react'
 import { toast } from 'react-toastify'
 import posService from '../../services/posService'
+import Receipt from '../../components/frontdesk/receipt/Receipt'
+import usePrintReceipt from '../../components/frontdesk/receipt/usePrintReceipt'
 import { APP_CONFIG, SCOPES } from '../../constants'
 import { useCan } from '../../hooks/useCan'
 import RoundsTimeline from '../../components/frontdesk/RoundsTimeline'
@@ -106,6 +108,11 @@ const Billing = () => {
   const [paymentModes, setPaymentModes] = useState([])
   const [tenders, setTenders] = useState([])
   const [settledInvoice, setSettledInvoice] = useState(null)
+  // The moment the customer is standing at the counter with their money out.
+  // Until now this screen minted an invoice number and offered only "Done".
+  const [printBranchId, setPrintBranchId] = useState(null)
+  const [printing, setPrinting] = useState(false)
+  const { job, format, shop, taxMode, print } = usePrintReceipt(printBranchId)
   const [settling, setSettling] = useState(false)
   // Live discounted preview from the server (discount applied BEFORE tax), so the
   // payable the cashier sees matches the bill that will be raised.
@@ -876,9 +883,21 @@ const Billing = () => {
         }
       }
 
+      // Which branch's format this bill prints in. Taken from the cart the same
+      // way the KOT does — the till itself is not branch-scoped, its items are.
+      const printBranch = settled?.BranchDetailId
+        || cartItems.find((c) => c.meta?.BranchDetailId)?.meta.BranchDetailId
+        || null
+
       // The invoice number is the customer-facing artefact, so it headlines the
       // confirmation rather than a generic success toast.
+      setPrintBranchId(printBranch)
       setSettledInvoice({
+        // The posted document, so Print can fetch the real lines and tax rather
+        // than reconstructing a bill from the cart it happens to still hold.
+        logId: settled?.TransactionDetailLogId || null,
+        branchId: printBranch,
+        itemCount: cartItems.length,
         transactionNo: settled?.TransactionNo || null,
         total: Number(settled?.Total) || payable,
         balanceDue: Number(settled?.BalanceDue) || 0,
@@ -913,6 +932,43 @@ const Billing = () => {
   }
 
   if (loading) return <div className="fd-loading">Loading billing...</div>
+
+  /**
+   * Print the bill just settled.
+   *
+   * Reads the posted LEDGER DOCUMENT rather than rebuilding a bill from the cart
+   * still in memory. The cart knows what was ordered; only the document knows
+   * what was CHARGED — the discount that was spread across lines, the tax
+   * components as they were actually computed, the round-off. Printing from the
+   * cart is how a customer's paper stops matching the books.
+   */
+  const printBill = async () => {
+    if (!settledInvoice?.logId) return
+    setPrinting(true)
+    try {
+      const doc = await posService.getLedgerDocument(settledInvoice.logId)
+      print('bill', {
+        ...doc,
+        taxMode,
+        tokenLabel: doc.Source?.kind === 'token' ? doc.Source.label : settledInvoice.tokenLabel,
+        tableName: doc.Source?.kind === 'table' ? doc.Source.label : null,
+        balanceDue: settledInvoice.balanceDue,
+      })
+    } catch {
+      toast.error('Could not load the bill to print')
+    } finally {
+      setPrinting(false)
+    }
+  }
+
+  /** The slip a counter customer walks away holding. */
+  const printToken = () => print('tokenSlip', {
+    tokenLabel: settledInvoice.tokenLabel,
+    TransactionNo: settledInvoice.transactionNo,
+    TransactionDate: new Date().toISOString(),
+    GrossAmount: settledInvoice.total,
+    itemCount: settledInvoice.itemCount,
+  })
 
   return (
     <div className="fd-billing">
@@ -1398,6 +1454,9 @@ const Billing = () => {
 
       {/* Posted-to-ledger confirmation. The invoice number is the
           customer-facing artefact, so it leads. */}
+      {/* Outside #root — printing takes the paper and nothing else. */}
+      {job && <Receipt doc={job.doc} format={format} shop={shop} data={job.data} />}
+
       {settledInvoice && (
         <div className="fd-modal-backdrop" role="dialog" aria-label="Bill settled">
           <div className="fd-invoice-modal">
@@ -1437,9 +1496,25 @@ const Billing = () => {
                 ₹{money(settledInvoice.balanceDue)} still outstanding on this bill.
               </div>
             )}
-            <button className="fd-btn fd-btn-success" onClick={() => setSettledInvoice(null)}>
-              Done
-            </button>
+            <div className="fd-invoice-print">
+              <button
+                className="fd-btn fd-btn-outline"
+                disabled={!settledInvoice.logId || printing}
+                onClick={printBill}
+              >
+                {printing ? 'Printing…' : '🧾 Print bill'}
+              </button>
+              {/* A counter customer walks away holding a number. Telling them
+                  "A-14" and printing nothing means the queue runs on memory. */}
+              {settledInvoice.tokenLabel && (
+                <button className="fd-btn fd-btn-outline" onClick={printToken}>
+                  🎫 Print token
+                </button>
+              )}
+              <button className="fd-btn fd-btn-success" onClick={() => setSettledInvoice(null)}>
+                Done
+              </button>
+            </div>
           </div>
         </div>
       )}
