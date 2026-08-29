@@ -143,3 +143,67 @@ test('saves the cost info and returns its id', async () => {
   }));
   await waitFor(() => expect(onSaved).toHaveBeenCalledWith('ci-1', expect.any(Object)));
 });
+
+// ── A tax-free product ───────────────────────────────────────────────────────
+// A tax group with NO tax types mapped into it IS the exemption — the pricing
+// chain already treats it as a valid 0%. What used to be wrong was only the
+// wording: "no tax types on this group YET" reads as setup somebody abandoned
+// rather than a decision they made.
+describe('an exempt (0%) tax group', () => {
+  const EXEMPT = { Id: 'g-exempt', Name: 'Exempt (0%)' };
+
+  const selectExempt = async () => {
+    costInfoService.getTaxGroups.mockResolvedValue([...GROUPS, EXEMPT]);
+    // No components, and therefore no rate.
+    costInfoService.getTaxGroupRate.mockResolvedValue({ effectiveRate: 0, components: [] });
+    const onSaved = renderDrawer();
+    await waitFor(() => expect(costInfoService.getTaxGroups).toHaveBeenCalled());
+    openCombo();
+    fireEvent.click(screen.getByText('Exempt (0%)'));
+    await waitFor(() => expect(costInfoService.getTaxGroupRate).toHaveBeenCalledWith('g-exempt'));
+    return onSaved;
+  };
+
+  test('reads as a decision, not as unfinished setup', async () => {
+    await selectExempt();
+    // Scoped to the footer: the step-2 note says "exempt" too, which is the
+    // point — both halves agree.
+    const rate = await screen.findByText(/Effective tax 0%/);
+    expect(rate.closest('.ci-rate-exempt')).toHaveTextContent('exempt');
+    // The word that made it read as abandoned setup.
+    expect(screen.queryByText(/on this group yet/i)).toBeNull();
+  });
+
+  test('says the empty group is valid rather than incomplete', async () => {
+    await selectExempt();
+    const note = await screen.findByText(/this group charges/i);
+    expect(note).toHaveTextContent(/valid, exempt group/i);
+    // …while still offering the way to make it a taxed group.
+    expect(note).toHaveTextContent(/only if it should be taxed/i);
+  });
+
+  // The whole point: this was already allowed, and the button was already
+  // enabled. Nothing about saving needed to change.
+  test('saves like any other group', async () => {
+    const onSaved = await selectExempt();
+    fireEvent.change(screen.getByLabelText(/Amount/i), { target: { value: '40' } });
+
+    const save = screen.getByRole('button', { name: /Save Cost Info/i });
+    expect(save).toBeEnabled();
+    fireEvent.click(save);
+
+    await waitFor(() => expect(costInfoService.createCostInfo).toHaveBeenCalled());
+    const [payload] = costInfoService.createCostInfo.mock.calls[0];
+    // A real group id, not a null — which is what keeps an exempt sale
+    // identifiable on a GST return.
+    expect(payload.taxGroupId).toBe('g-exempt');
+  });
+
+  // A taxed group must not start reading as exempt.
+  test('a group with components still shows its rate', async () => {
+    renderDrawer();
+    await selectGST18();
+    expect(await screen.findByText(/Effective tax 18%/)).toBeInTheDocument();
+    expect(screen.queryByText(/— exempt/)).toBeNull();
+  });
+});

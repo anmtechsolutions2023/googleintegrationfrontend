@@ -1,0 +1,180 @@
+/* Campaigns and offers. */
+
+.cmp-page { padding: 4px 0 40px; }
+.cmp-head { display: flex; align-items: flex-start; gap: 14px; flex-wrap: wrap; margin-bottom: 16px; }
+.cmp-head h1 { font-size: 22px; margin: 0 0 4px; color: #2c3e50; }
+.cmp-head > button { margin-left: auto; }
+.cmp-lead { font-size: 13px; color: #7f8c8d; margin: 0; max-width: 78ch; line-height: 1.55; }
+.cmp-back {
+  display: inline-block; font-size: 12px; font-weight: 600; color: #2980b9;
+  text-decoration: none; margin-bottom: 6px;
+}
+.cmp-back:hover { text-decoration: underline; }
+.cmp-h3 { font-size: 15px; color: #2c3e50; margin: 22px 0 10px; }
+
+.cmp-kpis {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px; margin-bottom: 16px;
+}
+.cmp-kpi {
+  background: #fff; border: 1px solid #e1e5eb; border-left: 3px solid #d0d4da;
+  border-radius: 8px; padding: 13px 15px;
+}
+.cmp-kpi .l {
+  display: block; font-size: 11px; font-weight: 700; color: #5a6c7d;
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+.cmp-kpi .v {
+  display: block; font-size: 22px; font-weight: 700; color: #2c3e50;
+  margin-top: 5px; font-variant-numeric: tabular-nums;
+}
+.cmp-kpi .s { display: block; font-size: 11.5px; color: #95a5a6; margin-top: 3px; }
+.cmp-kpi.cost { border-left-color: #e74c3c; } .cmp-kpi.cost .v { color: #c0392b; }
+.cmp-kpi.gain { border-left-color: #27ae60; } .cmp-kpi.gain .v { color: #1e8449; }
+.cmp-kpi.warn { border-left-color: #f39c12; } .cmp-kpi.warn .v { color: #b9600f; }
+
+/* What is actually happening, not what somebody intended. */
+.cmp-pill {
+  display: inline-block; font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.4px; padding: 2px 8px; border-radius: 10px; white-space: nowrap;
+}
+.cmp-pill.is-live       { background: #d5f5e3; color: #1e8449; }
+.cmp-pill.is-scheduled,
+.cmp-pill.is-sched      { background: #eaf4fb; color: #2b5f9e; }
+.cmp-pill.is-draft      { background: #eceff1; color: #5a6c7d; }
+.cmp-pill.is-paused     { background: #ffeaa7; color: #b9600f; }
+.cmp-pill.is-budget_spent,
+.cmp-pill.is-spent      { background: #fdecea; color: #b03a2e; }
+.cmp-pill.is-ended      { background: #eceff1; color: #7f8c8d; }
+
+.cmp-bar {
+  display: block; height: 8px; background: #eceff1; border-radius: 99px; overflow: hidden;
+}
+.cmp-bar > span { display: block; height: 100%; background: #e74c3c; border-radius: 99px; }
+.cmp-table tbody tr.is-clickable { cursor: pointer; }
+.cmp-table tbody tr.is-clickable:hover { background: #f8f9fa; }
+
+.cmp-tabs { display: flex; gap: 4px; margin-bottom: 14px; flex-wrap: wrap; }
+.cmp-tab {
+  padding: 7px 14px; border-radius: 7px; border: 1px solid transparent;
+  background: none; font-size: 13px; font-weight: 600; color: #7f8c8d;
+  cursor: pointer; font-family: inherit;
+}
+.cmp-tab.is-on { background: #eaf4fb; color: #2b5f9e; border-color: #aed6f1; }
+
+/* ── An offer, as it reads ─────────────────────────────────────────────── */
+.cmp-offers { display: flex; flex-direction: column; gap: 10px; }
+.cmp-offer { background: #fff; border: 1px solid #e1e5eb; border-radius: 8px; padding: 13px 16px; }
+.cmp-offer-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.cmp-offer-head strong { font-size: 14px; color: #2c3e50; }
+.cmp-offer-actions { margin-left: auto; display: flex; gap: 6px; }
+.cmp-sentence { margin: 7px 0 0; font-size: 13px; color: #5a6c7d; line-height: 1.55; }
+
+/* The sentence a rule reads back as. A rule engine nobody can read is a rule
+   engine nobody trusts. */
+.cmp-readback {
+  background: #1a202c; color: #fff; border-radius: 8px;
+  padding: 14px 16px; margin-bottom: 16px;
+}
+.cmp-readback .l {
+  display: block; font-size: 10.5px; font-weight: 700; color: #7f8c8d;
+  text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 6px;
+}
+.cmp-readback .s { font-size: 14.5px; line-height: 1.55; }
+
+/* ── The rule builder ──────────────────────────────────────────────────── */
+.cmp-rule {
+  display: grid; grid-template-columns: 78px minmax(0, 1fr); gap: 12px;
+  align-items: start; padding: 14px 0; border-bottom: 1px solid #f0f3f5;
+}
+.cmp-rule:last-of-type { border-bottom: none; }
+.cmp-tag {
+  font-size: 11px; font-weight: 700; color: #fff; text-transform: uppercase;
+  letter-spacing: 0.5px; padding: 5px 0; border-radius: 6px; text-align: center;
+}
+.cmp-tag.when  { background: #5a6c7d; }
+.cmp-tag.then  { background: #27ae60; }
+.cmp-tag.limit { background: #b2bec3; }
+.cmp-line { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 13px; }
+.cmp-line + .cmp-line { margin-top: 8px; }
+.cmp-line select, .cmp-line input {
+  padding: 6px 10px; border: 1px solid #d0d4da; border-radius: 7px;
+  font-size: 13px; font-family: inherit; color: #2c3e50; background: #fff;
+}
+.cmp-hint { font-size: 11.5px; color: #95a5a6; margin: 7px 0 0; line-height: 1.5; }
+
+/* ── Modal ─────────────────────────────────────────────────────────────── */
+.cmp-modal {
+  background: #fff; border-radius: 12px; padding: 20px 22px; width: 560px;
+  max-width: 100%; max-height: 90vh; overflow-y: auto; box-sizing: border-box;
+  box-shadow: 0 12px 40px rgba(20, 28, 40, 0.28);
+}
+.cmp-modal-wide { width: 660px; }
+.cmp-modal h3 { margin: 0 0 4px; font-size: 17px; color: #2c3e50; }
+.cmp-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.cmp-field { display: flex; flex-direction: column; min-width: 0; }
+.cmp-field > span {
+  font-size: 11px; font-weight: 700; color: #5a6c7d; text-transform: uppercase;
+  letter-spacing: 0.5px; margin-bottom: 6px;
+}
+.cmp-field > span i { color: #e74c3c; font-style: normal; margin-left: 2px; }
+.cmp-field input, .cmp-field select {
+  padding: 8px 11px; border: 1px solid #d0d4da; border-radius: 7px;
+  font-size: 13px; font-family: inherit; color: #2c3e50; background: #fff;
+}
+.cmp-field small { font-size: 11.5px; color: #95a5a6; margin-top: 4px; line-height: 1.45; }
+
+.cmp-days, .cmp-branches { display: flex; gap: 6px; flex-wrap: wrap; }
+.cmp-days button, .cmp-branches button {
+  padding: 6px 12px; border: 1px solid #d0d4da; border-radius: 7px; background: #fff;
+  font-size: 12.5px; font-weight: 600; color: #7f8c8d; cursor: pointer; font-family: inherit;
+}
+.cmp-days button.is-on, .cmp-branches button.is-on {
+  background: #eaf4fb; color: #2b5f9e; border-color: #aed6f1;
+}
+
+.cmp-actions { display: flex; gap: 9px; justify-content: flex-end; margin-top: 18px; }
+
+.cmp-note {
+  background: #eaf4fb; border: 1px solid #aed6f1; border-radius: 8px;
+  padding: 13px 15px; font-size: 12.5px; color: #1b4f72; line-height: 1.6; margin-bottom: 16px;
+}
+.cmp-note strong { color: #2b5f9e; }
+
+.cmp-hours { background: #fff; border: 1px solid #e1e5eb; border-radius: 8px; padding: 14px 16px; margin-top: 16px; }
+.cmp-hours h3 { margin: 0 0 10px; font-size: 14px; color: #2c3e50; }
+.cmp-hour { display: flex; align-items: center; gap: 10px; font-size: 12.5px; padding: 4px 0; }
+.cmp-hour .hh { flex: 0 0 52px; color: #7f8c8d; font-variant-numeric: tabular-nums; }
+.cmp-hour .cmp-bar { flex: 1; }
+.cmp-hour .cmp-bar > span { background: #3498db; }
+.cmp-hour .vv { flex: 0 0 40px; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+@media (max-width: 720px) {
+  .cmp-grid { grid-template-columns: minmax(0, 1fr); }
+  .cmp-rule { grid-template-columns: minmax(0, 1fr); }
+  .cmp-tag { width: 78px; }
+}
+
+/* Switched on and inside its dates, but not firing right now — a weekday it
+   does not run on, or outside its hours. Amber rather than green: "Live" while
+   the till refuses every bill is the worst thing this column could say. */
+.cmp-pill.is-waiting,
+.cmp-pill.is-off_today,
+.cmp-pill.is-outside_hours { background: #ffeaa7; color: #b9600f; }
+
+.cmp-head-actions { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+.cmp-error {
+  margin: 10px 0 0; font-size: 12.5px; color: #b03a2e;
+  background: #fdecea; border: 1px solid #f5b7b1; border-radius: 7px; padding: 9px 11px;
+}
+
+/* Row actions. Two small buttons that must not wrap onto separate lines and
+   must stay a comfortable tap on a manager's tablet. */
+.cmp-row-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+@media (pointer: coarse) {
+  .cmp-row-actions .fd-btn { min-height: 44px; }
+}

@@ -282,7 +282,10 @@ const CostInfoDrawer = ({ open, onClose, onSaved, mode = 'edit', costInfoId = nu
 
               <div className="ci-chips">
                 {components.length === 0 && !rateLoading && (
-                  <span className="ci-chips-empty">No tax types yet — add one below.</span>
+                  <span className="ci-chips-empty">
+                    No tax types — this group charges <b>0%</b>. That is a valid, exempt
+                    group; add a type below only if it should be taxed.
+                  </span>
                 )}
                 {components.map((c) => (
                   <span className="ci-chip" key={c.id}>
@@ -346,7 +349,13 @@ const CostInfoDrawer = ({ open, onClose, onSaved, mode = 'edit', costInfoId = nu
                 )}
               </span>
             ) : (
-              <span className="ci-rate-muted">No tax types on this group yet — effective 0%</span>
+              // A group with no tax types IS the exemption — the pricing chain
+              // already treats it as a valid 0%. The old wording said "no tax
+              // types on this group YET", which reads as setup somebody
+              // abandoned rather than a decision they made.
+              <span className="ci-rate-exempt">
+                <b>Effective tax 0%</b> — exempt
+              </span>
             )}
           </div>
           <div className="ci-drawer-actions">

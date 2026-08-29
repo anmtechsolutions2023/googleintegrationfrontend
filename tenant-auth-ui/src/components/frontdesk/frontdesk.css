@@ -377,6 +377,94 @@
   box-sizing: border-box;
 }
 
+/* ── Menu filters: category rail + diet ────────────────────────────────────
+   Two rows, because they are two axes: a cashier filters "Pizza" and "Veg"
+   together, and one merged row of chips cannot express that AND.
+
+   The rail scrolls sideways rather than wrapping — twenty categories wrapping
+   to four lines would push the grid itself off a laptop screen, which is the
+   thing the cashier came here to use. */
+.fd-menu-cats {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  margin-bottom: 10px;
+  scrollbar-width: thin;
+}
+.fd-menu-cats::-webkit-scrollbar { height: 6px; }
+.fd-menu-cats::-webkit-scrollbar-thumb { background: #d0d4da; border-radius: 3px; }
+
+.fd-menu-diets {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid #f0f4f8;
+}
+.fd-menu-filter-label {
+  font-size: 12px;
+  color: #7f8c8d;
+  font-weight: 600;
+}
+
+.fd-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+  flex: 0 0 auto;
+  padding: 8px 14px;
+  /* 44px on a finger even though the label is 13px — this row is tapped all
+     day on a counter tablet. */
+  min-height: 36px;
+  border-radius: 18px;
+  border: 1px solid #d0d4da;
+  background: #fff;
+  color: #5a6c7d;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.fd-chip:hover:not(.is-on) { border-color: #3498db; color: #2c3e50; }
+.fd-chip:focus-visible { outline: 2px solid #2980b9; outline-offset: 2px; }
+.fd-chip.is-on {
+  background: #0f3460;
+  border-color: #0f3460;
+  color: #fff;
+}
+/* Empty under the CURRENT filters — still tappable, but it says so rather than
+   looking like a category that simply has nothing in it. */
+.fd-chip.is-empty:not(.is-on) { color: #b9c2cc; border-color: #eef1f4; }
+
+.fd-chip-count {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 9px;
+  background: #f0f4f8;
+  color: #7f8c8d;
+}
+.fd-chip.is-on .fd-chip-count { background: rgba(255, 255, 255, 0.22); color: #fff; }
+.fd-chip.is-empty:not(.is-on) .fd-chip-count { background: #f7f9fb; color: #b9c2cc; }
+
+/* Staff read the colour, not the word. Same green/red the item badges use. */
+.fd-diet-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: inline-block;
+  background: #c0392b;
+}
+.fd-diet-dot.is-veg { background: #1e8449; }
+.fd-diet-dot.is-any { background: #95a5a6; opacity: 0.55; }
+.fd-chip.is-on .fd-diet-dot { background: #fff; }
+
+.fd-empty-action { margin-top: 10px; }
+
 /* Fills the panel and scrolls inside it. The old max-height:480px meant the
    grid stopped short on any screen taller than a laptop, which is what left the
    dead band under the menu. Cards are sized for a finger first (min 140px wide,
@@ -1803,7 +1891,107 @@
 }
 .fd-tender-empty { font-size: 12px; color: #95a5a6; padding: 4px 0; }
 .fd-tender-row { display: flex; gap: 6px; align-items: center; }
-.fd-tender-row select { flex: 0 0 90px; }
+
+/* ── Payment mode: radios, on the screen ───────────────────────────────────
+   The mode used to be a `select { flex: 0 0 90px }` — 90 pixels, so every
+   option sat behind a tap and 'District Settlement' rendered as 'District S…'.
+   A cashier could not read what they were about to book the money to.
+
+   One block per tender, because a bill can be split across several and a
+   single choice would quietly remove that. */
+.fd-tender-block {
+  border: 1px solid #f0f4f8;
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 8px;
+}
+.fd-tender-block:only-of-type { border: none; padding: 0; }
+
+.fd-tender-block-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 700;
+  color: #7f8c8d;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.fd-mode-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.fd-mode {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 11px;
+  /* Comfortably tappable on the counter tablet this is used on. */
+  min-height: 46px;
+  box-sizing: border-box;
+  border: 1.5px solid #e1e5eb;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.fd-mode:hover { border-color: #b9c9dd; }
+.fd-mode.is-on { border-color: #0f3460; background: #eef4fb; }
+
+/* The real control stays in the DOM and keeps the keyboard and the screen
+   reader working; only its default appearance is replaced. */
+.fd-mode input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  margin: 0;
+}
+.fd-mode:focus-within { outline: 2px solid #2980b9; outline-offset: 2px; }
+
+.fd-mode-ring {
+  flex: 0 0 auto;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  border: 1.5px solid #c4ccd6;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s ease;
+}
+.fd-mode-ring::after {
+  content: '';
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: transparent;
+  transition: background 0.15s ease;
+}
+.fd-mode.is-on .fd-mode-ring { border-color: #0f3460; }
+.fd-mode.is-on .fd-mode-ring::after { background: #0f3460; }
+
+.fd-mode-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.fd-mode-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #2c3e50;
+  /* The name is no longer truncated to 90px, but a very long custom mode still
+     gets an ellipsis rather than breaking the grid. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fd-mode.is-on .fd-mode-name { color: #0f3460; }
+/* Where the money actually lands. A portal settlement books to a receivable,
+   not the drawer — saying so here is what stops a short cash session. */
+.fd-mode-acct { font-size: 10.5px; color: #95a5a6; }
+.fd-mode.is-on .fd-mode-acct { color: #5b7ba6; }
 .fd-tender-row input[type="number"] { flex: 1; min-width: 70px; }
 .fd-tender-row input[type="text"] { flex: 1; min-width: 80px; }
 .fd-tender-remove {
@@ -2584,3 +2772,60 @@
   margin-top: 10px;
 }
 .fd-kds-actions .fd-btn { min-height: 44px; }
+
+/* ── Offer check ─────────────────────────────────────────────────────────────
+   Applied, earned-but-not-taken, and did-not-apply WITH THE REASON. A silent
+   "no" is what makes staff stop trusting an offer engine. */
+.ofc-panel {
+  background: #fff; border-radius: 12px; padding: 20px 22px; width: 520px;
+  max-width: 100%; max-height: 90vh; overflow-y: auto; box-sizing: border-box;
+  box-shadow: 0 12px 40px rgba(20, 28, 40, 0.28);
+}
+.ofc-panel h3 { margin: 0 0 2px; font-size: 17px; color: #2c3e50; }
+.ofc-group { margin-bottom: 14px; }
+.ofc-group h4 {
+  margin: 0 0 6px; font-size: 11px; font-weight: 700; color: #5a6c7d;
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+.ofc-row {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 9px 0; border-bottom: 1px solid #f0f3f5; font-size: 13px; line-height: 1.5;
+}
+.ofc-row:last-child { border-bottom: none; }
+.ofc-dot {
+  flex: 0 0 auto; width: 18px; height: 18px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; margin-top: 1px;
+}
+.ofc-dot.ok  { background: #d5f5e3; color: #1e8449; }
+.ofc-dot.add { background: #ffeaa7; color: #b9600f; }
+.ofc-dot.no  { background: #fdecea; color: #b03a2e; }
+.ofc-row strong { display: block; color: #2c3e50; }
+.ofc-row em { font-style: normal; color: #7f8c8d; font-size: 12px; }
+.ofc-note {
+  background: #eaf4fb; border: 1px solid #aed6f1; border-radius: 8px;
+  padding: 11px 13px; font-size: 12px; color: #1b4f72; line-height: 1.55;
+}
+.ofc-note strong { color: #2b5f9e; }
+.ofc-actions { display: flex; justify-content: flex-end; margin-top: 14px; }
+
+/* A line an offer is paying for. Struck through rather than removed — the
+   kitchen made it and the stock moved, so it stays visible as a dish given
+   away on purpose. */
+.ci-offer {
+  display: inline-block; margin-top: 3px; font-size: 10.5px; font-weight: 600;
+  background: #d5f5e3; color: #1e8449; padding: 1px 7px; border-radius: 9px;
+}
+.ci-was { display: block; font-size: 11px; color: #b2bec3; text-decoration: line-through; }
+.ci-now { display: block; color: #1e8449; }
+.fd-cart-totals .total-row.offer { color: #1e8449; }
+
+/* A cart line the offer engine cannot identify. Amber and explicit: every
+   offer reports "not enough items" against it, which sends somebody to add
+   another of something that will not help. */
+.ofc-warn {
+  background: #fff8e6; border: 1px solid #f5cba7; border-radius: 8px;
+  padding: 11px 13px; font-size: 12.5px; color: #7d5a13; line-height: 1.55;
+  margin-bottom: 12px;
+}
+.ofc-warn strong { display: block; color: #b9600f; }

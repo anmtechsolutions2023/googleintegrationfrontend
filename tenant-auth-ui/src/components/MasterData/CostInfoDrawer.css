@@ -134,3 +134,8 @@
     margin: -8px -8px -8px 0;
   }
 }
+
+/* A zero-rate group is a DECISION, not an unfinished one, so it reads like the
+   other resolved states rather than like the muted "nothing here yet" copy. */
+.ci-rate-exempt { color: #2c3e50; }
+.ci-rate-exempt b { color: #1e8449; }

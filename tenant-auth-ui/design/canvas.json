@@ -1,0 +1,12 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html", "x": 0, "y": 0, "w": 1180, "h": 900, "title": "Billing & KOT — category + diet filters", "is_interactive": true },
+    { "file": "SettleBill.dc.html", "x": 1280, "y": 0, "w": 560, "h": 900, "title": "Settle Bill — payment on screen", "is_interactive": true },
+    { "file": "BuildNotes.dc.html", "x": 1940, "y": 0, "w": 720, "h": 900, "title": "Build notes" }
+  ],
+  "annotations": [
+    { "id": "try-filters", "x": 0, "y": -132, "w": 460, "text": "Both screens are live — tap a category, tap a diet chip, watch the counts move. Try Beverages + Non-Veg to see the empty state." },
+    { "id": "settle-note", "x": 1280, "y": -132, "w": 420, "text": "Tap a payment card, then + Split payment. The dropdown was 90px wide, which is what cut off \"District Settlement\"." }
+  ],
+  "launch": { "view": "canvas" }
+}

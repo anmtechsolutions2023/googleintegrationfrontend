@@ -17,6 +17,8 @@ jest.mock('../../../services/posService', () => ({
     createOrder: jest.fn(), updateOrder: jest.fn(), updateTable: jest.fn(),
     transferOrder: jest.fn(), deleteOrder: jest.fn(),
     fireKot: jest.fn(), createBill: jest.fn(), settleBill: jest.fn(),
+    // Campaign offers. The till previews them as the cart changes.
+    previewOffers: jest.fn(),
     getPosSettings: jest.fn(), getReceiptFormat: jest.fn(),
   },
 }));

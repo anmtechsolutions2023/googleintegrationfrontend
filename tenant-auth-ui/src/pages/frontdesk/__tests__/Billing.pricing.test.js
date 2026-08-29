@@ -14,6 +14,8 @@ jest.mock('../../../services/posService', () => ({
     createOrder: jest.fn(), updateOrder: jest.fn(), updateTable: jest.fn(),
     transferOrder: jest.fn(), deleteOrder: jest.fn(),
     fireKot: jest.fn(), createBill: jest.fn(), settleBill: jest.fn(),
+    // Campaign offers. The till previews them as the cart changes.
+    previewOffers: jest.fn(),
   },
 }));
 jest.mock('react-toastify', () => ({
@@ -194,7 +196,10 @@ describe('Billing — cart totals come from the server', () => {
     await waitFor(() => expect(posService.quotePricing).toHaveBeenCalled());
     const [lines] = posService.quotePricing.mock.calls.at(-1);
     expect(lines).toEqual([
-      { costInfoId: CI_DOSA, quantity: 1, variantIds: [], ref: 'm1' },
+      // `discount` rides along so the cart is priced with campaign offers and
+      // hand-typed line discounts folded in — Tax and Total have to be the
+      // discounted ones, not the list-price ones.
+      { costInfoId: CI_DOSA, quantity: 1, variantIds: [], ref: 'm1', discount: null },
     ]);
   });
 
@@ -455,11 +460,11 @@ describe('Billing — payable is rounded the way the ledger invoices it', () => 
     await openSettle();
     // Cashier takes ₹500 cash, then adds a second tender for the remainder —
     // which must be ₹139.00, not the ₹138.88 that left the sale 12p short.
-    const amounts = screen.getAllByLabelText(/Amount/i);
+    const amounts = screen.getAllByLabelText(/^(Amount|Payment \d+ amount)$/);
     fireEvent.change(amounts[0], { target: { value: '500' } });
-    fireEvent.click(screen.getByRole('button', { name: /Add payment/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Split payment/i }));
 
-    const [, second] = screen.getAllByLabelText(/Amount/i);
+    const [, second] = screen.getAllByLabelText(/^(Amount|Payment \d+ amount)$/);
     expect(second).toHaveValue(139);
 
     fireEvent.click(screen.getByRole('button', { name: /Settle & Post|Save Partial/i }));
@@ -907,15 +912,15 @@ describe('Billing — tenders (split payment)', () => {
 
   test('seeds one tender for the full payable — one-tap settle', async () => {
     await openSettle();
-    const amounts = screen.getAllByLabelText('Amount');
+    const amounts = screen.getAllByLabelText(/^(Amount|Payment \d+ amount)$/);
     expect(amounts).toHaveLength(1);
     expect(Number(amounts[0].value)).toBeGreaterThan(0);
   });
 
   test('adds a second tender row for a split payment', async () => {
     await openSettle();
-    fireEvent.click(screen.getByRole('button', { name: /Add payment/i }));
-    expect(screen.getAllByLabelText('Amount')).toHaveLength(2);
+    fireEvent.click(screen.getByRole('button', { name: /Split payment/i }));
+    expect(screen.getAllByLabelText(/^(Amount|Payment \d+ amount)$/)).toHaveLength(2);
   });
 
   test('explains and blocks settle when the tenant has no payment modes', async () => {
@@ -923,7 +928,7 @@ describe('Billing — tenders (split payment)', () => {
     await openSettle();
     expect(screen.getByText(/No payment modes set up/i)).toBeInTheDocument();
     // Add payment is disabled (not a silent dead button) and settle is blocked.
-    expect(screen.getByRole('button', { name: /Add payment/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Split payment/i })).toBeDisabled();
     expect(screen.getByRole('button', { name: /Settle & Post|Save Partial/i })).toBeDisabled();
   });
 
@@ -931,13 +936,13 @@ describe('Billing — tenders (split payment)', () => {
     await openSettle();
     expect(screen.queryByLabelText('Reference number')).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getAllByLabelText('Payment mode')[0], { target: { value: MODE_CARD } });
+    fireEvent.click(screen.getAllByRole('radio', { name: /Card/i })[0]);
     expect(screen.getByLabelText('Reference number')).toBeInTheDocument();
   });
 
   test('blocks settling a card payment with no reference, and says why', async () => {
     await openSettle();
-    fireEvent.change(screen.getAllByLabelText('Payment mode')[0], { target: { value: MODE_CARD } });
+    fireEvent.click(screen.getAllByRole('radio', { name: /Card/i })[0]);
 
     expect(screen.getByRole('alert')).toHaveTextContent(/reference number/i);
     expect(screen.getByRole('button', { name: /Settle & Post/i })).toBeDisabled();
@@ -945,7 +950,7 @@ describe('Billing — tenders (split payment)', () => {
 
   test('allows settling once the reference is entered', async () => {
     await openSettle();
-    fireEvent.change(screen.getAllByLabelText('Payment mode')[0], { target: { value: MODE_CARD } });
+    fireEvent.click(screen.getAllByRole('radio', { name: /Card/i })[0]);
     fireEvent.change(screen.getByLabelText('Reference number'), { target: { value: 'AUTH-1' } });
 
     expect(screen.getByRole('button', { name: /Settle & Post/i })).toBeEnabled();
@@ -953,7 +958,7 @@ describe('Billing — tenders (split payment)', () => {
 
   test('warns that a short tender records only a partial payment', async () => {
     await openSettle();
-    fireEvent.change(screen.getAllByLabelText('Amount')[0], { target: { value: '50' } });
+    fireEvent.change(screen.getAllByLabelText(/^(Amount|Payment \d+ amount)$/)[0], { target: { value: '50' } });
 
     expect(screen.getByRole('alert')).toHaveTextContent(/still due/i);
     // Not blocked — partial settlement is legitimate, just labelled honestly.
@@ -962,9 +967,9 @@ describe('Billing — tenders (split payment)', () => {
 
   test('posts every tender to the settle endpoint', async () => {
     await openSettle();
-    fireEvent.change(screen.getAllByLabelText('Amount')[0], { target: { value: '100' } });
-    fireEvent.click(screen.getByRole('button', { name: /Add payment/i }));
-    const amounts = screen.getAllByLabelText('Amount');
+    fireEvent.change(screen.getAllByLabelText(/^(Amount|Payment \d+ amount)$/)[0], { target: { value: '100' } });
+    fireEvent.click(screen.getByRole('button', { name: /Split payment/i }));
+    const amounts = screen.getAllByLabelText(/^(Amount|Payment \d+ amount)$/);
     fireEvent.change(amounts[1], { target: { value: '18' } });
     fireEvent.click(screen.getByRole('button', { name: /Settle & Post|Save Partial/i }));
 

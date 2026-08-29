@@ -4,6 +4,9 @@ import posService from '../../services/posService'
 import Receipt from '../../components/frontdesk/receipt/Receipt'
 import usePrintReceipt from '../../components/frontdesk/receipt/usePrintReceipt'
 import { buildKotPrintData } from '../../utils/kotPrint'
+import {
+  ALL, filterMenu, categoryChips, dietChips, isVegName,
+} from '../../utils/menuFilters'
 import { APP_CONFIG, SCOPES } from '../../constants'
 import { useCan } from '../../hooks/useCan'
 import RoundsTimeline from '../../components/frontdesk/RoundsTimeline'
@@ -112,13 +115,33 @@ const Billing = () => {
   // The moment the customer is standing at the counter with their money out.
   // Until now this screen minted an invoice number and offered only "Done".
   const [printBranchId, setPrintBranchId] = useState(null)
+  // Two independent filters over the menu. Kept apart from the search box
+  // because they narrow different things: search spans the whole menu,
+  // these two cut it down.
+  const [menuCategory, setMenuCategory] = useState(ALL)
+  const [menuDiet, setMenuDiet] = useState(ALL)
   const [printing, setPrinting] = useState(false)
+  // ── Campaign offers ────────────────────────────────────────────────────
+  // A PREVIEW. The settle path re-runs the same rules server-side and writes
+  // the discounts itself, so a cashier who never opens this still gets the
+  // right bill — this is so they can see what is about to happen.
+  const [offerCheck, setOfferCheck] = useState(null)
+  const [checkingOffers, setCheckingOffers] = useState(false)
+  // Re-evaluated as the cart changes, so a free line is struck through BEFORE
+  // anybody presses Settle. Still only a preview — the server re-runs the same
+  // rules inside the settle transaction and writes the discounts itself.
+  const [cartOffers, setCartOffers] = useState(null)
+  // The same evaluation again, against the COMMITTED rounds rather than the
+  // cart. Needed because the cart is empty by the time anybody settles — on the
+  // counter path it is emptied by the very tap that opens the settle modal — so
+  // `cartOffers` above cannot answer "what is this bill actually going to cost".
+  const [settleOffers, setSettleOffers] = useState(null)
   // Whether sending a round also puts it on paper. Read per branch and held, so
   // pressing Send never waits on a settings call — and a failed read leaves it
   // ON, because a kitchen that expected a ticket and got none is the worse of
   // the two failures.
   const [kotAutoPrint, setKotAutoPrint] = useState(true)
-  const { job, format, shop, taxMode, print } = usePrintReceipt(printBranchId)
+  const { job, format, shop, taxMode, print, failed: printFailed, clearFailed } = usePrintReceipt(printBranchId)
   const [settling, setSettling] = useState(false)
   // Live discounted preview from the server (discount applied BEFORE tax), so the
   // payable the cashier sees matches the bill that will be raised.
@@ -197,11 +220,30 @@ const Billing = () => {
 
   useEffect(() => { load() }, [load])
 
-  const filteredMenu = menu.filter((m) => {
-    if (!menuSearch) return true
-    const name = itemName(m, itemDetails[m.ItemDetailId]).toLowerCase()
-    return name.includes(menuSearch.toLowerCase())
-  })
+  // A print that quietly does nothing is indistinguishable from a printer that
+  // is switched off, and the cashier reprints instead of investigating. Say it.
+  useEffect(() => {
+    if (!printFailed) return
+    toast.error('The receipt did not render, so nothing was sent to the printer. Try again.')
+    clearFailed()
+  }, [printFailed, clearFailed])
+
+
+  // One name resolver for the filter, the chips and the cards, so a dish is
+  // never findable by a name the grid does not show.
+  const nameOf = useCallback(
+    (m) => itemName(m, itemDetails[m.ItemDetailId]),
+    [itemDetails],
+  )
+
+  const menuFilterState = { category: menuCategory, diet: menuDiet, query: menuSearch }
+  const filteredMenu = filterMenu(menu, menuFilterState, nameOf)
+  // Each chip counts what it would ACTUALLY show — under every filter except
+  // its own. Counting the whole menu would promise twelve pizzas and deliver
+  // ten the moment Veg is also on.
+  const catChips = categoryChips(menu, menuFilterState, nameOf)
+  const dtChips = dietChips(menu, menuFilterState, nameOf)
+  const menuFiltered = menuCategory !== ALL || menuDiet !== ALL || !!menuSearch
 
   // Variants offered by a menu row, resolved against the master for name+price.
   const variantsFor = (meta) => {
@@ -251,6 +293,11 @@ const Billing = () => {
       return [...prev, {
         lineKey,
         id: metaId,
+        // What an OFFER triggers on. The cart is keyed by the menu entry, but a
+        // campaign names the catalogue item and its category — carrying both
+        // here is what lets the till evaluate offers without a second lookup.
+        itemId: meta.ItemDetailId || null,
+        categoryId: itemDetails[meta.ItemDetailId]?.CategoryId || null,
         name: itemName(meta, itemDetails[meta.ItemDetailId]),
         // Display only — the server recomputes from the variant master.
         price: itemPrice(meta) + addOn,
@@ -289,6 +336,67 @@ const Billing = () => {
 
   const subTotal = cartItems.reduce((s, c) => s + c.price * c.qty, 0)
 
+  // ── Offers, live ──────────────────────────────────────────────────────────
+  // Debounced: a cashier adding a round taps + six times, and six round trips
+  // to price the same cart is six chances to show a stale answer.
+  useEffect(() => {
+    if (cartItems.length === 0) { setCartOffers(null); return undefined }
+
+    let cancelled = false
+    const timer = setTimeout(() => {
+      // Offers are a bonus on top of a working till: nothing here may stop
+      // somebody taking an order. The try/catch is not belt-and-braces around
+      // the promise — it catches a SYNCHRONOUS throw, which a rejected promise
+      // handler never sees and which would surface as an uncaught error inside
+      // this timer.
+      try {
+        const branchId = cartItems.find((c) => c.meta?.BranchDetailId)?.meta.BranchDetailId || null
+        Promise.resolve(posService.previewOffers(
+          cartItems.map((c) => ({
+            ref: c.lineKey,
+            itemId: c.itemId || null,
+            categoryId: c.categoryId || null,
+            name: c.name,
+            unitAmount: Number(c.price) || 0,
+            quantity: Number(c.qty) || 0,
+            hasManualDiscount: !!lineDiscounts[c.lineKey],
+          })),
+          branchId,
+          customer?.Id || null,
+        ))
+          .then((res) => { if (!cancelled) setCartOffers(res) })
+          .catch(() => { if (!cancelled) setCartOffers(null) })
+      } catch {
+        if (!cancelled) setCartOffers(null)
+      }
+    }, 350)
+
+    return () => { cancelled = true; clearTimeout(timer) }
+  }, [cartItems, lineDiscounts, customer])
+
+  // What each line is losing to an offer, keyed the way the cart is.
+  const offerByLine = useMemo(() => {
+    const out = {}
+    ;(cartOffers?.applied || []).forEach((a) => (a.awards || []).forEach((w) => {
+      out[w.ref] = {
+        offerName: a.name,
+        campaignName: a.campaignName,
+        percent: w.percent,
+        amount: w.discountAmount,
+      }
+    }))
+    return out
+  }, [cartOffers])
+
+  // What the cart is priced with: the cashier's own line discounts, plus the
+  // campaign ones on every line they did not touch. Mirrors
+  // offerEngine.mergeLineDiscounts — manual wins.
+  const effectiveCartDiscounts = useMemo(() => {
+    const merged = { ...(cartOffers?.lineDiscounts || {}) }
+    Object.entries(lineDiscounts || {}).forEach(([ref, d]) => { merged[ref] = d })
+    return merged
+  }, [cartOffers, lineDiscounts])
+
   useEffect(() => {
     const lines = cartItems
       .filter((c) => c.costInfoId)
@@ -298,6 +406,15 @@ const Billing = () => {
         // The server prices variants from the master; we only name them.
         variantIds: c.variantIds || [],
         ref: c.lineKey,
+        // Priced WITH the discount, so Tax and Total are the discounted ones.
+        // Without this the cart named the offer on its own row and then totalled
+        // as though it had not applied: ₹30 subtotal, "−₹15", and ₹30 to pay.
+        //
+        // Safe for buildOrderItems below: posorder.priceItems re-prices every
+        // line from costInfoId on create and overwrites net/tax/gross, so a
+        // discounted figure never reaches the stored round. The order records
+        // what was ordered; the discount is the bill's decision.
+        discount: effectiveCartDiscounts[c.lineKey] || null,
       }))
 
     if (lines.length === 0) { setQuote(null); setQuoteFailed(false); return }
@@ -315,7 +432,7 @@ const Billing = () => {
       .finally(() => { if (!cancelled) setQuoting(false) })
 
     return () => { cancelled = true }
-  }, [cartItems])
+  }, [cartItems, effectiveCartDiscounts])
 
   const taxAmount  = quote ? Number(quote.totals.taxAmount) : 0
   const grandTotal = quote ? Number(quote.totals.grossAmount) : subTotal
@@ -448,6 +565,61 @@ const Billing = () => {
     ).filter((l) => l.costInfoId),
   [sessionRounds, activeLineDiscounts])
 
+  // Offer-preview lines for the committed rounds.
+  //
+  // Built to mirror posbill.repository.getOrderLinesTx EXACTLY, because the
+  // point of this is that the number on screen equals the number that will be
+  // charged. Same `<orderId>#<index>` ref, same fields, and `categoryId: null`
+  // because the settle path has none either — sending one here would preview a
+  // category offer that the real evaluation cannot fire.
+  const settleOfferLines = useMemo(() =>
+    sessionRounds.flatMap((r) =>
+      (r.items || []).map((it, i) => ({
+        ref: `${r.orderId}#${i}`,
+        itemId: it.id || it.Id || null,
+        categoryId: null,
+        name: itemLabel(it),
+        unitAmount: Number(it.price ?? it.unitAmount ?? 0) || 0,
+        quantity: Number(it.qty ?? it.quantity ?? 1) || 1,
+        hasManualDiscount: !!activeLineDiscounts[`${r.orderId}#${i}`],
+      })),
+    ),
+  [sessionRounds, activeLineDiscounts])
+
+  // Evaluated when the settle modal opens, and again if the cashier hand-
+  // discounts a line — a manual discount takes a line off limits to offers, so
+  // the answer genuinely changes.
+  useEffect(() => {
+    if (!settleOpen || settleOfferLines.length === 0) { setSettleOffers(null); return undefined }
+    let cancelled = false
+    const t = setTimeout(() => {
+      // Offers must never stop a sale: a failed evaluation leaves the bill
+      // priced without them, which is the same bill this screen raised before
+      // campaigns existed. The try/catch is not belt-and-braces around the
+      // promise — it catches a SYNCHRONOUS throw, which a rejection handler
+      // never sees and which would surface as an uncaught error in this timer.
+      try {
+        Promise.resolve(posService.previewOffers(settleOfferLines, activeBranchId, customer?.Id || null))
+          .then((res) => { if (!cancelled) setSettleOffers(res) })
+          .catch(() => { if (!cancelled) setSettleOffers(null) })
+      } catch {
+        if (!cancelled) setSettleOffers(null)
+      }
+    }, 200)
+    return () => { cancelled = true; clearTimeout(t) }
+  }, [settleOpen, settleOfferLines, activeBranchId, customer])
+
+  // What the bill will actually be priced with: the cashier's own discounts,
+  // plus the campaign ones on every line they did not touch. Mirrors
+  // offerEngine.mergeLineDiscounts — manual wins, always.
+  const effectiveSettleLines = useMemo(() => {
+    const fromOffers = settleOffers?.lineDiscounts || {}
+    if (Object.keys(fromOffers).length === 0) return settleLines
+    return settleLines.map((l) => (
+      l.discount ? l : { ...l, discount: fromOffers[l.ref] || null }
+    ))
+  }, [settleLines, settleOffers])
+
   // Display labels for those lines, keyed by ref. Kept OUT of settleLines
   // because the quote endpoint rejects unknown keys — the wire shape is the
   // contract, and decorating it for the UI would 400 the whole settle.
@@ -464,17 +636,21 @@ const Billing = () => {
   // Re-quote (debounced) whenever the settle modal is open and the discount
   // changes. Falls back to a snapshot estimate when nothing is priceable.
   useEffect(() => {
-    if (!settleOpen || settleLines.length === 0) { setSettleQuote(null); return }
+    if (!settleOpen || effectiveSettleLines.length === 0) { setSettleQuote(null); return }
     const value = Number(settleDiscount) || 0
     let cancelled = false
     const t = setTimeout(() => {
+      // Quoted from the lines WITH campaign discounts folded in. Quoting the
+      // undiscounted lines is what let the modal ask for ₹500 on a bill that
+      // settled at ₹450: the cashier collected the higher figure, gave no
+      // change, and the drawer came up over at close.
       posService
-        .quotePricing(settleLines, value > 0 ? { type: settleDiscountType, value } : null)
+        .quotePricing(effectiveSettleLines, value > 0 ? { type: settleDiscountType, value } : null)
         .then((res) => { if (!cancelled) setSettleQuote(res) })
         .catch(() => { if (!cancelled) setSettleQuote(null) })
     }, 250)
     return () => { cancelled = true; clearTimeout(t) }
-  }, [settleOpen, settleDiscount, settleDiscountType, settleLines])
+  }, [settleOpen, settleDiscount, settleDiscountType, effectiveSettleLines])
 
   // Numbers shown in the settle modal: prefer the live server quote; otherwise
   // estimate the discount effect from the session snapshot totals.
@@ -939,9 +1115,18 @@ const Billing = () => {
 
       // Which branch's format this bill prints in. Taken from the cart the same
       // way the KOT does — the till itself is not branch-scoped, its items are.
+      // A COUNTER sale has already emptied the cart: handleCounterOrder commits
+      // the order and clears it before this modal ever opens. So the rounds
+      // being settled are the source, and the cart is only a last resort — read
+      // the other way round, a counter bill printed with no branch (and so the
+      // wrong receipt format) and a token slip claiming nought items.
       const printBranch = settled?.BranchDetailId
+        || sessionRounds[0]?.order?.BranchDetailId
         || cartItems.find((c) => c.meta?.BranchDetailId)?.meta.BranchDetailId
         || null
+      const settledItemCount = sessionRounds.reduce(
+        (n, r) => n + (r.items || []).length, 0,
+      ) || cartItems.length
 
       // The invoice number is the customer-facing artefact, so it headlines the
       // confirmation rather than a generic success toast.
@@ -951,7 +1136,7 @@ const Billing = () => {
         // than reconstructing a bill from the cart it happens to still hold.
         logId: settled?.TransactionDetailLogId || null,
         branchId: printBranch,
-        itemCount: cartItems.length,
+        itemCount: settledItemCount,
         transactionNo: settled?.TransactionNo || null,
         total: Number(settled?.Total) || payable,
         balanceDue: Number(settled?.BalanceDue) || 0,
@@ -986,6 +1171,58 @@ const Billing = () => {
   }
 
   if (loading) return <div className="fd-loading">Loading billing...</div>
+
+  /**
+   * Add the item an offer is waiting to discount.
+   *
+   * A free item has to EXIST as a line before anything can be taken off it —
+   * that is why the engine reports these as "earned" rather than applying them.
+   * The alternative is a phantom line the kitchen never sees and the stock
+   * never loses.
+   *
+   * @param {string} rewardItemId - An itemdetail id, from the offer.
+   */
+  const addRewardItem = (rewardItemId) => {
+    // The cart is keyed by MENU entry; an offer names the catalogue item behind
+    // it. One dish can appear on the menu more than once (different channels),
+    // so the first match is the one a cashier would have tapped.
+    const meta = menu.find((m) => m.ItemDetailId === rewardItemId)
+    if (!meta) {
+      toast.error('That item is not on this branch\u2019s menu, so it cannot be added here')
+      return
+    }
+    addToCart(meta, [])
+    toast.success(`${itemName(meta, itemDetails[meta.ItemDetailId])} added \u2014 the offer will apply`)
+    setOfferCheck(null)
+  }
+
+  /**
+   * "Check offers" — what would apply to the cart as it stands.
+   *
+   * Deliberately not the authority: the server re-evaluates inside the settle
+   * transaction from the live rules, so this cannot grant a discount and its
+   * absence cannot withhold one.
+   */
+  const checkOffers = async () => {
+    const branchId = cartItems.find((c) => c.meta?.BranchDetailId)?.meta.BranchDetailId || null
+    setCheckingOffers(true)
+    try {
+      const lines = cartItems.map((c) => ({
+        ref: c.lineKey,
+        itemId: c.itemId || null,
+        categoryId: c.categoryId || null,
+        name: c.name,
+        unitAmount: Number(c.price) || 0,
+        quantity: Number(c.qty) || 0,
+        hasManualDiscount: !!lineDiscounts[c.lineKey],
+      }))
+      setOfferCheck(await posService.previewOffers(lines, branchId, customer?.Id || null))
+    } catch (e) {
+      toast.error(e?.response?.data?.message || 'Could not check offers')
+    } finally {
+      setCheckingOffers(false)
+    }
+  }
 
   /**
    * Print the bill just settled.
@@ -1093,8 +1330,68 @@ const Billing = () => {
             value={menuSearch}
             onChange={(e) => setMenuSearch(e.target.value)}
           />
+          {/* CATEGORY. A horizontal rail rather than a wrapping block: twenty
+              categories must not push the grid off the screen. Counts are live,
+              so a category that would come back empty says so before it is
+              tapped. */}
+          {catChips.length > 2 && (
+            <div className="fd-menu-cats" role="group" aria-label="Filter by category">
+              {catChips.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  className={`fd-chip${menuCategory === c.id ? ' is-on' : ''}${c.count === 0 ? ' is-empty' : ''}`}
+                  aria-pressed={menuCategory === c.id}
+                  onClick={() => setMenuCategory(c.id)}
+                >
+                  {c.name}
+                  <span className="fd-chip-count">{c.count}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* DIET. Derived from the food types this tenant actually uses, so a
+              master with 'Jain' in it gets a chip without a code change. */}
+          {dtChips.length > 2 && (
+            <div className="fd-menu-diets" role="group" aria-label="Filter by food type">
+              <span className="fd-menu-filter-label">Diet</span>
+              {dtChips.map((d) => (
+                <button
+                  key={d.id}
+                  type="button"
+                  className={`fd-chip fd-chip-diet${menuDiet === d.id ? ' is-on' : ''}${d.count === 0 ? ' is-empty' : ''}`}
+                  aria-pressed={menuDiet === d.id}
+                  onClick={() => setMenuDiet(d.id)}
+                >
+                  <span
+                    className={`fd-diet-dot${d.id === ALL ? ' is-any' : ''}${
+                      d.id !== ALL && isVegName(menu, d.id) ? ' is-veg' : ''}`}
+                  />
+                  {d.name}
+                  <span className="fd-chip-count">{d.count}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
           {filteredMenu.length === 0 ? (
-            <div className="fd-empty">No menu items found.</div>
+            <div className="fd-empty">
+              {menuFiltered ? 'Nothing matches these filters.' : 'No menu items found.'}
+              {/* The way out is offered here rather than left to be hunted for:
+                  an empty grid with three filters on is otherwise a puzzle. */}
+              {menuFiltered && (
+                <div className="fd-empty-action">
+                  <button
+                    type="button"
+                    className="fd-link-btn"
+                    onClick={() => { setMenuCategory(ALL); setMenuDiet(ALL); setMenuSearch('') }}
+                  >
+                    Clear filters
+                  </button>
+                </div>
+              )}
+            </div>
           ) : (
             <div className="fd-menu-grid">
               {filteredMenu.map((meta) => {
@@ -1238,13 +1535,29 @@ const Billing = () => {
                     </span>
                   )}
                   {c.isTaxIncluded && <span className="tax-flag incl">incl. tax</span>}
+                  {/* The free line is DISCOUNTED, never removed — the kitchen
+                      still made it and the stock still moved. */}
+                  {offerByLine[c.lineKey] && (
+                    <span className="ci-offer">
+                      🎁 {offerByLine[c.lineKey].offerName}
+                    </span>
+                  )}
                 </span>
                 <div className="ci-qty-btns">
                   <button onClick={() => changeQty(c.lineKey, -1)}>−</button>
                   <span className="ci-qty">{c.qty}</span>
                   <button onClick={() => changeQty(c.lineKey, +1)}>+</button>
                 </div>
-                <span className="ci-price">₹{money(c.price * c.qty)}</span>
+                <span className="ci-price">
+                  {offerByLine[c.lineKey] ? (
+                    <>
+                      <span className="ci-was">₹{money(c.price * c.qty)}</span>
+                      <strong className="ci-now">
+                        ₹{money((c.price * c.qty) - offerByLine[c.lineKey].amount)}
+                      </strong>
+                    </>
+                  ) : `₹${money(c.price * c.qty)}`}
+                </span>
               </div>
             ))}
           </div>
@@ -1254,6 +1567,15 @@ const Billing = () => {
           {cartItems.length > 0 && (
             <div className="fd-cart-totals">
               <div className="total-row"><span>Subtotal</span><span>₹{money(subTotal)}</span></div>
+
+              {/* Named, not just netted: "−₹25" tells a cashier nothing when a
+                  customer asks why the total moved. */}
+              {(cartOffers?.applied || []).map((a) => (
+                <div className="total-row offer" key={a.offerId}>
+                  <span>🎁 {a.campaignName || a.name}</span>
+                  <span>−₹{money(a.discountAmount)}</span>
+                </div>
+              ))}
 
               {/* One row per tax component (CGST / SGST / …) — this is the
                   invoice footer, and it sums exactly to the Tax row. */}
@@ -1352,6 +1674,17 @@ const Billing = () => {
                         : 'Send this round to the kitchen'}
                     >
                       {selectedSent ? 'Sent ✓' : 'Send KOT'}
+                    </button>
+                  )}
+                  {/* The safety net: what the campaigns would do to this cart,
+                      before anybody takes money. */}
+                  {cartItems.length > 0 && (
+                    <button
+                      className="fd-btn fd-btn-outline"
+                      onClick={checkOffers}
+                      disabled={checkingOffers}
+                    >
+                      {checkingOffers ? 'Checking…' : '🎁 Check offers'}
                     </button>
                   )}
                   {canTakeMoney && (
@@ -1508,6 +1841,117 @@ const Billing = () => {
 
       {/* Posted-to-ledger confirmation. The invoice number is the
           customer-facing artefact, so it leads. */}
+      {/* ── What the campaigns would do ──────────────────────────────────
+          Three lists: applied, earned-but-not-taken, and did-not-apply WITH
+          THE REASON. A silent "no" is what makes staff stop trusting an offer
+          engine and start typing discounts by hand. */}
+      {offerCheck && (
+        <div className="fd-modal-backdrop" role="dialog" aria-label="Offer check">
+          <div className="ofc-panel">
+            <h3>🎁 Offer check</h3>
+            <p className="muted small" style={{ margin: '0 0 14px' }}>
+              Every live offer, run against this cart. Nothing has been charged.
+            </p>
+
+            {offerCheck.applied.length > 0 && (
+              <div className="ofc-group">
+                <h4>Applies — {money(offerCheck.totalDiscount)} off</h4>
+                {offerCheck.applied.map((a) => (
+                  <div className="ofc-row" key={a.offerId}>
+                    <span className="ofc-dot ok">✓</span>
+                    <span>
+                      <strong>{a.name} — {money(a.discountAmount)}</strong>
+                      <em>
+                        {a.campaignName ? `${a.campaignName} · ` : ''}
+                        {a.awards.map((w) => `${w.quantity} × ${w.itemName || 'item'}`).join(', ')}
+                      </em>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {offerCheck.earned.length > 0 && (
+              <div className="ofc-group">
+                <h4>Earned, but not taken</h4>
+                {offerCheck.earned.map((a) => (
+                  <div className="ofc-row" key={a.offerId}>
+                    <span className="ofc-dot add">+</span>
+                    <span style={{ flex: 1 }}>
+                      <strong>{a.name}</strong>
+                      {/* The reward has to be a line before it can be
+                          discounted — so the till asks rather than inventing a
+                          phantom line the kitchen never sees. */}
+                      <em>Qualifies. Add the item to the order to give it.</em>
+                      {a.rewardItemId && (
+                        <button
+                          className="fd-btn fd-btn-success fd-btn-sm"
+                          style={{ marginTop: 8 }}
+                          onClick={() => addRewardItem(a.rewardItemId)}
+                        >
+                          Add it
+                        </button>
+                      )}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {offerCheck.skipped.length > 0 && (
+              <div className="ofc-group">
+                <h4>Did not apply</h4>
+                {offerCheck.skipped.map((a) => (
+                  <div className="ofc-row" key={a.offerId}>
+                    <span className="ofc-dot no">✕</span>
+                    <span>
+                      <strong>{a.name}</strong>
+                      <em>
+                        {a.message
+                          || (a.shortBy !== undefined && a.shortBy !== null
+                            ? `${a.needed !== undefined && a.reason === 'BILL_TOO_SMALL'
+                              ? `₹${a.shortBy} more and it qualifies`
+                              : `${a.shortBy} more needed`}`
+                            : 'Not applicable to this bill')}
+                      </em>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {offerCheck.considered === 0 && (
+              <p className="muted small">No campaigns are running at this branch right now.</p>
+            )}
+
+            {/* A line with no catalogue item behind it matches no trigger, so
+                every offer reports "not enough items" at a cart that has
+                plenty. Saying THAT beats sending somebody to add another cup
+                of tea that will not help either. */}
+            {offerCheck.unidentifiedLines > 0 && (
+              <div className="ofc-warn" role="alert">
+                <strong>
+                  {offerCheck.unidentifiedLines} line
+                  {offerCheck.unidentifiedLines === 1 ? '' : 's'} could not be matched to a menu item.
+                </strong>
+                No offer can apply to them. Clear the cart and add the items again.
+              </div>
+            )}
+
+            <div className="ofc-note">
+              <strong>This is a preview, not the authority.</strong> The offers are re-run and
+              written when the bill settles, so skipping this check still gives the right bill.
+            </div>
+
+            <div className="ofc-actions">
+              <button className="fd-btn fd-btn-primary" onClick={() => setOfferCheck(null)}>
+                Back to the order
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Outside #root — printing takes the paper and nothing else. */}
       {job && <Receipt doc={job.doc} format={format} shop={shop} data={job.data} />}
 
@@ -1600,7 +2044,7 @@ const Billing = () => {
                     onClick={() => addTender()}
                     disabled={paymentModes.length === 0}
                   >
-                    + Add payment
+                    + Split payment
                   </button>
                 </div>
 
@@ -1613,39 +2057,89 @@ const Billing = () => {
                   <div className="fd-tender-empty">No payment added yet.</div>
                 ) : null}
 
-                {tenders.map((t) => (
-                  <div className="fd-tender-row" key={t.key}>
-                    <select
-                      aria-label="Payment mode"
-                      value={t.paymentModeId}
-                      onChange={(e) => updateTender(t.key, { paymentModeId: e.target.value })}
-                    >
-                      {paymentModes.map((m) => (
-                        <option key={m.id || m.Id} value={m.id || m.Id}>{m.Type || m.type}</option>
-                      ))}
-                    </select>
-                    <input
-                      type="number" min="0" step="0.01"
-                      aria-label="Amount"
-                      value={t.amount}
-                      onChange={(e) => updateTender(t.key, { amount: e.target.value })}
-                    />
-                    {/* Reference only appears where reconciliation needs it, so
-                        the cash path stays two taps. */}
-                    {needsRef(t.paymentModeId) && (
-                      <input
-                        type="text"
-                        aria-label="Reference number"
-                        placeholder="Ref no."
-                        value={t.refNo || ''}
-                        onChange={(e) => updateTender(t.key, { refNo: e.target.value })}
-                      />
+                {/* HOW IT IS PAID, ON THE SCREEN.
+                    This was a 90px-wide <select> — every option hidden behind a
+                    tap, and 'District Settlement' rendered as 'District S…', so
+                    a cashier could not read what they were choosing. Radios put
+                    every mode in front of them, and each one names the ACCOUNT
+                    it books to: settling a counter sale to a portal tender puts
+                    the money in a receivable, not the drawer, and leaves the
+                    cash session short with nothing on screen to explain it.
+
+                    Still one radio group PER TENDER, because a bill can be
+                    split across several — flattening it to a single choice
+                    would quietly remove split settlement. */}
+                {tenders.map((t, ti) => (
+                  <div className="fd-tender-block" key={t.key}>
+                    {tenders.length > 1 && (
+                      <div className="fd-tender-block-head">
+                        <span>Payment {ti + 1}</span>
+                        <button
+                          type="button" className="fd-tender-remove"
+                          aria-label={`Remove payment ${ti + 1}`}
+                          onClick={() => removeTender(t.key)}
+                        >×</button>
+                      </div>
                     )}
-                    <button
-                      type="button" className="fd-tender-remove"
-                      aria-label="Remove payment"
-                      onClick={() => removeTender(t.key)}
-                    >×</button>
+
+                    <div
+                      className="fd-mode-grid"
+                      role="radiogroup"
+                      aria-label={tenders.length > 1 ? `Payment ${ti + 1} mode` : 'Payment mode'}
+                    >
+                      {paymentModes.map((m) => {
+                        const mid = m.id || m.Id
+                        const on = t.paymentModeId === mid
+                        return (
+                          <label key={mid} className={`fd-mode${on ? ' is-on' : ''}`}>
+                            {/* A real radio under the styling, never a div
+                                pretending: arrow keys move between them and the
+                                choice is announced. */}
+                            <input
+                              type="radio"
+                              name={`tender-mode-${t.key}`}
+                              value={mid}
+                              checked={on}
+                              onChange={() => updateTender(t.key, { paymentModeId: mid })}
+                            />
+                            <span className="fd-mode-ring" aria-hidden="true" />
+                            <span className="fd-mode-text">
+                              <span className="fd-mode-name">{m.Type || m.type}</span>
+                              {(m.AccountName || m.accountName) && (
+                                <span className="fd-mode-acct">{m.AccountName || m.accountName}</span>
+                              )}
+                            </span>
+                          </label>
+                        )
+                      })}
+                    </div>
+
+                    <div className="fd-tender-row">
+                      <input
+                        type="number" min="0" step="0.01"
+                        aria-label={tenders.length > 1 ? `Payment ${ti + 1} amount` : 'Amount'}
+                        value={t.amount}
+                        onChange={(e) => updateTender(t.key, { amount: e.target.value })}
+                      />
+                      {/* Reference only appears where reconciliation needs it, so
+                          the cash path stays two taps. */}
+                      {needsRef(t.paymentModeId) && (
+                        <input
+                          type="text"
+                          aria-label="Reference number"
+                          placeholder="Ref no."
+                          value={t.refNo || ''}
+                          onChange={(e) => updateTender(t.key, { refNo: e.target.value })}
+                        />
+                      )}
+                      {tenders.length === 1 && (
+                        <button
+                          type="button" className="fd-tender-remove"
+                          aria-label="Remove payment"
+                          onClick={() => removeTender(t.key)}
+                        >×</button>
+                      )}
+                    </div>
                   </div>
                 ))}
 
@@ -1823,6 +2317,16 @@ const Billing = () => {
               <div className="fd-settle-payable-row">
                 <span>Subtotal</span><span>₹{money(settleTotals.subTotal)}</span>
               </div>
+              {/* Named, the way the cart names them. A campaign discount folded
+                  silently into "Discount" is one the cashier cannot explain when
+                  the customer asks why the total moved — and cannot spot when it
+                  is wrong. */}
+              {(settleOffers?.applied || []).map((a) => (
+                <div className="fd-settle-payable-row fd-settle-discount fd-settle-payable-sub" key={a.offerId}>
+                  <span>🎁 {a.campaignName || a.name}</span>
+                  <span>−₹{money(a.discountAmount)}</span>
+                </div>
+              ))}
               {/* Split out ONLY when both kinds apply. With one kind the split
                   would just restate the total on the row below it, and a
                   cashier reading two identical figures has to work out that

@@ -394,6 +394,16 @@ export const getItemDetail = async (id) => {
   const res = await api.get(`/api/itemdetails/${id}`)
   return toObject(res.data)
 }
+// The catalogue, for pickers that name an item or a category — the offer
+// builder's triggers and rewards.
+export const getItemDetails = async (params = {}) => {
+  const res = await api.get('/api/itemdetails', { params: { limit: MAX_LIMIT, ...params } })
+  return toArray(res.data)
+}
+export const getCategories = async (params = {}) => {
+  const res = await api.get('/api/categories', { params: { limit: MAX_LIMIT, ...params } })
+  return toArray(res.data)
+}
 export const getInventoryEndpoint = async (path, params = {}) => {
   const res = await api.get(path, { params })
   return toArray(res.data)
@@ -709,6 +719,64 @@ export const setReceiptTaxMode = async (branchId, taxMode) => {
   return toObject(res.data)
 }
 
+// ── Campaigns and offers ────────────────────────────────────────────────────
+// An offer is not a second way to price a bill: the engine produces the same
+// per-line discounts the till already takes.
+export const getCampaigns = async () => {
+  const res = await api.get('/api/pos/campaigns')
+  return toArray(res.data)
+}
+export const getCampaign = async (id) => {
+  const res = await api.get(`/api/pos/campaigns/${id}`)
+  return toObject(res.data)
+}
+export const createCampaign = async (payload) => {
+  const res = await api.post('/api/pos/campaigns', payload)
+  return toObject(res.data)
+}
+export const updateCampaign = async (id, payload) => {
+  const res = await api.put(`/api/pos/campaigns/${id}`, payload)
+  return toObject(res.data)
+}
+export const setCampaignStatus = async (id, Status) => {
+  const res = await api.put(`/api/pos/campaigns/${id}/status`, { Status })
+  return toObject(res.data)
+}
+export const deleteCampaign = async (id) => {
+  const res = await api.delete(`/api/pos/campaigns/${id}`)
+  return toObject(res.data)
+}
+export const getCampaignReport = async (id) => {
+  const res = await api.get(`/api/pos/campaigns/${id}/report`)
+  return toObject(res.data)
+}
+export const getCampaignOffers = async (id) => {
+  const res = await api.get(`/api/pos/campaigns/${id}/offers`)
+  return toArray(res.data)
+}
+export const createOffer = async (campaignId, payload) => {
+  const res = await api.post(`/api/pos/campaigns/${campaignId}/offers`, payload)
+  return toObject(res.data)
+}
+export const updateOffer = async (id, payload) => {
+  const res = await api.put(`/api/pos/offers/${id}`, payload)
+  return toObject(res.data)
+}
+export const deleteOffer = async (id) => {
+  const res = await api.delete(`/api/pos/offers/${id}`)
+  return toObject(res.data)
+}
+// The "Check offers" button. Writes nothing, and is deliberately not the
+// authority — settle re-runs the same rules server-side.
+// posCustomerId is what makes a per-customer daily cap mean anything: the
+// server counts what THIS customer has already taken today. Left out, the till
+// would happily show an offer the settle path then refuses — the one disagreement
+// between preview and enforcement that destroys trust in a promotion.
+export const previewOffers = async (lines, branchId, posCustomerId = null) => {
+  const res = await api.post('/api/pos/preview', { lines, branchId, posCustomerId })
+  return toObject(res.data)
+}
+
 const posService = {
   getFloors, createFloor, updateFloor, deleteFloor,
   getTables, createTable, updateTable, deleteTable,
@@ -739,6 +807,10 @@ const posService = {
   getRefundSettlementQueue, setRefundSettlement,
   getReturnReasonsReport, getReturnProductReport, getReturnReasons,
   getReceiptFormat, getReceiptFormatSchema, updateReceiptFormat, setReceiptTaxMode,
+  getItemDetails, getCategories,
+  getCampaigns, getCampaign, createCampaign, updateCampaign, setCampaignStatus,
+  deleteCampaign, getCampaignReport, getCampaignOffers,
+  createOffer, updateOffer, deleteOffer, previewOffers,
   getFinanceOverview, getSalesReport, getProductReport, getPendingReport,
   getTenderReport, getCashFlowReport, getExpenseReport,
   getVenueReport, getDiscountReport, getChannelReport, getTokenStats,

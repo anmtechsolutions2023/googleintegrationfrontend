@@ -36,7 +36,16 @@ const Kitchen = () => {
   // Reprint. The pass shows tickets from every branch at once, so the format is
   // loaded for whichever ticket is being reprinted rather than for the page.
   const [printBranchId, setPrintBranchId] = useState(null)
-  const { job, format, shop, print, ready } = usePrintReceipt(printBranchId)
+  const { job, format, shop, print, ready, failed: printFailed, clearFailed } = usePrintReceipt(printBranchId)
+
+  // A print that quietly does nothing is indistinguishable from a printer that
+  // is switched off, and the cashier reprints instead of investigating. Say it.
+  useEffect(() => {
+    if (!printFailed) return
+    toast.error('The receipt did not render, so nothing was sent to the printer. Try again.')
+    clearFailed()
+  }, [printFailed, clearFailed])
+
   // Held between choosing a ticket and its branch's format arriving. Printing
   // straight away would put the first reprint of a session on the fallback
   // format — the one case where the copies setting silently would not apply.

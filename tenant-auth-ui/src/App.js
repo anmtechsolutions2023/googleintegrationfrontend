@@ -61,6 +61,8 @@ import Ledger from './pages/frontdesk/Ledger';
 import Finance from './pages/frontdesk/Finance';
 import Returns from './pages/frontdesk/Returns';
 import ReceiptFormat from './pages/frontdesk/ReceiptFormat';
+import Campaigns from './pages/frontdesk/Campaigns';
+import CampaignDetail from './pages/frontdesk/CampaignDetail';
 import CashSessions from './pages/frontdesk/CashSessions';
 import Assets from './pages/frontdesk/Assets';
 import AssetCategories from './pages/frontdesk/AssetCategories';
@@ -282,6 +284,10 @@ const AppRoutes = () => {
           {/* What prints on paper. Configuration — the same scopes as the menu
               and the floor plan, not the operational POS ones. */}
           <Route path="receipt-format" element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ, SCOPES.POS_CONFIG_WRITE, SCOPES.TENANT_ADMIN]}><ReceiptFormat /></ScopeGuard>} />
+          {/* Campaigns and the offers inside them. Configuration — creating an
+              offer authorises the business to give money away on every till. */}
+          <Route path="campaigns"      element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ, SCOPES.POS_CONFIG_WRITE, SCOPES.TENANT_ADMIN]}><Campaigns /></ScopeGuard>} />
+          <Route path="campaigns/:id"  element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ, SCOPES.POS_CONFIG_WRITE, SCOPES.TENANT_ADMIN]}><CampaignDetail /></ScopeGuard>} />
           {/* The drawer belongs to whoever takes the money. */}
           <Route path="cash-sessions"  element={<ScopeGuard requiredScopes={[SCOPES.POS_BILLING_READ, SCOPES.POS_BILLING_WRITE, SCOPES.TENANT_ADMIN]}><CashSessions /></ScopeGuard>} />
           <Route path="assets"         element={<ScopeGuard requiredScopes={[SCOPES.ASSET_READ, SCOPES.ASSET_WRITE, SCOPES.TENANT_ADMIN]}><Assets /></ScopeGuard>} />

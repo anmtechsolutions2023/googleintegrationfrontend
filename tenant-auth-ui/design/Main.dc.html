@@ -1,0 +1,279 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif; -webkit-font-smoothing: antialiased; }
+    a { color: #2980b9; } a:hover { color: #1c5a85; }
+    .fdx-cat::-webkit-scrollbar { height: 6px; }
+    .fdx-cat::-webkit-scrollbar-thumb { background: #d0d4da; border-radius: 3px; }
+    .fdx-grid::-webkit-scrollbar { width: 6px; }
+    .fdx-grid::-webkit-scrollbar-thumb { background: #d0d4da; border-radius: 3px; }
+  </style>
+</helmet>
+
+<div style="background: #f5f7fa; padding: 24px; box-sizing: border-box; min-height: 100%;">
+
+  <!-- Billing bar, exactly as the app draws it -->
+  <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 16px;">
+    <h1 style="font-size: 22px; color: #2c3e50; margin: 0; font-weight: 700;">Billing &amp; KOT</h1>
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <span style="display: inline-flex; align-items: center; gap: 8px; background: #fff; border: 1px solid #d5f5e3; border-radius: 20px; padding: 6px 14px; font-size: 13px; font-weight: 600; color: #2c3e50;">
+        <span style="width: 8px; height: 8px; border-radius: 50%; background: #27ae60; display: inline-block;"></span>
+        Tree-01
+      </span>
+      <button style="padding: 8px 16px; border-radius: 6px; border: 1px solid #d0d4da; background: transparent; color: #5a6c7d; font-size: 14px; font-weight: 500; cursor: pointer;">Change table</button>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; align-items: start;">
+
+    <!-- ── Menu panel ────────────────────────────────────────────── -->
+    <div style="background: #fff; border-radius: 8px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); display: flex; flex-direction: column; min-height: 0;">
+
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px;">
+        <span style="font-size: 14px; font-weight: 600; color: #2c3e50;">Menu Items</span>
+        <span style="font-size: 12px; color: #95a5a6;">{{shown}} of {{total}} shown</span>
+      </div>
+
+      <input placeholder="Search menu..." value="{{query}}" onInput="{{onSearch}}"
+        style="width: 100%; padding: 8px 12px; border: 1px solid #d0d4da; border-radius: 6px; font-size: 14px; margin-bottom: 12px; box-sizing: border-box; color: #2c3e50;" />
+
+      <!-- CATEGORY RAIL. Horizontally scrollable so 20 categories never wrap
+           the grid off screen; counts are live so an empty category is
+           visible before it is tapped. -->
+      <div class="fdx-cat" style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 10px;">
+        <sc-for list="{{cats}}" as="c" hint-placeholder-count="5">
+          <button onClick="{{c.pick}}" style="{{c.style}}">
+            <span>{{c.name}}</span>
+            <span style="{{c.countStyle}}">{{c.count}}</span>
+          </button>
+        </sc-for>
+      </div>
+
+      <!-- DIET FILTER. A separate axis from category — a cashier filters by
+           both at once ("Pizza, veg only"), so these are two controls, not one
+           merged list. Single-select with an All escape. -->
+      <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid #f0f4f8;">
+        <span style="font-size: 12px; color: #7f8c8d; font-weight: 600;">Diet</span>
+        <sc-for list="{{diets}}" as="d" hint-placeholder-count="4">
+          <button onClick="{{d.pick}}" style="{{d.style}}">
+            <span style="{{d.dotStyle}}"></span>
+            <span>{{d.name}}</span>
+          </button>
+        </sc-for>
+      </div>
+
+      <sc-if value="{{isEmpty}}" hint-placeholder-val="{{false}}">
+        <div style="text-align: center; padding: 48px 20px; color: #7f8c8d; font-size: 15px;">
+          Nothing in {{emptyLabel}}.
+          <div style="margin-top: 10px;">
+            <button onClick="{{reset}}" style="background: none; border: none; color: #2980b9; cursor: pointer; font-size: 13px; font-weight: 600; padding: 0;">Clear filters</button>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{hasItems}}" hint-placeholder-val="{{true}}">
+        <div class="fdx-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); grid-auto-rows: min-content; gap: 10px; align-content: start; max-height: 470px; overflow-y: auto; padding-right: 4px;">
+          <sc-for list="{{items}}" as="it" hint-placeholder-count="12">
+            <div style="border: 1px solid #e1e5eb; border-radius: 8px; padding: 12px 10px; min-height: 76px; cursor: pointer; background: #fff; box-sizing: border-box;">
+              <span style="{{it.badgeStyle}}">{{it.diet}}</span>
+              <div style="font-size: 13px; font-weight: 600; color: #2c3e50; margin-bottom: 4px;">{{it.name}}</div>
+              <div style="font-size: 13px; color: #27ae60; font-weight: 600;">
+                {{it.price}}
+                <span style="display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 10px; font-size: 10px; font-weight: 600; white-space: nowrap; vertical-align: middle; background: #d4edda; color: #155724;">incl. 5% tax</span>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+    </div>
+
+    <!-- ── Cart panel (context only) ─────────────────────────────── -->
+    <div style="background: #fff; border-radius: 8px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.08);">
+      <div style="font-size: 13px; color: #7f8c8d; text-align: center; padding: 10px 0 16px; line-height: 1.5;">
+        No active order — the next items will start Round 1.
+      </div>
+      <label style="font-size: 13px; color: #5a6c7d; display: block; margin-bottom: 2px;">Customer <span style="color: #95a5a6;">(optional)</span></label>
+      <input placeholder="Phone or name…" style="width: 100%; padding: 8px 10px; border: 1px solid #d0d4da; border-radius: 6px; font-size: 14px; box-sizing: border-box; margin-bottom: 24px;" />
+      <div style="text-align: center; color: #95a5a6; font-size: 13px; padding: 40px 0;">Tap menu items to add</div>
+      <div style="display: flex; flex-direction: column; gap: 8px; border-top: 1px solid #f0f4f8; padding-top: 14px;">
+        <button style="padding: 10px 16px; border-radius: 6px; border: none; background: #8b9bb0; color: #fff; font-size: 14px; font-weight: 500; cursor: pointer;">Start Order</button>
+        <div style="display: flex; gap: 8px;">
+          <button style="flex: 1; padding: 10px 16px; border-radius: 6px; border: none; background: #f5cba7; color: #7e5109; font-size: 14px; font-weight: 500; cursor: pointer;">Send KOT</button>
+          <button style="flex: 1; padding: 10px 16px; border-radius: 6px; border: none; background: #a9dfbf; color: #1e6b3a; font-size: 14px; font-weight: 500; cursor: pointer;">Settle Bill</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"density":{"editor":"enum","options":["Comfortable","Compact"],"default":"Comfortable","section":"Layout"},"showCounts":{"editor":"boolean","default":true,"section":"Layout"}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    // Two independent axes. Merging them into one filter list is the tempting
+    // shortcut and it is wrong: a cashier genuinely wants "Pizza, veg only",
+    // and a single list cannot express an AND of two different kinds of thing.
+    this.state = { cat: 'all', diet: 'all', query: '' };
+  }
+
+  catalogue() {
+    // Real dishes from the tenant's own menu, so the counts and the wrapping
+    // are honest rather than flattering.
+    return [
+      { n: 'Margherita 8 inch',            c: 'Pizza',     p: 229, v: 'Veg' },
+      { n: 'Margherita 10 inch',           c: 'Pizza',     p: 269, v: 'Veg' },
+      { n: 'Peppy Paneer 8 inch',          c: 'Pizza',     p: 299, v: 'Veg' },
+      { n: 'Peppy Paneer 10 inch',         c: 'Pizza',     p: 339, v: 'Veg' },
+      { n: 'Veggie Deluxe 8 inch',         c: 'Pizza',     p: 299, v: 'Veg' },
+      { n: 'Veggie Deluxe 10 inch',        c: 'Pizza',     p: 339, v: 'Veg' },
+      { n: 'Paneer Makhni 8 inch',         c: 'Pizza',     p: 299, v: 'Veg' },
+      { n: 'Paneer Makhni 10 inch',        c: 'Pizza',     p: 339, v: 'Veg' },
+      { n: 'Cheese Corn 8 inch',           c: 'Pizza',     p: 269, v: 'Veg' },
+      { n: 'Tandoori Paneer 8 inch',       c: 'Pizza',     p: 299, v: 'Veg' },
+      { n: 'Tandoori Chicken 8 inch',      c: 'Pizza',     p: 299, v: 'Non-Veg' },
+      { n: 'Tandoori Chicken 10 inch',     c: 'Pizza',     p: 339, v: 'Non-Veg' },
+      { n: 'Chicken Cheese 8 inch',        c: 'Pizza',     p: 299, v: 'Non-Veg' },
+      { n: 'Chicken Cheese 10 inch',       c: 'Pizza',     p: 339, v: 'Non-Veg' },
+      { n: 'BBQ Chicken 8 inch',           c: 'Pizza',     p: 299, v: 'Non-Veg' },
+      { n: 'BBQ Chicken 10 inch',          c: 'Pizza',     p: 339, v: 'Non-Veg' },
+      { n: 'Chicken Deluxe 10 inch',       c: 'Pizza',     p: 339, v: 'Non-Veg' },
+      { n: "Crack'D SPL Veg 8 inch",       c: 'Pizza',     p: 309, v: 'Veg' },
+      { n: "Crack'D SPL Non Veg 8 inch",   c: 'Pizza',     p: 309, v: 'Non-Veg' },
+      { n: 'Masala Chai',                  c: 'Beverages', p: 25,  v: 'Veg' },
+      { n: 'Plain Tea',                    c: 'Beverages', p: 15,  v: 'Veg' },
+      { n: 'Cold Coffee',                  c: 'Beverages', p: 89,  v: 'Veg' },
+      { n: 'Fresh Lime Soda',              c: 'Beverages', p: 69,  v: 'Vegan' },
+      { n: 'Garlic Bread',                 c: 'Sides',     p: 129, v: 'Veg' },
+      { n: 'Peri Peri Fries',              c: 'Sides',     p: 149, v: 'Vegan' },
+      { n: 'Chicken Wings',                c: 'Sides',     p: 219, v: 'Non-Veg' },
+      { n: 'Choco Lava Cake',              c: 'Desserts',  p: 99,  v: 'Veg' },
+    ];
+  }
+
+  matches(it, cat, diet, q) {
+    if (cat !== 'all' && it.c !== cat) return false;
+    if (diet !== 'all' && it.v !== diet) return false;
+    if (q && it.n.toLowerCase().indexOf(q.toLowerCase()) === -1) return false;
+    return true;
+  }
+
+  renderVals() {
+    const all = this.catalogue();
+    const { cat, diet, query } = this.state;
+    const compact = this.props.density === 'Compact';
+    const showCounts = this.props.showCounts !== false;
+
+    // A count is only useful if it reflects the OTHER filters that are on.
+    // Counting the whole catalogue would promise twelve pizzas and deliver
+    // four the moment "Veg" is also selected.
+    const countFor = (c) =>
+      all.filter((it) => this.matches(it, c, diet, query)).length;
+    const dietCount = (d) =>
+      all.filter((it) => this.matches(it, cat, d, query)).length;
+
+    const catNames = [];
+    all.forEach((it) => { if (catNames.indexOf(it.c) === -1) catNames.push(it.c); });
+
+    const chip = (on, n) => {
+      const pad = compact ? '6px 12px' : '8px 14px';
+      return 'display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; flex: 0 0 auto;'
+        + ' padding: ' + pad + '; border-radius: 18px; font-size: 13px; font-weight: 600; cursor: pointer;'
+        + ' transition: all 0.15s ease;'
+        + (on
+          ? ' background: #0f3460; color: #fff; border: 1px solid #0f3460;'
+          : (n === 0
+            // Empty under the current filters: still tappable, but it says so
+            // rather than looking like a category that simply has nothing.
+            ? ' background: #fff; color: #b9c2cc; border: 1px solid #eef1f4;'
+            : ' background: #fff; color: #5a6c7d; border: 1px solid #d0d4da;'));
+    };
+
+    const countPill = (on) =>
+      (showCounts ? 'display: inline-block;' : 'display: none;')
+      + ' font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 9px;'
+      + (on ? ' background: rgba(255,255,255,0.22); color: #fff;'
+            : ' background: #f0f4f8; color: #7f8c8d;');
+
+    const cats = [{ id: 'all', name: 'All' }]
+      .concat(catNames.map((c) => ({ id: c, name: c })))
+      .map((c) => {
+        const n = countFor(c.id);
+        const on = cat === c.id;
+        return {
+          name: c.name,
+          count: n,
+          style: chip(on, n),
+          countStyle: countPill(on),
+          pick: () => this.setState({ cat: c.id }),
+        };
+      });
+
+    // The dot is the whole point of a diet chip: staff read the colour, not
+    // the word. It carries the same green/red the item badges already use.
+    const DOTS = { all: '#95a5a6', Veg: '#1e8449', Vegan: '#0e7490', 'Non-Veg': '#c0392b' };
+    const diets = [
+      { id: 'all', name: 'All' },
+      { id: 'Veg', name: 'Veg' },
+      { id: 'Vegan', name: 'Vegan' },
+      { id: 'Non-Veg', name: 'Non-Veg' },
+    ].map((d) => {
+      const n = dietCount(d.id);
+      const on = diet === d.id;
+      return {
+        name: d.name,
+        style: chip(on, n) + ' font-size: 12.5px;',
+        dotStyle: 'width: 9px; height: 9px; border-radius: 50%; display: inline-block;'
+          + ' background: ' + (on ? '#fff' : DOTS[d.id]) + ';'
+          + (d.id === 'all' ? ' opacity: 0.55;' : ''),
+        pick: () => this.setState({ diet: d.id }),
+      };
+    });
+
+    const shownItems = all.filter((it) => this.matches(it, cat, diet, query));
+
+    const badge = (v) => {
+      const map = {
+        Veg: 'background: #d5f5e3; color: #1e8449;',
+        Vegan: 'background: #cffafe; color: #0e7490;',
+        'Non-Veg': 'background: #fde8e8; color: #c0392b;',
+      };
+      return 'font-size: 10px; padding: 2px 6px; border-radius: 10px; margin-bottom: 4px;'
+        + ' display: inline-block; font-weight: 600; ' + map[v];
+    };
+
+    const label = cat === 'all'
+      ? (diet === 'all' ? 'the menu' : diet)
+      : (diet === 'all' ? cat : cat + ' · ' + diet);
+
+    return {
+      cats,
+      diets,
+      items: shownItems.map((it) => ({
+        name: it.n,
+        price: '₹' + it.p.toFixed(2),
+        diet: it.v,
+        badgeStyle: badge(it.v),
+      })),
+      shown: shownItems.length,
+      total: all.length,
+      hasItems: shownItems.length > 0,
+      isEmpty: shownItems.length === 0,
+      emptyLabel: label,
+      query,
+      onSearch: (e) => this.setState({ query: e.target.value }),
+      reset: () => this.setState({ cat: 'all', diet: 'all', query: '' }),
+    };
+  }
+}
+</script>
+</body>
+</html>

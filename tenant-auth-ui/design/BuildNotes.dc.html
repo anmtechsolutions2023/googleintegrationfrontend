@@ -1,0 +1,145 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif; -webkit-font-smoothing: antialiased; }
+    a { color: #2980b9; } a:hover { color: #1c5a85; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px;
+           background: #f0f4f8; padding: 1px 5px; border-radius: 4px; color: #0f3460; }
+  </style>
+</helmet>
+
+<div style="background: #fff; padding: 28px 32px; box-sizing: border-box; min-height: 100%;">
+
+  <h1 style="font-size: 20px; color: #2c3e50; margin: 0 0 4px; font-weight: 700;">What it takes to build</h1>
+  <p style="font-size: 13px; color: #7f8c8d; margin: 0 0 24px; line-height: 1.55;">
+    The two screens beside this, in terms of the code that has to change.
+  </p>
+
+  <!-- ── The blocker ─────────────────────────────────────────────── -->
+  <div style="border: 1px solid #f5cba7; background: #fef9f3; border-radius: 8px; padding: 16px; margin-bottom: 22px;">
+    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#b9600f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+        <line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line>
+      </svg>
+      <span style="font-size: 14px; font-weight: 700; color: #b9600f;">The menu has no categories today</span>
+    </div>
+    <p style="font-size: 13px; color: #5a6c7d; margin: 0 0 10px; line-height: 1.6;">
+      <code>QUERIES.POS_ITEM_META.SELECT_ALL</code> joins <code>costinfo</code> and
+      <code>pos_food_type</code> only. Nothing in the till's menu payload names a category,
+      so the rail has nothing to group by. One join fixes it — the path already exists in
+      <code>SELECT_CATALOGUE_IDS</code>, which resolves a menu id to its
+      <code>itemdetail</code> and <code>CategoryId</code>.
+    </p>
+    <div style="background: #fff; border: 1px solid #f0dcc4; border-radius: 6px; padding: 10px 12px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11.5px; color: #2c3e50; line-height: 1.6;">
+      LEFT JOIN itemdetail idt ON idt.Id = im.ItemDetailId<br>
+      LEFT JOIN categorydetail cat ON cat.Id = idt.CategoryId<br>
+      <span style="color: #27ae60;">-- add: cat.Id AS CategoryId, cat.Name AS CategoryName</span>
+    </div>
+    <p style="font-size: 12px; color: #7f8c8d; margin: 10px 0 0; line-height: 1.55;">
+      Diet needs no backend change — <code>FoodTypeName</code> and <code>FoodTypeIsVeg</code>
+      already arrive, and the grid already draws a badge from them.
+    </p>
+  </div>
+
+  <!-- ── Decisions ───────────────────────────────────────────────── -->
+  <h2 style="font-size: 15px; color: #2c3e50; margin: 0 0 12px; font-weight: 700;">Decisions worth your eye</h2>
+  <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px;">
+
+    <div style="border: 1px solid #e1e5eb; border-radius: 8px; padding: 13px 15px;">
+      <div style="font-size: 13.5px; font-weight: 600; color: #2c3e50; margin-bottom: 4px;">Category and diet are two controls, not one list</div>
+      <div style="font-size: 12.5px; color: #5a6c7d; line-height: 1.6;">
+        A cashier wants “Pizza, veg only”. One merged row of chips cannot express an AND
+        of two different kinds of thing, and folding Veg in among the categories makes
+        “Veg” look like somewhere dishes live.
+      </div>
+    </div>
+
+    <div style="border: 1px solid #e1e5eb; border-radius: 8px; padding: 13px 15px;">
+      <div style="font-size: 13.5px; font-weight: 600; color: #2c3e50; margin-bottom: 4px;">Counts react to the other filter</div>
+      <div style="font-size: 12.5px; color: #5a6c7d; line-height: 1.6;">
+        With Veg on, “Pizza 12” would be a lie — it is 10. Each count is computed under
+        every filter except its own, so a category showing 0 is greyed and honest rather
+        than a tap that empties the grid for no visible reason.
+      </div>
+    </div>
+
+    <div style="border: 1px solid #e1e5eb; border-radius: 8px; padding: 13px 15px;">
+      <div style="font-size: 13.5px; font-weight: 600; color: #2c3e50; margin-bottom: 4px;">Search spans everything, filters narrow it</div>
+      <div style="font-size: 12.5px; color: #5a6c7d; line-height: 1.6;">
+        Typing “paneer” with Beverages selected finds nothing, which is confusing. Two
+        options: search clears the category, or the empty state offers “Search all
+        categories instead”. The prototype does the latter — <b>your call</b>.
+      </div>
+    </div>
+
+    <div style="border: 1px solid #e1e5eb; border-radius: 8px; padding: 13px 15px;">
+      <div style="font-size: 13.5px; font-weight: 600; color: #2c3e50; margin-bottom: 4px;">Vegan is its own chip, not a kind of Veg</div>
+      <div style="font-size: 12.5px; color: #5a6c7d; line-height: 1.6;">
+        <code>pos_food_type</code> seeds Veg, Vegan and Non-Veg, and Vegan has
+        <code>IsVeg = 1</code>. So “Veg” filtering on <code>IsVeg</code> would sweep vegan
+        dishes in. The chips filter on <code>FoodTypeName</code>, and the food-type master
+        is CRUD-managed — a tenant adding “Jain” gets a chip with no code change.
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── Settle ──────────────────────────────────────────────────── -->
+  <h2 style="font-size: 15px; color: #2c3e50; margin: 0 0 12px; font-weight: 700;">Settle Bill</h2>
+  <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px;">
+
+    <div style="border: 1px solid #e1e5eb; border-radius: 8px; padding: 13px 15px;">
+      <div style="font-size: 13.5px; font-weight: 600; color: #2c3e50; margin-bottom: 4px;">Why the dropdown truncated</div>
+      <div style="font-size: 12.5px; color: #5a6c7d; line-height: 1.6;">
+        <code>.fd-tender-row select { flex: 0 0 90px }</code> — 90px fixed. That is what
+        turned “District Settlement” into “District S…” in your screenshot. Radio cards
+        give each mode a full line and a second line for the account it books to.
+      </div>
+    </div>
+
+    <div style="border: 1px solid #e1e5eb; border-radius: 8px; padding: 13px 15px;">
+      <div style="font-size: 13.5px; font-weight: 600; color: #2c3e50; margin-bottom: 4px;">Split payment must survive</div>
+      <div style="font-size: 12.5px; color: #5a6c7d; line-height: 1.6;">
+        Today each tender row carries its own <code>&lt;select&gt;</code>, and the server
+        writes one <code>paymentbreakup</code> per row. Radios that allow only one mode
+        would quietly remove split settlement, so “+ Split payment” adds a second block
+        with its own visible selector and shows what is left to collect.
+      </div>
+    </div>
+
+    <div style="border: 1px solid #e1e5eb; border-radius: 8px; padding: 13px 15px;">
+      <div style="font-size: 13.5px; font-weight: 600; color: #2c3e50; margin-bottom: 4px;">Portal tenders sit apart</div>
+      <div style="font-size: 12.5px; color: #5a6c7d; line-height: 1.6;">
+        Zomato, Swiggy and District book to <b>Aggregator Receivable</b>, not the drawer.
+        Listing them beside Cash invites a counter sale being settled to a portal, which
+        makes the cash session short. Own heading, own group.
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── Accessibility ───────────────────────────────────────────── -->
+  <div style="border-left: 3px solid #2980b9; background: #eef6fd; border-radius: 4px; padding: 12px 14px;">
+    <div style="font-size: 13px; font-weight: 700; color: #1c5a85; margin-bottom: 6px;">When it is built</div>
+    <div style="font-size: 12.5px; color: #1c5a85; line-height: 1.65;">
+      Payment modes go in a <code>role="radiogroup"</code> with real
+      <code>&lt;input type="radio"&gt;</code>, so arrow keys move between them and the
+      selection is announced — the drawn ring is styling over a real control, never a
+      replacement. Filter chips are <code>&lt;button aria-pressed&gt;</code>. Both keep
+      the app's existing <code>:focus-visible</code> outline
+      (<code>2px solid #2980b9</code>, 2px offset). Every chip and card clears 44px.
+    </div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

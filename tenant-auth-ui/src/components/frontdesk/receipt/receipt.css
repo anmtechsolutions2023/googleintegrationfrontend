@@ -83,20 +83,33 @@
    "Print only the bill" is a DOM problem, not a styling one. Hiding page
    furniture element by element never finishes, because the next screen that
    prints has its own. The receipt renders OUTSIDE #root as a sibling; here the
-   entire application is hidden and exactly one thing is left on the paper. */
-@media print {
-  html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; }
-  #root { display: none !important; }
-  /* Anything else a library has parked on the body — toasts, modal roots. */
-  body > div:not(.rc-root) { display: none !important; }
+   entire application is hidden and exactly one thing is left on the paper.
 
-  .rc-root { display: block !important; }
-  .rc-paper { box-shadow: none !important; margin: 0 !important; }
+   EVERY RULE BELOW IS GATED ON body.rc-printing, which usePrintReceipt adds
+   only while a receipt is actually on the paper, and removes afterwards.
+
+   Ungated, these rules applied to the WHOLE APPLICATION for the entire session:
+   this stylesheet ships in the main bundle, so from the moment the till loaded,
+   any print anywhere — Ctrl+P on a report, the browser's own Print — hid #root
+   and forced an 80mm page. The result was a blank narrow strip, every time,
+   on every screen. A receipt stylesheet must not be able to break printing for
+   pages that have nothing to do with receipts. */
+@media print {
+  body.rc-printing { margin: 0 !important; padding: 0 !important; background: #fff !important; }
+  /* EVERY sibling, not just the divs. #root is one, but a toast container, a
+     modal root or the stray <a> a download helper leaves behind are not always
+     divs — and one un-hidden sibling is a page of application furniture on a
+     till roll. */
+  body.rc-printing > *:not(.rc-root) { display: none !important; }
+
+  body.rc-printing .rc-root { display: block !important; }
+  body.rc-printing .rc-paper { box-shadow: none !important; margin: 0 !important; }
   /* A preview left mounted on the configuring screen must not print alongside
      the thing the user actually asked for. */
-  .rc-inline { display: none !important; }
+  body.rc-printing .rc-inline { display: none !important; }
 }
 
-/* The page is the paper: 80mm wide, and as long as the content needs. Without
-   this the job goes to A4 and the receipt sits in the middle of a blank sheet. */
-@page { size: 80mm auto; margin: 0; }
+/* NOTE: the page size lives in a <style> element usePrintReceipt injects for
+   the duration of the print, NOT here. @page cannot be scoped by a selector, so
+   a rule in this file would set every page in the application to 80mm — which
+   is what made a report print as a blank till roll. */
