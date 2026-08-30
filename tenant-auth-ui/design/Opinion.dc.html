@@ -1,0 +1,130 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif; -webkit-font-smoothing: antialiased; }
+    a { color: #2980b9; } a:hover { color: #1c5a85; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11.5px;
+           background: #f0f4f8; padding: 1px 5px; border-radius: 4px; color: #0f3460; }
+  </style>
+</helmet>
+
+<div style="background: #fff; padding: 28px 30px; box-sizing: border-box; min-height: 100%;">
+
+  <h1 style="font-size: 20px; color: #2c3e50; margin: 0 0 4px; font-weight: 700;">What I think you should do</h1>
+  <p style="font-size: 13px; color: #7f8c8d; margin: 0 0 22px; line-height: 1.55;">
+    Three things are wrong before any menu question. They are worth fixing in this order.
+  </p>
+
+  <!-- 1 -->
+  <div style="border: 1px solid #f5cba7; background: #fef9f3; border-radius: 8px; padding: 15px 16px; margin-bottom: 12px;">
+    <div style="display: flex; align-items: center; gap: 9px; margin-bottom: 7px;">
+      <span style="width: 20px; height: 20px; border-radius: 50%; background: #b9600f; color: #fff; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center;">1</span>
+      <span style="font-size: 14px; font-weight: 700; color: #b9600f;">The Reports menu is a leftover stub</span>
+    </div>
+    <p style="font-size: 12.5px; color: #5a6c7d; margin: 0 0 8px; line-height: 1.65;">
+      <code>/reports</code> renders <code>/api/reports</code>, and that endpoint returns your own
+      email, tenant id and scope list under the label <code>resource: 'reports_data'</code>. The page
+      prints it as raw JSON in a <code>&lt;pre&gt;</code>. It is scaffolding from the original template
+      and has never had data behind it. So the one menu item named Reports is the one place with
+      no reports in it, while 21 real ones sit elsewhere.
+    </p>
+    <p style="font-size: 12.5px; color: #5a6c7d; margin: 0; line-height: 1.65;">
+      <b>Do:</b> make <code>/reports</code> the real home (the artboard on the left), delete the two
+      stub endpoints.
+    </p>
+  </div>
+
+  <!-- 2 -->
+  <div style="border: 1px solid #f5cba7; background: #fef9f3; border-radius: 8px; padding: 15px 16px; margin-bottom: 12px;">
+    <div style="display: flex; align-items: center; gap: 9px; margin-bottom: 7px;">
+      <span style="width: 20px; height: 20px; border-radius: 50%; background: #b9600f; color: #fff; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center;">2</span>
+      <span style="font-size: 14px; font-weight: 700; color: #b9600f;">Its scope belongs to no role</span>
+    </div>
+    <p style="font-size: 12.5px; color: #5a6c7d; margin: 0 0 8px; line-height: 1.65;">
+      The route asks for <code>reports:READ</code> / <code>reports:WRITE</code>. No feature in the seed
+      defines either, so no role can ever hold them and only TENANT_ADMIN sees the item at all.
+      This is the same defect that hid the Asset Register behind a 403 for everyone.
+    </p>
+    <p style="font-size: 12.5px; color: #5a6c7d; margin: 0; line-height: 1.65;">
+      <b>Do:</b> drop the invented scope and gate each report on the scope its DATA already uses —
+      <code>TRANSACTIONS:READ</code> for the ledger ones, <code>POS_REPORTS:READ</code> for the POS ones.
+      A manager then sees exactly the reports they can see the data for, with no new feature rows.
+    </p>
+  </div>
+
+  <!-- 3 -->
+  <div style="border: 1px solid #f5cba7; background: #fef9f3; border-radius: 8px; padding: 15px 16px; margin-bottom: 22px;">
+    <div style="display: flex; align-items: center; gap: 9px; margin-bottom: 7px;">
+      <span style="width: 20px; height: 20px; border-radius: 50%; background: #b9600f; color: #fff; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center;">3</span>
+      <span style="font-size: 14px; font-weight: 700; color: #b9600f;">Two different screens are both called Reports</span>
+    </div>
+    <p style="font-size: 12.5px; color: #5a6c7d; margin: 0 0 8px; line-height: 1.65;">
+      <code>/frontdesk/reports</code> is not a reports screen — it shows today's live counts:
+      orders open now, tables occupied, customers, feedback. That is a
+      <b>dashboard</b>. Meanwhile the actual reports hub is called <b>Finance</b> and holds twelve
+      tabs, which is already more than a tab row reads well at.
+    </p>
+    <p style="font-size: 12.5px; color: #5a6c7d; margin: 0; line-height: 1.65;">
+      <b>Do:</b> rename <code>/frontdesk/reports</code> to <b>Today</b> (or fold it into the Front Desk
+      dashboard it duplicates), and leave Finance where it is.
+    </p>
+  </div>
+
+  <!-- The recommendation -->
+  <h2 style="font-size: 15px; color: #2c3e50; margin: 0 0 10px; font-weight: 700;">The menu I would ship</h2>
+  <p style="font-size: 12.5px; color: #5a6c7d; margin: 0 0 14px; line-height: 1.65;">
+    Group by <b>the question being asked</b>, not by the table the data sits in. A restaurant manager
+    thinks “why are we refunding so much”, not “which of these reads transactionitemdetail”.
+  </p>
+
+  <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 22px;">
+    <sc-for list="{{groups}}" as="g" hint-placeholder-count="7">
+      <div style="display: flex; align-items: baseline; gap: 12px; border: 1px solid #e1e5eb; border-radius: 8px; padding: 11px 14px;">
+        <span style="font-size: 13px; font-weight: 700; color: #0f3460; flex: 0 0 168px;">{{g.name}}</span>
+        <span style="font-size: 12.5px; color: #5a6c7d; line-height: 1.5;">{{g.items}}</span>
+      </div>
+    </sc-for>
+  </div>
+
+  <!-- One entrance, not two implementations -->
+  <div style="border-left: 3px solid #2980b9; background: #eef6fd; border-radius: 4px; padding: 13px 15px;">
+    <div style="font-size: 13px; font-weight: 700; color: #1c5a85; margin-bottom: 6px;">One implementation, two entrances</div>
+    <div style="font-size: 12.5px; color: #1c5a85; line-height: 1.65;">
+      Do not move the reports out of Finance and Returns — rebuilding twelve working tabs to
+      relocate them buys nothing and risks all of it. Reports becomes a <b>catalogue</b> that links
+      into the existing screens with the range and tab already selected
+      (<code>/frontdesk/finance?tab=tenders&amp;preset=today</code>). A manager who lives in Finance
+      keeps their habit; everyone else gets one door and a search box. Nothing is duplicated, so
+      nothing can drift.
+    </div>
+  </div>
+
+</div>
+</x-dc>
+
+<script data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      groups: [
+        { name: 'Sales & revenue', items: 'Overview · Sales · Products · Channels · Floors & tables · Discounts' },
+        { name: 'Money & reconciliation', items: 'Tenders (Z-report) · Cash flow · Outstanding · Expenses · Cash sessions' },
+        { name: 'Returns & quality', items: 'Return reasons · Returned products' },
+        { name: 'Customers', items: 'Customers · Visit pattern · Lapsed · Loyalty statement' },
+        { name: 'Campaigns', items: 'Campaign performance' },
+        { name: 'Operations', items: 'Token queue · Today' },
+        { name: 'Assets', items: 'Asset register' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

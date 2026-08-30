@@ -1,0 +1,210 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif; -webkit-font-smoothing: antialiased; }
+    a { color: #2980b9; } a:hover { color: #1c5a85; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px;
+           background: #f0f4f8; padding: 1px 5px; border-radius: 4px; color: #0f3460; }
+    th { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.4px; color: #7f8c8d;
+         font-weight: 600; text-align: left; padding: 8px 10px; border-bottom: 1px solid #e1e5eb; }
+    td { padding: 9px 10px; border-bottom: 1px solid #f0f4f8; color: #2c3e50; font-size: 12.5px; }
+  </style>
+</helmet>
+
+<div style="background: #f5f7fa; padding: 22px; box-sizing: border-box; min-height: 100%;">
+
+  <!-- Breadcrumb: a report opened from the catalogue must say where it came
+       from, or the back button is the only way out and the range is lost. -->
+  <div style="font-size: 12px; color: #7f8c8d; margin-bottom: 10px;">
+    <span style="color: #2980b9; cursor: pointer;">Reports</span>
+    <span style="margin: 0 6px;">›</span>
+    <span>Money &amp; reconciliation</span>
+    <span style="margin: 0 6px;">›</span>
+    <span style="color: #2c3e50; font-weight: 600;">Tenders</span>
+  </div>
+
+  <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 14px;">
+    <div>
+      <h1 style="font-size: 20px; color: #2c3e50; margin: 0; font-weight: 700;">Tenders (Z-report)</h1>
+      <p style="font-size: 12.5px; color: #7f8c8d; margin: 5px 0 0;">Cash, card, UPI and portal settlement — what was taken, and where it landed.</p>
+    </div>
+    <div style="display: flex; gap: 8px;">
+      <button style="padding: 8px 14px; border-radius: 6px; border: 1px solid #d0d4da; background: #fff; color: #5a6c7d; font-size: 13px; font-weight: 500; cursor: pointer;">Export CSV</button>
+      <button style="padding: 8px 14px; border-radius: 6px; border: 1px solid #d0d4da; background: #fff; color: #5a6c7d; font-size: 13px; font-weight: 500; cursor: pointer;">Print</button>
+    </div>
+  </div>
+
+  <!-- ── THE FILTER BAR ────────────────────────────────────────────────────
+       Every control the API already accepts. Shared by every report, so a
+       filter set on one carries to the next — the reason the catalogue links
+       carry the range rather than resetting it. -->
+  <div style="background: #fff; border-radius: 8px; padding: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); margin-bottom: 14px;">
+
+    <div style="display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 12px;">
+      <sc-for list="{{presets}}" as="p" hint-placeholder-count="8">
+        <button onClick="{{p.pick}}" style="{{p.style}}">{{p.label}}</button>
+      </sc-for>
+    </div>
+
+    <!-- Custom only reveals its two dates when it is the one selected: the API
+         REJECTS custom without both bounds rather than silently collapsing to
+         today, so the form has to make them unmissable. -->
+    <sc-if value="{{isCustom}}" hint-placeholder-val="{{false}}">
+      <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; padding: 11px 12px; background: #eef6fd; border-radius: 6px; margin-bottom: 12px;">
+        <label style="display: flex; flex-direction: column; gap: 4px;">
+          <span style="font-size: 11.5px; color: #1c5a85; font-weight: 600;">From</span>
+          <input type="date" value="2026-08-01" style="padding: 7px 9px; border: 1px solid #b9d4ea; border-radius: 6px; font-size: 13px; color: #2c3e50;" />
+        </label>
+        <label style="display: flex; flex-direction: column; gap: 4px;">
+          <span style="font-size: 11.5px; color: #1c5a85; font-weight: 600;">To</span>
+          <input type="date" value="2026-08-29" style="padding: 7px 9px; border: 1px solid #b9d4ea; border-radius: 6px; font-size: 13px; color: #2c3e50;" />
+        </label>
+        <span style="font-size: 11.5px; color: #1c5a85; padding-bottom: 8px;">Both are required — a custom range without them is refused.</span>
+      </div>
+    </sc-if>
+
+    <div style="display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end;">
+      <sc-for list="{{selects}}" as="s" hint-placeholder-count="6">
+        <label style="display: flex; flex-direction: column; gap: 4px; min-width: 132px;">
+          <span style="font-size: 11px; color: #7f8c8d; font-weight: 600;">{{s.label}}</span>
+          <select style="{{s.style}}">
+            <sc-for list="{{s.options}}" as="o" hint-placeholder-count="3">
+              <option>{{o}}</option>
+            </sc-for>
+          </select>
+          <sc-if value="{{s.isNew}}" hint-placeholder-val="{{false}}">
+            <span style="font-size: 10px; color: #b9600f; font-weight: 600;">API accepts this — UI does not send it yet</span>
+          </sc-if>
+        </label>
+      </sc-for>
+    </div>
+
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; padding-top: 11px; border-top: 1px solid #f0f4f8; flex-wrap: wrap;">
+      <span style="font-size: 12px; color: #5a6c7d;">{{summary}}</span>
+      <button onClick="{{reset}}" style="background: none; border: none; color: #2980b9; cursor: pointer; font-size: 12px; font-weight: 600; padding: 0;">Reset filters</button>
+    </div>
+  </div>
+
+  <!-- The report itself -->
+  <div style="background: #fff; border-radius: 8px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.08);">
+    <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px;">
+      <div style="flex: 1; min-width: 128px; background: #f8fafc; border: 1px solid #e1e5eb; border-radius: 8px; padding: 11px 13px;">
+        <div style="font-size: 11px; color: #7f8c8d;">Collected</div>
+        <div style="font-size: 19px; font-weight: 700; color: #1e8449; margin-top: 2px;">₹48,210</div>
+      </div>
+      <div style="flex: 1; min-width: 128px; background: #f8fafc; border: 1px solid #e1e5eb; border-radius: 8px; padding: 11px 13px;">
+        <div style="font-size: 11px; color: #7f8c8d;">Refunded out</div>
+        <div style="font-size: 19px; font-weight: 700; color: #c0392b; margin-top: 2px;">₹1,340</div>
+      </div>
+      <div style="flex: 1; min-width: 128px; background: #f8fafc; border: 1px solid #e1e5eb; border-radius: 8px; padding: 11px 13px;">
+        <div style="font-size: 11px; color: #7f8c8d;">Net</div>
+        <div style="font-size: 19px; font-weight: 700; color: #2c3e50; margin-top: 2px;">₹46,870</div>
+      </div>
+    </div>
+
+    <table style="width: 100%; border-collapse: collapse;">
+      <thead>
+        <tr><th>Tender</th><th>Account</th><th style="text-align: right;">Count</th><th style="text-align: right;">Net</th></tr>
+      </thead>
+      <tbody>
+        <sc-for list="{{rows}}" as="r" hint-placeholder-count="5">
+          <tr>
+            <td style="font-weight: 600;">{{r.mode}}</td>
+            <td style="color: #7f8c8d;">{{r.account}}</td>
+            <td style="text-align: right; font-variant-numeric: tabular-nums;">{{r.n}}</td>
+            <td style="text-align: right; font-weight: 600; font-variant-numeric: tabular-nums;">{{r.net}}</td>
+          </tr>
+        </sc-for>
+      </tbody>
+    </table>
+    <p style="font-size: 11px; color: #b9c2cc; margin: 12px 0 0;">Sample figures — shape only.</p>
+  </div>
+
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"showProposed":{"editor":"boolean","default":true,"section":"Content"}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { preset: 'today' };
+  }
+
+  renderVals() {
+    const { preset } = this.state;
+    const showProposed = this.props.showProposed !== false;
+
+    // Exactly the eight the server whitelists (VALID_PRESETS). Anything else is
+    // rejected by Joi, so the UI must not invent a ninth.
+    const PRESETS = [
+      ['today', 'Today'], ['yesterday', 'Yesterday'],
+      ['last3', 'Last 3 days'], ['last5', 'Last 5 days'],
+      ['week', 'This week'], ['weekend', 'Weekends only'],
+      ['month', 'This month'], ['custom', 'Custom range'],
+    ];
+
+    const chip = (on) =>
+      'padding: 7px 13px; border-radius: 16px; font-size: 12.5px; font-weight: 600;'
+      + ' cursor: pointer; white-space: nowrap; transition: all 0.15s ease;'
+      + (on ? ' background: #0f3460; color: #fff; border: 1px solid #0f3460;'
+            : ' background: #fff; color: #5a6c7d; border: 1px solid #d0d4da;');
+
+    const sel = 'padding: 7px 9px; border: 1px solid #d0d4da; border-radius: 6px;'
+      + ' font-size: 13px; color: #2c3e50; background: #fff;';
+    const selNew = sel + ' border-color: #f5cba7; background: #fefaf5;';
+
+    // The six the picker sends today, then the five the API accepts and nothing
+    // sends. Grouping them together is the point: the filters are already
+    // there, only the controls are missing.
+    const live = [
+      ['Group by', ['Daily', 'Weekly', 'Monthly'], false],
+      ['Branch', ['All branches', 'Central', 'Rooftop'], false],
+      ['Floor', ['All floors', 'Ground', 'Terrace'], false],
+      ['Table', ['All tables', 'Tree-01', 'Tree-02'], false],
+    ];
+    const proposed = [
+      ['Category', ['All categories', 'Pizza', 'Beverages'], true],
+      ['Item', ['All items', 'Margherita', 'Masala Chai'], true],
+      ['Customer', ['All customers', 'Aarti K.'], true],
+      ['Min. orders', ['Any', '2+', '5+'], true],
+    ];
+
+    const selects = (showProposed ? live.concat(proposed) : live).map((s) => ({
+      label: s[0],
+      options: s[1],
+      isNew: s[2],
+      style: s[2] ? selNew : sel,
+    }));
+
+    const label = (PRESETS.find((p) => p[0] === preset) || PRESETS[0])[1];
+
+    return {
+      presets: PRESETS.map(([id, l]) => ({
+        label: l,
+        style: chip(preset === id),
+        pick: () => this.setState({ preset: id }),
+      })),
+      isCustom: preset === 'custom',
+      selects,
+      summary: label + ' · all branches · grouped daily',
+      reset: () => this.setState({ preset: 'today' }),
+      rows: [
+        { mode: 'Cash', account: 'Cash', n: 84, net: '₹21,400' },
+        { mode: 'Card', account: 'Bank', n: 39, net: '₹14,900' },
+        { mode: 'UPI', account: 'Bank', n: 52, net: '₹9,120' },
+        { mode: 'Zomato Settlement', account: 'Aggregator Receivable', n: 11, net: '₹1,450' },
+        { mode: 'Swiggy Settlement', account: 'Aggregator Receivable', n: 6, net: '₹0' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

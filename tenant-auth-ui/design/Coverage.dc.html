@@ -1,0 +1,158 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif; -webkit-font-smoothing: antialiased; }
+    a { color: #2980b9; } a:hover { color: #1c5a85; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px;
+           background: #f0f4f8; padding: 1px 5px; border-radius: 4px; color: #0f3460; }
+    th { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.4px; color: #7f8c8d;
+         font-weight: 600; text-align: left; padding: 8px 10px; border-bottom: 1px solid #e1e5eb; }
+    td { padding: 9px 10px; border-bottom: 1px solid #f0f4f8; color: #2c3e50; font-size: 12.5px; vertical-align: top; }
+  </style>
+</helmet>
+
+<div style="background: #fff; padding: 26px 28px; box-sizing: border-box; min-height: 100%;">
+
+  <h1 style="font-size: 19px; color: #2c3e50; margin: 0 0 4px; font-weight: 700;">Every sidebar item, checked</h1>
+  <p style="font-size: 12.5px; color: #7f8c8d; margin: 0 0 18px; line-height: 1.55;">
+    Each item in your screenshot against what it contributes to Reports. Three gaps, marked.
+  </p>
+
+  <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+    <thead>
+      <tr><th style="width: 158px;">Sidebar item</th><th>What it gives Reports</th><th style="width: 96px;">Status</th></tr>
+    </thead>
+    <tbody>
+      <sc-for list="{{rows}}" as="r" hint-placeholder-count="17">
+        <tr>
+          <td style="font-weight: 600;">{{r.item}}</td>
+          <td style="color: #5a6c7d; line-height: 1.5;">{{r.gives}}</td>
+          <td><span style="{{r.tagStyle}}">{{r.tag}}</span></td>
+        </tr>
+      </sc-for>
+    </tbody>
+  </table>
+
+  <h2 style="font-size: 14px; color: #b9600f; margin: 0 0 10px; font-weight: 700;">The three gaps</h2>
+
+  <div style="display: flex; flex-direction: column; gap: 9px; margin-bottom: 20px;">
+    <div style="border: 1px solid #f5cba7; background: #fef9f3; border-radius: 8px; padding: 12px 14px;">
+      <div style="font-size: 13px; font-weight: 700; color: #b9600f; margin-bottom: 4px;">Inventory — no report is possible yet</div>
+      <div style="font-size: 12.5px; color: #5a6c7d; line-height: 1.6;">
+        Not an oversight in the design: there is no stock ledger. <code>batchdetail.Quantity</code>
+        is a hand-edited VARCHAR that no sale ever decrements, so any “stock on hand” number would
+        be invented. It stays out of Reports until stock movements are recorded.
+      </div>
+    </div>
+    <div style="border: 1px solid #f5cba7; background: #fef9f3; border-radius: 8px; padding: 12px 14px;">
+      <div style="font-size: 13px; font-weight: 700; color: #b9600f; margin-bottom: 4px;">Feedback — the data is there, the report is not</div>
+      <div style="font-size: 12.5px; color: #5a6c7d; line-height: 1.6;">
+        <code>pos_feedback</code> is CRUD only. Ratings exist, and one rating per visit is enforced,
+        but nothing aggregates them: no average over time, no rating by dish, no tie to the return
+        reasons that mark our own fault. It is one query away and would answer a question nothing
+        else in the system answers.
+      </div>
+    </div>
+    <div style="border: 1px solid #f5cba7; background: #fef9f3; border-radius: 8px; padding: 12px 14px;">
+      <div style="font-size: 13px; font-weight: 700; color: #b9600f; margin-bottom: 4px;">Token queue — built, reachable by nobody</div>
+      <div style="font-size: 12.5px; color: #5a6c7d; line-height: 1.6;">
+        <code>/api/pos/tokens/stats</code> works and the Channels tab fetches it, but only to
+        decorate that tab. Counter throughput and wait times have no screen of their own.
+      </div>
+    </div>
+  </div>
+
+  <h2 style="font-size: 14px; color: #2c3e50; margin: 0 0 10px; font-weight: 700;">Filters: what the API takes vs what the UI sends</h2>
+  <table style="width: 100%; border-collapse: collapse;">
+    <thead>
+      <tr><th style="width: 132px;">Filter</th><th>Values</th><th style="width: 96px;">Sent today</th></tr>
+    </thead>
+    <tbody>
+      <sc-for list="{{filters}}" as="f" hint-placeholder-count="11">
+        <tr>
+          <td><code>{{f.name}}</code></td>
+          <td style="color: #5a6c7d;">{{f.values}}</td>
+          <td><span style="{{f.tagStyle}}">{{f.tag}}</span></td>
+        </tr>
+      </sc-for>
+    </tbody>
+  </table>
+
+  <div style="margin-top: 16px; border-left: 3px solid #2980b9; background: #eef6fd; border-radius: 4px; padding: 12px 14px;">
+    <div style="font-size: 12.5px; color: #1c5a85; line-height: 1.65;">
+      <b>Five filters the server already honours reach it from nothing.</b> Category, item, customer,
+      minimum orders and the lapsed threshold are all validated and applied — no endpoint work is
+      needed, only controls. That is the cheapest depth available: “Pizza, on the terrace, weekends
+      only, grouped weekly” is one screen away, and today it cannot be asked at all.
+    </div>
+  </div>
+
+</div>
+</x-dc>
+
+<script data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const T = {
+      ok: ['Covered', 'background: #eafaf1; color: #1e8449;'],
+      config: ['No report', 'background: #f0f4f8; color: #7f8c8d;'],
+      gap: ['Gap', 'background: #fef3e6; color: #b9600f;'],
+      stub: ['Stub', 'background: #fdecea; color: #c0392b;'],
+      yes: ['Yes', 'background: #eafaf1; color: #1e8449;'],
+      no: ['No', 'background: #fef3e6; color: #b9600f;'],
+    };
+    const tag = (k) => ({
+      tag: T[k][0],
+      tagStyle: 'font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px;'
+        + ' white-space: nowrap; display: inline-block; ' + T[k][1],
+    });
+
+    const rows = [
+      ['POS Settings', 'Configuration only — nothing to report on', 'config'],
+      ['Receipt Format', 'Configuration only', 'config'],
+      ['Campaigns', 'Campaign performance — given away, redemptions, revenue, cost each', 'ok'],
+      ['Inventory', 'Nothing — there is no stock ledger to report from', 'gap'],
+      ['Expense Categories', 'The grouping axis the Expenses report uses', 'ok'],
+      ['Asset Categories', 'The grouping axis the Asset register uses', 'ok'],
+      ['Finance', 'Overview, Sales, Products, Pending, Tenders, Floors & tables, Channels, Discounts, Cash flow, Expenses, Customers, Visit pattern, Lapsed — 13', 'ok'],
+      ['Returns', 'Return reasons, Returned products — 2', 'ok'],
+      ['Expenses', 'Spend by category, over the shared range', 'ok'],
+      ['Cash Sessions', 'Counted vs expected per cashier shift, and the variance', 'ok'],
+      ['Asset Register', 'What is owned, where, and what it cost', 'ok'],
+      ['Customers', 'Customers, Visit pattern, Lapsed, Loyalty statement — 4', 'ok'],
+      ['Feedback', 'Ratings are stored but nothing aggregates them', 'gap'],
+      ['Reports', 'Today: echoes your own scopes as JSON. Becomes the catalogue.', 'stub'],
+      ['Ledger', 'The document register — every invoice, credit note and expense, filterable. Belongs in Reports as the drill-down every figure lands on.', 'ok'],
+      ['People & Access', 'Audit log: who did what, when. Report-shaped, and today only on its own top-level menu.', 'ok'],
+    ];
+
+    const filters = [
+      ['preset', 'today · yesterday · last3 · last5 · week · weekend · month · custom', 'yes'],
+      ['fromDate / toDate', 'Custom range bounds — both required when preset is custom', 'yes'],
+      ['bucket', 'day · week · month (the Daily / Weekly / Monthly grouping)', 'yes'],
+      ['branchId', 'One outlet, or all', 'yes'],
+      ['floorId', 'Narrows the table list to that floor', 'yes'],
+      ['tableId', 'One table', 'yes'],
+      ['categoryId', 'One menu category', 'no'],
+      ['itemId', 'One dish', 'no'],
+      ['customerId', 'One customer', 'no'],
+      ['minOrders', 'Only customers with at least N orders', 'no'],
+      ['days', 'How long counts as lapsed (fixed at 30 today)', 'no'],
+    ];
+
+    return {
+      rows: rows.map((r) => ({ item: r[0], gives: r[1], ...tag(r[2]) })),
+      filters: filters.map((f) => ({ name: f[0], values: f[1], ...tag(f[2]) })),
+    };
+  }
+}
+</script>
+</body>
+</html>

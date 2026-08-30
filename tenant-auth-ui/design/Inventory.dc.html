@@ -1,0 +1,124 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif; -webkit-font-smoothing: antialiased; }
+    a { color: #2980b9; } a:hover { color: #1c5a85; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px;
+           background: #f0f4f8; padding: 1px 5px; border-radius: 4px; color: #0f3460; }
+    th { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.4px; color: #7f8c8d;
+         font-weight: 600; text-align: left; padding: 8px 10px; border-bottom: 1px solid #e1e5eb; }
+    td { padding: 8px 10px; border-bottom: 1px solid #f0f4f8; color: #2c3e50; font-size: 12.5px; vertical-align: top; }
+    tr:last-child td { border-bottom: none; }
+  </style>
+</helmet>
+
+<div style="background: #fff; padding: 28px 30px; box-sizing: border-box; min-height: 100%;">
+
+  <h1 style="font-size: 20px; color: #2c3e50; margin: 0 0 4px; font-weight: 700;">Every report there is</h1>
+  <p style="font-size: 13px; color: #7f8c8d; margin: 0 0 18px; line-height: 1.55;">
+    Read off the routes and the pages that render them, not from memory.
+  </p>
+
+  <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 22px;">
+    <div style="flex: 1; min-width: 120px; background: #f8fafc; border: 1px solid #e1e5eb; border-radius: 8px; padding: 12px 14px;">
+      <div style="font-size: 22px; font-weight: 700; color: #0f3460;">21</div>
+      <div style="font-size: 11.5px; color: #7f8c8d; margin-top: 2px;">reports that exist</div>
+    </div>
+    <div style="flex: 1; min-width: 120px; background: #f8fafc; border: 1px solid #e1e5eb; border-radius: 8px; padding: 12px 14px;">
+      <div style="font-size: 22px; font-weight: 700; color: #0f3460;">7</div>
+      <div style="font-size: 11.5px; color: #7f8c8d; margin-top: 2px;">screens they are spread over</div>
+    </div>
+    <div style="flex: 1; min-width: 120px; background: #f8fafc; border: 1px solid #e1e5eb; border-radius: 8px; padding: 12px 14px;">
+      <div style="font-size: 22px; font-weight: 700; color: #0f3460;">0</div>
+      <div style="font-size: 11.5px; color: #7f8c8d; margin-top: 2px;">reports in Master Data</div>
+    </div>
+    <div style="flex: 1; min-width: 120px; background: #fef9f3; border: 1px solid #f5cba7; border-radius: 8px; padding: 12px 14px;">
+      <div style="font-size: 22px; font-weight: 700; color: #b9600f;">2</div>
+      <div style="font-size: 11.5px; color: #b9600f; margin-top: 2px;">reachable from the Reports menu</div>
+    </div>
+  </div>
+
+  <div style="overflow-x: auto;">
+    <table style="width: 100%; border-collapse: collapse;">
+      <thead>
+        <tr><th>Report</th><th>Endpoint</th><th>Lives today</th><th style="width: 82px;">Source</th></tr>
+      </thead>
+      <tbody>
+        <sc-for list="{{rows}}" as="r" hint-placeholder-count="21">
+          <tr>
+            <td style="font-weight: 600;">{{r.name}}</td>
+            <td><code>{{r.api}}</code></td>
+            <td style="color: #5a6c7d;">{{r.where}}</td>
+            <td><span style="{{r.tagStyle}}">{{r.tag}}</span></td>
+          </tr>
+        </sc-for>
+      </tbody>
+    </table>
+  </div>
+
+  <div style="margin-top: 20px; border-left: 3px solid #b9600f; background: #fef9f3; border-radius: 4px; padding: 12px 14px;">
+    <div style="font-size: 12.5px; color: #7a4a10; line-height: 1.65;">
+      <b>Master Data has no reports at all</b> — 34 CRUD modules and nothing else, so there is
+      nothing there to merge in. The whole inventory is Front Desk plus one stub.
+    </div>
+  </div>
+
+</div>
+</x-dc>
+
+<script data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const TAGS = {
+      ledger: ['Ledger', 'background: #eef4fb; color: #0f3460;'],
+      pos: ['POS', 'background: #eafaf1; color: #1e8449;'],
+      gap: ['Orphan', 'background: #fef3e6; color: #b9600f;'],
+      stub: ['Stub', 'background: #fdecea; color: #c0392b;'],
+    };
+
+    const data = [
+      ['Overview', '/api/ledger/reports/overview', 'Finance › Overview', 'ledger'],
+      ['Sales', '/api/ledger/reports/sales', 'Finance › Sales', 'ledger'],
+      ['Products', '/api/ledger/reports/products', 'Finance › Products', 'ledger'],
+      ['Outstanding', '/api/ledger/reports/pending', 'Finance › Pending', 'ledger'],
+      ['Tenders (Z-report)', '/api/ledger/reports/tenders', 'Finance › Tenders', 'ledger'],
+      ['Cash flow', '/api/ledger/reports/cashflow', 'Finance › Cash Flow', 'ledger'],
+      ['Expenses', '/api/ledger/reports/expenses', 'Finance › Expenses', 'ledger'],
+      ['Floors & tables', '/api/ledger/reports/venue', 'Finance › Floors & Tables', 'ledger'],
+      ['Channels', '/api/ledger/reports/channels', 'Finance › Channels', 'ledger'],
+      ['Discounts', '/api/ledger/reports/discounts', 'Finance › Discounts', 'ledger'],
+      ['Customers', '/api/ledger/reports/customers', 'Finance › Customers', 'ledger'],
+      ['Visit pattern', '/api/ledger/reports/visit-pattern', 'Finance › Visit Pattern', 'ledger'],
+      ['Lapsed customers', '/api/ledger/reports/lapsed', 'Finance › Customers (folded in)', 'ledger'],
+      ['Return reasons', '/api/ledger/reports/return-reasons', 'Returns', 'ledger'],
+      ['Returned products', '/api/ledger/reports/return-products', 'Returns', 'ledger'],
+      ['Campaign performance', '/api/pos/campaigns/:id/report', 'Campaigns › open one', 'pos'],
+      ['Cash session summary', '/api/pos/cash-sessions/:id/summary', 'Cash Sessions', 'pos'],
+      ['Asset register summary', '/api/assets/summary', 'Asset Register', 'pos'],
+      ['Loyalty statement', '/api/pos/customers/:id/statement', 'Customer profile drawer', 'pos'],
+      ['Today (live counts)', '/api/pos/reports', 'Front Desk › Reports', 'pos'],
+      ['Token queue stats', '/api/pos/tokens/stats', 'Nowhere — fetched, never shown alone', 'gap'],
+      ['“Reports”', '/api/reports', 'Reports menu — echoes your own scopes', 'stub'],
+      ['“Billing”', '/api/reports/billing', 'Nowhere — same stub', 'stub'],
+    ];
+
+    return {
+      rows: data.map((r) => ({
+        name: r[0], api: r[1], where: r[2],
+        tag: TAGS[r[3]][0],
+        tagStyle: 'font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 10px;'
+          + ' white-space: nowrap; display: inline-block; ' + TAGS[r[3]][1],
+      })),
+    };
+  }
+}
+</script>
+</body>
+</html>

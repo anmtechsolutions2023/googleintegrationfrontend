@@ -30,7 +30,7 @@ import NotFound from './pages/NotFound';
 import AdminPage from './pages/AdminPage';
 import AuditLogs from './pages/AuditLogs';
 import MasterDataSetup from './pages/MasterDataSetup';
-import ReportsPage from './pages/ReportsPage';
+import ReportsHome from './pages/ReportsHome';
 import OnboardingPage from './pages/OnboardingPage';
 import AdminDashboard from './pages/admin/AdminDashboard';
 
@@ -127,13 +127,21 @@ const AppRoutes = () => {
           element={
             <ApprovedRoute>
               <ScopeGuard
+                /* Any scope that opens at least one report in the catalogue.
+                   NOT reports:READ — no feature in the seed defines it, so no
+                   role could hold it and only a tenant admin ever got in. The
+                   page itself filters to what each holder may actually see. */
                 requiredScopes={[
-                  SCOPES.REPORTS_READ,
-                  SCOPES.REPORTS_WRITE,
+                  SCOPES.TRANSACTIONS_READ,
+                  SCOPES.POS_REPORTS_READ,
+                  SCOPES.POS_CRM_READ,
+                  SCOPES.POS_BILLING_READ,
+                  SCOPES.ASSET_READ,
+                  SCOPES.AUDIT_READ,
                   SCOPES.TENANT_ADMIN,
                 ]}
               >
-                <ReportsPage />
+                <ReportsHome />
               </ScopeGuard>
             </ApprovedRoute>
           }

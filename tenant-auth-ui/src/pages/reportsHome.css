@@ -1,0 +1,169 @@
+/* Reports home — the catalogue.
+   Same vocabulary as the Front Desk screens it links into (frontdesk.css):
+   #0f3460 navy, #f5f7fa ground, 8px panels, 13px/600 #2c3e50 titles. */
+
+.rp-page {
+  padding: 24px;
+  max-width: 1400px;
+  background: #f5f7fa;
+  min-height: calc(100vh - var(--navbar-height));
+  box-sizing: border-box;
+}
+
+.rp-head { margin-bottom: 16px; }
+.rp-page h1 { font-size: 22px; color: #2c3e50; margin: 0; font-weight: 700; }
+.rp-lead {
+  font-size: 13px;
+  color: #7f8c8d;
+  margin: 6px 0 0;
+  line-height: 1.5;
+  max-width: 620px;
+}
+
+.rp-search {
+  width: 100%;
+  max-width: 420px;
+  padding: 9px 12px;
+  border: 1px solid #d0d4da;
+  border-radius: 6px;
+  font-size: 14px;
+  box-sizing: border-box;
+  color: #2c3e50;
+  margin-bottom: 14px;
+}
+.rp-search:focus-visible { outline: 2px solid #2980b9; outline-offset: 1px; }
+
+/* ── Group chips ───────────────────────────────────────────────────────────
+   Same control as the menu filters on Billing, deliberately: a filter chip
+   should mean the same thing and be operated the same way everywhere. */
+.rp-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+
+.rp-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+  padding: 8px 14px;
+  min-height: 36px;
+  border-radius: 18px;
+  border: 1px solid #d0d4da;
+  background: #fff;
+  color: #5a6c7d;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.rp-chip:hover:not(.is-on) { border-color: #3498db; color: #2c3e50; }
+.rp-chip:focus-visible { outline: 2px solid #2980b9; outline-offset: 2px; }
+.rp-chip.is-on { background: #0f3460; border-color: #0f3460; color: #fff; }
+.rp-chip.is-empty:not(.is-on) { color: #b9c2cc; border-color: #eef1f4; }
+
+.rp-chip-count {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 9px;
+  background: #f0f4f8;
+  color: #7f8c8d;
+}
+.rp-chip.is-on .rp-chip-count { background: rgba(255, 255, 255, 0.22); color: #fff; }
+.rp-chip.is-empty:not(.is-on) .rp-chip-count { background: #f7f9fb; color: #b9c2cc; }
+
+/* ── Sections ──────────────────────────────────────────────────────────── */
+.rp-sections { display: flex; flex-direction: column; gap: 24px; }
+
+.rp-section-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.rp-section-head h2 { font-size: 14px; color: #2c3e50; margin: 0; font-weight: 700; }
+.rp-blurb { font-size: 12px; color: #95a5a6; }
+
+.rp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(238px, 1fr));
+  gap: 10px;
+}
+
+.rp-card {
+  display: block;
+  background: #fff;
+  border: 1px solid #e1e5eb;
+  border-radius: 8px;
+  padding: 13px 14px;
+  text-decoration: none;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+.rp-card:hover {
+  border-color: #3498db;
+  box-shadow: 0 2px 8px rgba(52, 152, 219, 0.15);
+}
+.rp-card:focus-visible { outline: 2px solid #2980b9; outline-offset: 2px; }
+.rp-card:active { transform: scale(0.995); }
+
+.rp-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+.rp-card-name { font-size: 13.5px; font-weight: 600; color: #2c3e50; }
+.rp-card-answers {
+  font-size: 12px;
+  color: #7f8c8d;
+  line-height: 1.55;
+  margin: 5px 0 0;
+}
+
+/* Listed, not hidden — but plainly not a door. No hover lift, no pointer. */
+.rp-card.is-missing {
+  background: #fbfcfd;
+  border-style: dashed;
+  box-shadow: none;
+  cursor: default;
+}
+.rp-card.is-missing:hover { border-color: #e1e5eb; box-shadow: none; }
+.rp-card.is-missing .rp-card-name { color: #7f8c8d; }
+.rp-card-note { font-size: 11px; color: #b9600f; margin: 8px 0 0; line-height: 1.5; }
+
+.rp-tag {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 10px;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+.rp-tag-soon { background: #fef3e6; color: #b9600f; }
+
+/* ── Empty ─────────────────────────────────────────────────────────────── */
+.rp-empty {
+  text-align: center;
+  padding: 48px 20px;
+  color: #7f8c8d;
+  font-size: 15px;
+  background: #fff;
+  border-radius: 8px;
+  line-height: 1.6;
+}
+.rp-empty-action { margin-top: 10px; }
+
+.rp-link {
+  background: none;
+  border: none;
+  color: #2980b9;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 0;
+}
+
+@media (max-width: 640px) {
+  .rp-page { padding: 16px; }
+  .rp-grid { grid-template-columns: 1fr; }
+}

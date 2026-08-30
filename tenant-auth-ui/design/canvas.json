@@ -1,12 +1,15 @@
 {
   "artboards": [
-    { "file": "Main.dc.html", "x": 0, "y": 0, "w": 1180, "h": 900, "title": "Billing & KOT — category + diet filters", "is_interactive": true },
-    { "file": "SettleBill.dc.html", "x": 1280, "y": 0, "w": 560, "h": 900, "title": "Settle Bill — payment on screen", "is_interactive": true },
-    { "file": "BuildNotes.dc.html", "x": 1940, "y": 0, "w": 720, "h": 900, "title": "Build notes" }
+    { "file": "Main.dc.html", "x": 0, "y": 0, "w": 1080, "h": 1000, "title": "Reports home — proposed", "is_interactive": true },
+    { "file": "ReportView.dc.html", "x": 1180, "y": 0, "w": 1000, "h": 1000, "title": "Opening one — the filter bar", "is_interactive": true },
+    { "file": "Coverage.dc.html", "x": 2280, "y": 0, "w": 880, "h": 1000, "title": "Every sidebar item, checked" },
+    { "file": "Inventory.dc.html", "x": 0, "y": 1140, "w": 880, "h": 940, "title": "Every report there is" },
+    { "file": "Opinion.dc.html", "x": 980, "y": 1140, "w": 820, "h": 940, "title": "What I'd do, and why" }
   ],
   "annotations": [
-    { "id": "try-filters", "x": 0, "y": -132, "w": 460, "text": "Both screens are live — tap a category, tap a diet chip, watch the counts move. Try Beverages + Non-Veg to see the empty state." },
-    { "id": "settle-note", "x": 1280, "y": -132, "w": 420, "text": "Tap a payment card, then + Split payment. The dropdown was 90px wide, which is what cut off \"District Settlement\"." }
+    { "id": "try-it", "x": 0, "y": -128, "w": 440, "text": "Live — tap a group, or search \"refund\" / \"cash\" / \"table\". Each card says where that report lives today." },
+    { "id": "filters", "x": 1180, "y": -128, "w": 460, "text": "Live — tap the presets, and pick Custom range to see the two date fields appear. Amber selects are filters the API already accepts that nothing currently sends." },
+    { "id": "gaps", "x": 2280, "y": -128, "w": 400, "text": "Your screenshot, item by item. Three gaps found: Inventory, Feedback, Token queue." }
   ],
   "launch": { "view": "canvas" }
 }

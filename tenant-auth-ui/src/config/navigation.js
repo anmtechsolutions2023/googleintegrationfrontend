@@ -67,8 +67,15 @@ export const PRIMARY_NAV = [
   // The wizard entry point disappears for good once setup is done.
   { key: 'setupWizard', path: ROUTES.MASTER_SETUP, label: STRINGS.nav.masterSetup,
     scopes: null, duringSetup: true, when: canRunSetupWizard },
+  // Gated on the scopes the reports' own data uses. reports:READ was invented
+  // by the old stub route and no feature defines it, so the item was invisible
+  // to every role but tenant admin — including the managers it is for.
   { key: 'reports', path: ROUTES.REPORTS, label: STRINGS.nav.reports,
-    scopes: [SCOPES.REPORTS_READ, SCOPES.REPORTS_WRITE, SCOPES.TENANT_ADMIN] },
+    scopes: [
+      SCOPES.TRANSACTIONS_READ, SCOPES.POS_REPORTS_READ, SCOPES.POS_CRM_READ,
+      SCOPES.POS_BILLING_READ, SCOPES.ASSET_READ, SCOPES.AUDIT_READ,
+      SCOPES.TENANT_ADMIN,
+    ] },
   // A tenancy's own people, invitations and roles — one screen, on Front Desk.
   // /admin/users and /admin/roles redirect to it.
   { key: 'access', path: ROUTES.ACCESS_CONTROL, label: STRINGS.nav.access,

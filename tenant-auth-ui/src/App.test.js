@@ -24,7 +24,7 @@ jest.mock('./pages/Login', () => () => <div>Login Page</div>);
 jest.mock('./pages/Dashboard', () => () => <div>Dashboard Page</div>);
 jest.mock('./pages/OnboardingPage', () => () => <div>Onboarding Page</div>);
 jest.mock('./pages/AdminPage', () => () => <div>Admin Page</div>);
-jest.mock('./pages/ReportsPage', () => () => <div>Reports Page</div>);
+jest.mock('./pages/ReportsHome', () => () => <div>Reports Page</div>);
 jest.mock('./pages/AuditLogs', () => () => <div>Audit Logs Page</div>);
 jest.mock('./pages/admin/AdminDashboard', () => () => <div>Admin Dashboard</div>);
 jest.mock('./components/Navbar', () => () => <nav data-testid="navbar">Navbar</nav>);

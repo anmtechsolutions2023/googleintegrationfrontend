@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import posService from '../../services/posService'
 import TimeframePicker from '../../components/frontdesk/TimeframePicker'
@@ -88,7 +89,30 @@ const bucketLabel = (bucket, value) => {
 }
 
 const Finance = () => {
-  const [tab, setTab] = useState('overview')
+  // The tab lives in the URL so a report can be LINKED to — Reports lists all
+  // thirteen of these and every card has to land on the right one. It is also
+  // what makes a tab shareable and survivable across a reload.
+  const [params, setParams] = useSearchParams()
+  const urlTab = params.get('tab')
+  const [tab, setTabState] = useState(
+    TABS.some((t) => t.key === urlTab) ? urlTab : 'overview',
+  )
+
+  // Writing with replace: flipping between tabs is not thirteen back-button
+  // steps, but the address bar still names what is on screen.
+  const setTab = useCallback((key) => {
+    setTabState(key)
+    setParams((prev) => {
+      const next = new URLSearchParams(prev)
+      next.set('tab', key)
+      return next
+    }, { replace: true })
+  }, [setParams])
+
+  // Someone editing the address bar, or pressing back onto an older tab.
+  useEffect(() => {
+    if (urlTab && TABS.some((t) => t.key === urlTab) && urlTab !== tab) setTabState(urlTab)
+  }, [urlTab, tab])
   const [range, setRange] = useState({ preset: 'today', bucket: 'day' })
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)

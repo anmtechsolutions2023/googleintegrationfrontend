@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import Finance from '../Finance';
 import posService from '../../../services/posService';
 import crudService from '../../../services/crudService';
@@ -213,9 +214,22 @@ beforeEach(() => {
 
 afterEach(() => jest.clearAllMocks());
 
-const renderFinance = async () => {
-  render(<Finance />);
-  await screen.findByText(/Net position/i);
+// The tab now lives in the URL so Reports can link straight to one, which
+// means the screen needs a router around it.
+const renderFinance = async (path = '/frontdesk/finance') => {
+  render(
+    <MemoryRouter initialEntries={[path]}>
+      <Finance />
+    </MemoryRouter>,
+  );
+  // "Net position" is on the Overview tab only, so opening straight onto
+  // another one has to wait for the load to settle instead.
+  if (path.includes('tab=') && !path.includes('tab=overview')) {
+    await waitFor(() =>
+      expect(screen.queryByText('Loading report…')).not.toBeInTheDocument());
+  } else {
+    await screen.findByText(/Net position/i);
+  }
 };
 
 const goToTab = async (name) => {
@@ -376,10 +390,40 @@ describe('expenses tab', () => {
   });
 });
 
+// Reports lists all thirteen of these and links straight to one, so the tab has
+// to come out of the URL — otherwise every card in the catalogue lands on
+// Overview and the catalogue is decorative.
+describe('linkable tabs', () => {
+  test('opens the tab named in the URL', async () => {
+    await renderFinance('/frontdesk/finance?tab=tenders');
+    expect(screen.getByRole('tab', { name: /Tenders/i })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  test('falls back to Overview when the URL names a tab that does not exist', async () => {
+    await renderFinance('/frontdesk/finance?tab=nonsense');
+    expect(screen.getByRole('tab', { name: /Overview/i })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  test('no tab in the URL still opens Overview', async () => {
+    await renderFinance();
+    expect(screen.getByRole('tab', { name: /Overview/i })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  test('clicking a tab still switches it', async () => {
+    await renderFinance();
+    await goToTab('Products');
+    expect(screen.getByRole('tab', { name: /Products/i })).toHaveAttribute('aria-selected', 'true');
+  });
+});
+
 describe('failure handling', () => {
   test('shows an empty state instead of stale numbers when a report fails', async () => {
     posService.getFinanceOverview.mockRejectedValueOnce(new Error('boom'));
-    render(<Finance />);
+    render(
+      <MemoryRouter initialEntries={['/frontdesk/finance']}>
+        <Finance />
+      </MemoryRouter>,
+    );
     await screen.findByText(/No data for this period/i);
   });
 });
