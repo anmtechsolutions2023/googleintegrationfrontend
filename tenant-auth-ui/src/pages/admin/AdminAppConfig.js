@@ -66,7 +66,7 @@ const AdminAppConfig = () => {
             <h3>Auto-approve new onboarding requests</h3>
             <p>
               When enabled, a brand-new person signing in is provisioned
-              automatically into their own new tenant as its Tenant Admin —
+              automatically into their own new tenant as its administrator —
               skipping the manual Approvals queue. When disabled, new sign-ins
               wait in Approvals for manual review.
             </p>

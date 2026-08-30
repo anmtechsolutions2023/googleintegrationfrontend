@@ -3,7 +3,7 @@
 
 export const APP_CONFIG = {
   // Application Info
-  APP_NAME: 'TenantPortal',
+  APP_NAME: 'Restro OS',
   APP_LOGO: '🏢',
 
   // Session & Authentication

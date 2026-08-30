@@ -5,7 +5,7 @@
 const STRINGS = {
   // Application-wide strings
   app: {
-    name: 'TenantPortal',
+    name: 'Restro OS',
     logo: '🏢',
     tagline: 'Manage your tenant resources',
   },
@@ -125,7 +125,7 @@ const STRINGS = {
     },
 
     admin: {
-      title: 'Tenant Admin Settings',
+      title: 'Restro OS Settings',
       description: 'This data is only visible to users with',
       scopeLabel: 'scope.',
     },
