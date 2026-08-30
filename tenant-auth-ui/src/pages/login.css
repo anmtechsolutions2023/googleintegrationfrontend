@@ -1,0 +1,209 @@
+/* Sign in.
+ *
+ * Mobile-first, like Navbar.css and Admin.css: the stacked layout is the base
+ * and the two-column split is added when there is room for it. The old page was
+ * one 420px card centred in an otherwise empty viewport — on a till, which is
+ * usually a landscape tablet, that is a screen of white with a small box in it.
+ *
+ * The brand panel is #1a1a2e, the same colour the POS sidebar becomes a moment
+ * later, so signing in reads as entering the app rather than passing a gate.
+ */
+
+.login-page {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: #f5f7fa;
+}
+
+/* ── Brand panel ─────────────────────────────────────────────────────────── */
+.login-brand {
+  background: #1a1a2e;
+  padding: 34px 28px 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+}
+
+.login-mark {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.login-mark span {
+  color: #ffffff;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+}
+
+.login-headline {
+  color: #ffffff;
+  font-size: 25px;
+  line-height: 1.22;
+  font-weight: 600;
+  margin: 0;
+  letter-spacing: -0.3px;
+  text-wrap: balance;
+}
+
+/* Hidden on narrow screens: on a phone the panel is a header, not a pitch, and
+   every line above the fold pushes the button that people came to press. */
+.login-blurb,
+.login-tags,
+.login-foot {
+  display: none;
+}
+
+/* ── Sign-in card ────────────────────────────────────────────────────────── */
+.login-main {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 26px 20px 40px;
+  min-width: 0;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 420px;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 30px 24px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  box-sizing: border-box;
+}
+
+.login-card h1 {
+  color: #2c3e50;
+  font-size: 22px;
+  font-weight: 600;
+  margin: 0;
+  letter-spacing: -0.2px;
+}
+
+.login-sub {
+  color: #7f8c8d;
+  font-size: 14.5px;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.login-head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Google renders its own button and will not be restyled, so the layout sits
+   around it rather than theming it. */
+.login-btn {
+  display: flex;
+  justify-content: center;
+}
+
+.login-note {
+  border-top: 1px solid #e1e5eb;
+  padding-top: 16px;
+  color: #7f8c8d;
+  font-size: 12.5px;
+  line-height: 1.55;
+  margin: 0;
+}
+
+/* ── Two columns ─────────────────────────────────────────────────────────────
+   900px, not the 1023px the app shells use: that breakpoint is about a sidebar
+   this page does not have. Two columns need roughly 420px of card plus a panel
+   wide enough to read, and below ~900 the split starves both. */
+@media (min-width: 900px) {
+  .login-page {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .login-brand {
+    padding: 56px 60px;
+    justify-content: space-between;
+    gap: 40px;
+  }
+
+  .login-mark span { font-size: 20px; }
+
+  .login-headline {
+    font-size: 38px;
+    line-height: 1.18;
+    letter-spacing: -0.6px;
+    max-width: 14ch;
+  }
+
+  .login-blurb {
+    display: block;
+    color: #a8b0c4;
+    font-size: 16px;
+    line-height: 1.6;
+    margin: 0;
+    max-width: 32ch;
+  }
+
+  .login-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .login-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .login-tags span {
+    background: rgba(79, 195, 247, 0.1);
+    border: 1px solid rgba(79, 195, 247, 0.28);
+    color: #9fdcf7;
+    font-size: 12.5px;
+    padding: 6px 12px;
+    border-radius: 999px;
+  }
+
+  .login-foot {
+    display: block;
+    color: #6f7893;
+    font-size: 12.5px;
+    margin: 0;
+  }
+
+  .login-bottom {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .login-main {
+    align-items: center;
+    padding: 40px;
+  }
+
+  .login-card {
+    padding: 40px 36px;
+    gap: 26px;
+  }
+
+  .login-card h1 { font-size: 26px; letter-spacing: -0.3px; }
+  .login-sub { font-size: 15px; }
+  .login-note { font-size: 13px; padding-top: 18px; }
+}
+
+/* Very short landscape (a till in a cramped browser window): let the page
+   scroll rather than crushing the panel's vertical rhythm. */
+@media (min-width: 900px) and (max-height: 620px) {
+  .login-brand { justify-content: flex-start; gap: 28px; }
+  .login-headline { font-size: 30px; }
+}

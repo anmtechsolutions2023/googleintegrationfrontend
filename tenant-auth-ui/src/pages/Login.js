@@ -13,6 +13,7 @@ import {
 import { ROUTES } from '../constants/routes';
 import { peekRedirect, clearRedirect } from '../utils/redirectStore';
 import { isSetupPending } from '../utils/permissions';
+import './login.css';
 
 const Login = () => {
   const { login } = useAuth();
@@ -74,60 +75,62 @@ const Login = () => {
     }
   };
 
+  const s = STRINGS.pages.login;
+
   return (
-    <div style={styles.page}>
-      <div style={styles.card}>
-        <h2 style={styles.title}>{STRINGS.pages.login.title}</h2>
-        <p style={styles.subtitle}>{STRINGS.pages.login.subtitle}</p>
-        <div style={styles.btnWrapper}>
-          <GoogleLogin
-            onSuccess={onSuccess}
-            onError={() =>
-              toast.error(MESSAGES.error[ERROR_CODES.GOOGLE_SIGNIN_FAILED])
-            }
-            useOneTap={false}
-          />
+    <div className="login-page">
+      {/* The panel is #1a1a2e — the colour the POS sidebar becomes a moment
+          later — so signing in reads as entering the app, not passing a gate. */}
+      <div className="login-brand">
+        <div className="login-mark">
+          {/* Placeholder mark. STRINGS.app.logo is an office building, which is
+              the wrong idea for a restaurant and weak at this size. */}
+          <svg viewBox="0 0 32 32" width="30" height="30" role="img" aria-label={STRINGS.app.name}>
+            <path d="M4 23h24" stroke="#4fc3f7" strokeWidth="2.2" strokeLinecap="round" fill="none" />
+            <path d="M6.5 22a9.5 9.5 0 0 1 19 0" stroke="#fff" strokeWidth="2.2" fill="none" strokeLinecap="round" />
+            <circle cx="16" cy="8.2" r="1.9" fill="#4fc3f7" />
+          </svg>
+          <span>{STRINGS.app.name}</span>
+        </div>
+
+        <div className="login-copy">
+          <h2 className="login-headline">{s.headline}</h2>
+          <p className="login-blurb">{s.blurb}</p>
+        </div>
+
+        <div className="login-bottom">
+          <div className="login-tags">
+            {s.capabilities.map((c) => (
+              <span key={c}>{c}</span>
+            ))}
+          </div>
+          <p className="login-foot">{s.access}</p>
+        </div>
+      </div>
+
+      <div className="login-main">
+        <div className="login-card">
+          <div className="login-head">
+            <h1>{s.title}</h1>
+            <p className="login-sub">{s.subtitle}</p>
+          </div>
+
+          {/* Unchanged: Google renders and owns this button. */}
+          <div className="login-btn">
+            <GoogleLogin
+              onSuccess={onSuccess}
+              onError={() =>
+                toast.error(MESSAGES.error[ERROR_CODES.GOOGLE_SIGNIN_FAILED])
+              }
+              useOneTap={false}
+            />
+          </div>
+
+          <p className="login-note">{s.firstTime}</p>
         </div>
       </div>
     </div>
   );
-};
-
-const styles = {
-  page: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: '80vh',
-    padding: '16px',
-    fontFamily: 'sans-serif',
-    boxSizing: 'border-box',
-  },
-  card: {
-    width: '100%',
-    maxWidth: '420px',
-    padding: '40px 32px',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-    borderRadius: '12px',
-    textAlign: 'center',
-    backgroundColor: '#fff',
-    boxSizing: 'border-box',
-  },
-  title: {
-    color: '#2c3e50',
-    marginBottom: '10px',
-    fontSize: 'clamp(1.2rem, 4vw, 1.6rem)',
-  },
-  subtitle: {
-    color: '#7f8c8d',
-    marginBottom: '30px',
-    fontSize: 'clamp(0.85rem, 2.5vw, 1rem)',
-  },
-  btnWrapper: {
-    display: 'flex',
-    justifyContent: 'center',
-  },
 };
 
 export default Login;

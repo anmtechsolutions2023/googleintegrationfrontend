@@ -113,8 +113,18 @@ const STRINGS = {
   // Page-specific strings - organized by page
   pages: {
     login: {
-      title: 'Corporate Login',
-      subtitle: 'Sign in to manage your tenant resources.',
+      title: 'Sign in',
+      subtitle: 'Use the Google account your restaurant registered you with.',
+      // The brand panel, shown beside the card from 900px up.
+      headline: 'The floor, the kitchen, and the books.',
+      blurb: 'One system from the moment an order is taken to the moment it '
+        + 'reaches your ledger.',
+      capabilities: ['Billing & KOT', 'Kitchen display', 'Tables & tokens', 'Ledger & reports'],
+      access: 'Signed in on this device only. Ask your manager for access.',
+      // Says out loud what a first-time sign-in actually does — new users hit
+      // the Approvals queue today with no warning that they will.
+      firstTime: 'Signing in for the first time? Your request goes to your '
+        + 'manager for approval before you can take orders.',
     },
 
     dashboard: {
