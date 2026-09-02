@@ -194,3 +194,39 @@ describe('the staff details on an invitation', () => {
     expect(screen.queryByLabelText(/Branch/i)).not.toBeInTheDocument();
   });
 });
+
+// ── The platform owner's role is not on offer ───────────────────────────────
+// There is one super admin in the system, established at install. Ticking it in
+// an invite form would have granted blanket READ+WRITE on every module, under a
+// label that read "Full system access" — so it is filtered out of the picker and
+// refused by the server (utils/roleGuard.js) for anyone who posts it anyway.
+describe('SUPER_ADMIN is never offered', () => {
+  const WITH_SUPER = [
+    { id: 'r0', name: 'SUPER_ADMIN', description: 'Full system access' },
+    ...ROLES,
+    { id: 'r3', name: 'TENANT_ADMIN', description: 'Full CRUD access' },
+  ];
+
+  it('is absent from the role list even when the API returns it', async () => {
+    await renderPanel({ roles: WITH_SUPER });
+    expect(screen.queryByText('SUPER_ADMIN')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Platform super admin/i)).not.toBeInTheDocument();
+  });
+
+  it('still offers TENANT_ADMIN — a tenancy may have as many as it likes', async () => {
+    await renderPanel({ roles: WITH_SUPER });
+    expect(screen.getByText('TENANT_ADMIN')).toBeInTheDocument();
+  });
+
+  it('leaves the ordinary roles untouched', async () => {
+    await renderPanel({ roles: WITH_SUPER });
+    expect(screen.getByText('POS_CASHIER')).toBeInTheDocument();
+    expect(screen.getByText('POS_MANAGER')).toBeInTheDocument();
+  });
+
+  it('hides the whole roles block when SUPER_ADMIN is the only role there is', () => {
+    // Otherwise the fieldset renders with nothing inside it.
+    renderPanel({ roles: [{ id: 'r0', name: 'SUPER_ADMIN' }] });
+    expect(screen.queryByText(/Roles in this tenancy/i)).not.toBeInTheDocument();
+  });
+});

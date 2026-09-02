@@ -1,0 +1,120 @@
+/* Dashboard — what the signed-in person can do.
+ *
+ * This replaced a flat list of 28 raw scope codes. The codes are still here,
+ * behind a disclosure, because support asks for them — but they are not what
+ * somebody opens this page to read.
+ */
+
+.dash-page { padding: 32px 24px 60px; max-width: 940px; margin: 0 auto; }
+
+.dash-head { display: flex; flex-direction: column; gap: 6px; margin-bottom: 22px; }
+.dash-head h1 { font-size: 24px; color: #2c3e50; margin: 0; font-weight: 600; }
+.dash-head p { margin: 0; font-size: 13.5px; color: #7f8c8d; line-height: 1.55; }
+
+.dash-card {
+  background: #fff;
+  border: 1px solid #e1e5eb;
+  border-radius: 10px;
+  padding: 18px 20px;
+}
+
+/* ── Rank banner ─────────────────────────────────────────────────────────── */
+.dash-rank {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  border-left: 3px solid #0f3460;
+  margin-bottom: 22px;
+}
+.dash-rank-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.dash-rank h2 { font-size: 15px; color: #2c3e50; margin: 0; font-weight: 600; }
+.dash-rank p { margin: 0; font-size: 13px; color: #7f8c8d; line-height: 1.55; }
+
+/* ── Capability groups ───────────────────────────────────────────────────── */
+.dash-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.dash-section-head h2 { font-size: 17px; color: #2c3e50; margin: 0; font-weight: 600; }
+.dash-section-head span { font-size: 12.5px; color: #7f8c8d; }
+
+/* One column by default; two once there is room for both to stay readable. */
+.dash-groups { display: grid; grid-template-columns: 1fr; gap: 14px; }
+
+.dash-cat {
+  font-size: 11px;
+  font-weight: 700;
+  color: #7f8c8d;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0 0 10px;
+}
+
+.dash-cap {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid #f0f4f8;
+}
+.dash-cap:last-child { border-bottom: none; }
+.dash-cap-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.dash-cap-name { font-size: 14px; color: #2c3e50; }
+
+/* What the capability actually opens. Small and quiet — it answers the
+   follow-up question without competing with the name. */
+.dash-cap-screens {
+  font-size: 12px;
+  color: #95a5a6;
+  line-height: 1.5;
+}
+
+.dash-level {
+  flex-shrink: 0;
+  margin-top: 1px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 9px;
+  border-radius: 10px;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+.dash-level.full { background: #d5f5e3; color: #1e8449; }
+.dash-level.view { background: #eef1f5; color: #5a6c7d; }
+.dash-level.approve { background: #e8f0fe; color: #0f3460; }
+
+/* A capability nothing could name properly. Visible rather than hidden: it
+   means a features row is missing, and somebody should see that. */
+.dash-cap-unnamed .dash-cap-name { color: #5a6c7d; font-style: italic; }
+
+/* ── Technical detail ────────────────────────────────────────────────────── */
+.dash-tech { margin-top: 22px; }
+.dash-tech summary {
+  font-size: 13px;
+  color: #5a6c7d;
+  cursor: pointer;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+.dash-tech-body { margin-top: 10px; display: flex; flex-direction: column; gap: 10px; }
+.dash-tech-body p { margin: 0; font-size: 12.5px; color: #7f8c8d; line-height: 1.6; }
+.dash-codes {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  color: #5a6c7d;
+  word-break: break-all;
+  line-height: 1.8;
+  margin: 0;
+}
+
+.dash-empty { color: #7f8c8d; font-size: 14px; margin: 0; }
+
+@media (min-width: 860px) {
+  .dash-page { padding: 32px 40px 60px; }
+  .dash-groups { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

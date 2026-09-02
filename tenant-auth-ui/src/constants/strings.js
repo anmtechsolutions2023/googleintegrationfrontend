@@ -129,6 +129,11 @@ const STRINGS = {
 
     dashboard: {
       title: 'Dashboard',
+      capabilitiesTitle: 'What you can do',
+      technicalDetail: 'Technical detail — permission codes and tenant id',
+      technicalHint: 'Support may ask you for these.',
+      capabilitiesUnavailable:
+        'Could not load your permissions just now. The codes below still show what you hold.',
       welcome: 'Welcome,',
       defaultUserName: 'User',
       noScopes: 'No scopes assigned to this user.',

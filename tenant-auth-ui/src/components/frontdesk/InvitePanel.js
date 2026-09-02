@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { toast } from 'react-toastify'
 import adminService from '../../services/adminService'
+import { roleLabel, roleCode, roleDescription, grantableRoles } from '../../utils/roleLabels'
 
 const when = (v) => (v ? new Date(v).toLocaleDateString() : '—')
 
@@ -147,12 +148,13 @@ const InvitePanel = ({ roles = [], branches = [], canWrite = true }) => {
             </div>
           )}
 
-          {roles.length > 0 && (
+          {grantableRoles(roles).length > 0 && (
             <fieldset className="fd-invite-roles">
               <legend>Roles in this tenancy</legend>
               <div className="fd-invite-role-list">
-                {roles.map((r) => {
+                {grantableRoles(roles).map((r) => {
                   const id = r.id || r.Id
+                  const desc = roleDescription(r)
                   return (
                     <label key={id} className={roleIds.includes(id) ? 'is-on' : ''}>
                       <input
@@ -160,7 +162,16 @@ const InvitePanel = ({ roles = [], branches = [], canWrite = true }) => {
                         checked={roleIds.includes(id)}
                         onChange={() => toggleRole(id)}
                       />
-                      {r.name || r.Name}
+                      {/* The job, then the code. The code stays visible so
+                          support can still ask which role somebody holds and
+                          get an answer that matches the seed. */}
+                      <span className="fd-role-text">
+                        <span className="fd-role-head">
+                          <strong>{roleLabel(r)}</strong>
+                          <code>{roleCode(r)}</code>
+                        </span>
+                        {desc && <em>{desc}</em>}
+                      </span>
                     </label>
                   )
                 })}

@@ -9,6 +9,7 @@ import {
 import { toast } from 'react-toastify';
 import { STRINGS } from '../../constants';
 import './Admin.css';
+import { grantableRoles } from '../../utils/roleLabels';
 
 const s = STRINGS.pages.adminApprovals;
 
@@ -120,13 +121,13 @@ const ApproveModal = ({ request, onClose, onDone }) => {
             </label>
             {rolesLoading ? (
               <p style={{ fontSize: '0.85rem', color: '#a0aec0', margin: '6px 0' }}>Loading roles…</p>
-            ) : roles.length === 0 ? (
+            ) : grantableRoles(roles).length === 0 ? (
               <p style={{ fontSize: '0.85rem', color: '#a0aec0', margin: '6px 0' }}>
                 No roles available. Create roles in the Roles tab first.
               </p>
             ) : (
               <div className="roles-list" style={{ maxHeight: 200, overflowY: 'auto' }}>
-                {roles.map((role) => {
+                {grantableRoles(roles).map((role) => {
                   const isSelected = selectedRoleIds.includes(role.id);
                   return (
                     <div

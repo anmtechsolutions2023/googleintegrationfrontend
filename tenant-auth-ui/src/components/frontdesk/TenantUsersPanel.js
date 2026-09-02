@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { toast } from 'react-toastify'
 import adminService from '../../services/adminService'
+import { grantableRoles } from '../../utils/roleLabels'
 
 /**
  * Everybody in this tenancy — staff record and login in one row.
@@ -124,9 +125,11 @@ const TenantUsersPanel = ({ roles = [], branches = [], currentEmail, canWrite = 
 
   return (
     <>
-      {/* Assigning a role named TENANT_ADMIN or SUPER_ADMIN grants that role's
-          feature scopes and nothing else — the admin screens are gated on the
-          membership flag, which is the Admin switch below. */}
+      {/* Assigning a role named TENANT_ADMIN grants that role's feature scopes
+          and nothing else — the admin screens are gated on the membership flag,
+          which is the Admin switch below. SUPER_ADMIN is not offered at all:
+          there is one platform owner and the rank cannot be handed out (see
+          grantableRoles here, and utils/roleGuard.js on the server). */}
       <p className="fd-page-sub">
         <strong>Admin</strong> controls access to these management screens and is separate
         from roles. Changes take effect when the person next signs in.
@@ -214,7 +217,7 @@ const TenantUsersPanel = ({ roles = [], branches = [], currentEmail, canWrite = 
                   <td>
                     {isEditing ? (
                       <div className="fd-invite-role-list">
-                        {roles.map((r) => {
+                        {grantableRoles(roles).map((r) => {
                           const id = r.id || r.Id
                           return (
                             <label key={id} className={draftRoles.includes(id) ? 'is-on' : ''}>

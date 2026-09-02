@@ -2873,3 +2873,42 @@
   margin-bottom: 12px;
 }
 .ofc-warn strong { display: block; color: #b9600f; }
+
+/* ── Role picker on the invite form ───────────────────────────────────────
+   Was a row of bare enum chips. Now each row carries the job title, the code
+   support asks for, and the description the roles table has always held. */
+.fd-invite-role-list label {
+  align-items: flex-start;
+  padding: 10px 12px;
+  min-height: 44px;
+}
+.fd-role-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.fd-role-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.fd-role-head strong {
+  font-size: 13.5px;
+  color: #2c3e50;
+  font-weight: 600;
+}
+.fd-role-head code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: #95a5a6;
+  background: none;
+  padding: 0;
+}
+.fd-role-text em {
+  font-style: normal;
+  font-size: 12px;
+  color: #7f8c8d;
+  line-height: 1.5;
+}
