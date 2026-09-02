@@ -13,7 +13,7 @@ import './MasterDataSetup.css';
 // ── Declarative step / group / field definitions ─────────────────────────────
 // Each field's `path` addresses a node in the nested payload; the orchestrator
 // on the backend resolves all foreign keys, so the client never sends ids.
-const NUMBER_FIELDS = new Set(['Lat', 'Lng', 'Amount', 'StartCounterNo']);
+const NUMBER_FIELDS = new Set(['Lat', 'Lng', 'Amount']);
 
 const STEPS = [
   {
@@ -46,12 +46,13 @@ const STEPS = [
         { name: 'LastName', label: 'Last Name', required: true },
         { name: 'Email' },
       ] },
-      { title: 'Transaction Type Config', path: 'branch.transactionTypeConfig', fields: [
-        { name: 'StartCounterNo', label: 'Start Counter No', type: 'number', required: true },
-        { name: 'Format', label: 'Format', required: true, hint: 'e.g. INV-{0000}' },
-        // Config tag is fixed for onboarding — hidden from the UI, sent to the API.
-        { name: 'TagName', label: 'Config Tag', required: true, hidden: true, value: 'Onboarding' },
-      ] },
+      // Transaction Type Config is deliberately absent. A numbering series is
+      // still created for every branch — branchdetail.TransactionTypeConfigId is
+      // a NOT NULL foreign key, so one has to exist — but the API decides it
+      // (INV-0001 onward, tagged 'Onboarding'). "Where should your invoice
+      // numbers start" is not a question a new tenant can answer, and it was the
+      // last thing standing between them and a working branch. Changing the
+      // series afterwards belongs on a settings screen, not in signup.
     ],
   },
   {
@@ -815,7 +816,6 @@ const ReviewPanel = ({ form, includeItem, taxRates }) => {
   push('Address', form.branch?.address, ['AddressLine1', 'City', 'State', 'Pincode']);
   push('Address Type', form.branch?.address?.contactAddressType, ['Name']);
   push('Contact', form.branch?.contact, ['FirstName', 'LastName', 'Email']);
-  push('Txn Config', form.branch?.transactionTypeConfig, ['Format', 'StartCounterNo']);
   if (includeItem) {
     push('Item', form.item, ['Name', 'Code']);
     push('Category', form.item?.category, ['Name']);

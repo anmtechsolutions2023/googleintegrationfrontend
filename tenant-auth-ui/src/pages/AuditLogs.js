@@ -309,18 +309,23 @@ const AuditLogs = () => {
               <th>Category</th>
               <th>Level</th>
               <th>{STRINGS.tableHeaders.status}</th>
+              {/* The record the action touched, and the context an id cannot
+                  carry. Both were already stored and returned by the API —
+                  nothing on this page had ever shown them. */}
+              <th>Resource</th>
+              <th>{STRINGS.tableHeaders.details}</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={7} className="al-cell-center">
+                <td colSpan={9} className="al-cell-center">
                   {MESSAGES.info.loading}
                 </td>
               </tr>
             ) : displayedLogs.length === 0 ? (
               <tr>
-                <td colSpan={7} className="al-cell-center">
+                <td colSpan={9} className="al-cell-center">
                   {STRINGS.emptyStates.noLogs}
                 </td>
               </tr>
@@ -346,6 +351,8 @@ const AuditLogs = () => {
                       {log.status}
                     </span>
                   </td>
+                  <td className="al-resource">{log.resource_id || '—'}</td>
+                  <td className="al-details">{log.details || '—'}</td>
                 </tr>
               ))
             )}

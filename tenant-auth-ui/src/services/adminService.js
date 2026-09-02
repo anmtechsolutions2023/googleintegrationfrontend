@@ -137,6 +137,16 @@ export const listTenants = async (params = { limit: 100 }) =>
 export const listTenantUsers = async (tenantId) =>
   toArray((await api.get(`${BASE.TENANTS}/${encodeURIComponent(tenantId)}/users`)).data);
 
+// Erases a tenancy and everything recorded under it — 72 tables, one
+// transaction, no undo and no export. The one write on this panel that is not
+// scoped to the caller's own tenancy, which is exactly why the server keeps it
+// on the super-admin guard and refuses the caller's own tenancy outright.
+//
+// Resolves to { membersRemoved, accountsReset, disassociated } so the caller can
+// say what happened to the people rather than just "deleted".
+export const deleteTenant = async (tenantId) =>
+  toObject((await api.delete(`${BASE.TENANTS}/${encodeURIComponent(tenantId)}`)).data);
+
 // ── Invitations ──
 // A tenant admin adding somebody to THEIR tenancy. The invitee joins on their
 // next sign-in, and an invitation beats onboarding auto-approval, so they land
@@ -201,6 +211,7 @@ export default {
   revokeInvitation,
   listTenants,
   listTenantUsers,
+  deleteTenant,
   listRolePermissionIds,
   saveRole,
   saveRolePermissions,

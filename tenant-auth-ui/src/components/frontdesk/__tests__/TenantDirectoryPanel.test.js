@@ -16,6 +16,7 @@ jest.mock('../../../services/adminService', () => ({
     listTenants: jest.fn(),
     listTenantUsers: jest.fn(),
     updateUserStatusCrossTenant: jest.fn(),
+    deleteTenant: jest.fn(),
   },
 }));
 jest.mock('react-toastify', () => ({
@@ -45,6 +46,7 @@ beforeEach(() => {
   adminService.listTenants.mockResolvedValue([tenancy()]);
   adminService.listTenantUsers.mockResolvedValue([person()]);
   adminService.updateUserStatusCrossTenant.mockResolvedValue({});
+  adminService.deleteTenant.mockResolvedValue({ membersRemoved: 0, accountsReset: 0, disassociated: 0 });
 });
 
 // Each person is in the DOM twice: the table for a wide panel and a card for a
@@ -268,5 +270,117 @@ describe('finding a tenancy', () => {
     await renderPanel();
     fireEvent.change(await screen.findByLabelText(/Search tenancies/i), { target: { value: 'zzz' } });
     expect(screen.getByText(/No tenancy matches/i)).toBeInTheDocument();
+  });
+});
+
+// ── Deleting a tenancy ──────────────────────────────────────────────────────
+// Irreversible, unexportable, and the only write on this panel that acts on a
+// tenancy other than the caller's own. What the tests below care about is the
+// friction: that it cannot be fired by one stray click, that it is refused on
+// the caller's own tenancy before a request is made, and that the outcome
+// distinguishes people who kept an account from people who did not.
+describe('deleting a tenancy', () => {
+  const openDialog = async (name = 'ANM Tech') => {
+    const row = screen.getByText(name).closest('.fd-tenant');
+    fireEvent.click(within(row).getByRole('button', { name: /Delete Tenant/i }));
+    return screen.findByRole('dialog', { name: /Delete tenancy/i });
+  };
+
+  it('offers the action on another tenancy', async () => {
+    await renderPanel();
+    const row = screen.getByText('ANM Tech').closest('.fd-tenant');
+    expect(within(row).getByRole('button', { name: /Delete Tenant/i })).toBeEnabled();
+  });
+
+  it('refuses the tenancy the super admin is signed in to', async () => {
+    adminService.listTenants.mockResolvedValue([tenancy({ tenant_id: MY_TENANT, tenant_name: 'My Own' })]);
+    await renderPanel();
+    const row = screen.getByText('My Own').closest('.fd-tenant');
+    // Disabled rather than hidden: the reason is worth showing, and the server
+    // refuses it anyway.
+    expect(within(row).getByRole('button', { name: /Delete Tenant/i })).toBeDisabled();
+  });
+
+  it('does not delete anything on the first click — it asks first', async () => {
+    await renderPanel();
+    await openDialog();
+    expect(adminService.deleteTenant).not.toHaveBeenCalled();
+  });
+
+  it('keeps the confirm button dead until the name is typed exactly', async () => {
+    await renderPanel();
+    const dialog = await openDialog();
+    const confirm = within(dialog).getByRole('button', { name: /Delete permanently/i });
+    expect(confirm).toBeDisabled();
+
+    fireEvent.change(within(dialog).getByLabelText(/Type/i), { target: { value: 'anm tech' } });
+    expect(confirm).toBeDisabled();   // case matters
+
+    fireEvent.change(within(dialog).getByLabelText(/Type/i), { target: { value: 'ANM Tech' } });
+    expect(confirm).toBeEnabled();
+  });
+
+  it('asks an unnamed tenancy for the word instead of its uuid', async () => {
+    adminService.listTenants.mockResolvedValue([tenancy({ tenant_name: null })]);
+    await renderPanel();
+    const row = screen.getByText(/Unnamed tenancy/i).closest('.fd-tenant');
+    fireEvent.click(within(row).getByRole('button', { name: /Delete Tenant/i }));
+    const dialog = await screen.findByRole('dialog', { name: /Delete tenancy/i });
+
+    fireEvent.change(within(dialog).getByLabelText(/Type/i), { target: { value: 'DELETE' } });
+    expect(within(dialog).getByRole('button', { name: /Delete permanently/i })).toBeEnabled();
+  });
+
+  it('sends the tenancy id and reloads the directory', async () => {
+    await renderPanel();
+    const dialog = await openDialog();
+    fireEvent.change(within(dialog).getByLabelText(/Type/i), { target: { value: 'ANM Tech' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: /Delete permanently/i }));
+
+    await waitFor(() => expect(adminService.deleteTenant).toHaveBeenCalledWith('tenant-a'));
+    // Twice: the initial load and the reload after the delete.
+    await waitFor(() => expect(adminService.listTenants).toHaveBeenCalledTimes(2));
+  });
+
+  it('reports what became of the people, not just that rows went', async () => {
+    const { toast } = require('react-toastify');
+    adminService.deleteTenant.mockResolvedValue({
+      membersRemoved: 3, accountsReset: 1, disassociated: 2,
+    });
+    await renderPanel();
+    const dialog = await openDialog();
+    fireEvent.change(within(dialog).getByLabelText(/Type/i), { target: { value: 'ANM Tech' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: /Delete permanently/i }));
+
+    await waitFor(() => expect(toast.success).toHaveBeenCalled());
+    const msg = toast.success.mock.calls[0][0];
+    expect(msg).toMatch(/2 accounts kept their other tenancies/);
+    expect(msg).toMatch(/1 returned to onboarding/);
+  });
+
+  it('surfaces the server\'s refusal rather than a generic failure', async () => {
+    const { toast } = require('react-toastify');
+    adminService.deleteTenant.mockRejectedValue({
+      response: { data: { message: 'This tenancy has a super admin in it.' } },
+    });
+    await renderPanel();
+    const dialog = await openDialog();
+    fireEvent.change(within(dialog).getByLabelText(/Type/i), { target: { value: 'ANM Tech' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: /Delete permanently/i }));
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('This tenancy has a super admin in it.'));
+    // The tenancy is still there, so the dialog stays open to be read.
+    expect(screen.getByRole('dialog', { name: /Delete tenancy/i })).toBeInTheDocument();
+  });
+
+  it('cancelling closes the dialog and calls nothing', async () => {
+    await renderPanel();
+    const dialog = await openDialog();
+    fireEvent.click(within(dialog).getByRole('button', { name: /Cancel/i }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: /Delete tenancy/i })).not.toBeInTheDocument());
+    expect(adminService.deleteTenant).not.toHaveBeenCalled();
   });
 });

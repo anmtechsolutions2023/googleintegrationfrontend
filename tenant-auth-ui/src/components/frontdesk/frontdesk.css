@@ -2437,6 +2437,43 @@
 }
 .fd-tenant.is-flagged { border-color: #e67e22; }
 
+/* The header is a toggle button, so the destructive action cannot live inside
+   it — this row holds the two side by side instead. */
+.fd-tenant-headrow { display: flex; align-items: center; }
+.fd-tenant-headrow > .fd-tenant-head { flex: 1; min-width: 0; }
+.fd-tenant-danger {
+  flex: none; display: flex; align-items: center; gap: 9px; padding: 0 15px 0 12px;
+  border-left: 1px solid #eef1f4; align-self: stretch;
+}
+.fd-tenant-delete {
+  font: inherit; font-size: 12px; font-weight: 500; padding: 5px 12px; border-radius: 6px;
+  background: #fff; color: #c0392b; border: 1px solid #edbbb4; cursor: pointer; white-space: nowrap;
+}
+.fd-tenant-delete:hover:not(:disabled) { background: #fdecea; border-color: #e2b6b0; }
+.fd-tenant-delete:focus-visible { outline: 2px solid #c0392b; outline-offset: 1px; }
+/* Disabled on the caller's own tenancy — the server refuses it, so the button
+   says so rather than offering a request that always 403s. */
+.fd-tenant-delete:disabled { color: #b6bec6; border-color: #e6eaee; background: #f7f8f9; cursor: not-allowed; }
+
+.fd-tenant-confirm { max-width: 460px; }
+.fd-tenant-confirm-counts {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  margin: 12px 0; padding: 9px 11px; background: #f5f7fa;
+  border: 1px solid #e6eaee; border-radius: 8px; font-size: 12.5px; color: #5a6b7d;
+}
+.fd-tenant-confirm-counts b { color: #2c3e50; font-variant-numeric: tabular-nums; }
+.fd-tenant-confirm-id {
+  width: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px; color: #a9b4bf;
+}
+.fd-tenant-confirm-label { display: block; margin: 14px 0 6px; font-size: 12.5px; color: #5a6b7d; }
+.fd-tenant-confirm-label b { color: #2c3e50; }
+.fd-tenant-confirm-input {
+  width: 100%; box-sizing: border-box; font: inherit; font-size: 13px;
+  padding: 8px 11px; border: 1px solid #d0d4da; border-radius: 6px; color: #2c3e50;
+}
+.fd-tenant-confirm-input:focus-visible { outline: 2px solid #0f3460; outline-offset: -1px; }
+
 .fd-tenant-head {
   width: 100%; text-align: left; font: inherit; cursor: pointer; background: none;
   border: 0; color: inherit; display: grid; gap: 10px 14px; align-items: center;
@@ -2486,6 +2523,13 @@
 
 @container (max-width: 700px) {
   .fd-tenant-head { grid-template-columns: 18px minmax(0, 1fr); }
+  /* Narrow screens: the action drops under the header rather than squeezing
+     the tenancy name into nothing. */
+  .fd-tenant-headrow { flex-direction: column; align-items: stretch; }
+  .fd-tenant-danger {
+    border-left: 0; border-top: 1px solid #eef1f4; padding: 10px 15px;
+    justify-content: flex-end;
+  }
   .fd-tenant-counts, .fd-tenant-roles, .fd-tenant-setup { grid-column: 2; justify-content: flex-start; }
   .fd-tenant-table { display: none; }
   .fd-tenant-cards { display: flex; }

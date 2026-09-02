@@ -108,8 +108,6 @@ test('item step can be skipped via the toggle', () => {
   typeInto('Address Line 1', '12 MG Road');
   typeInto('First Name', 'Ravi');
   typeInto('Last Name', 'K');
-  typeInto('Start Counter No', '1');
-  typeInto('Format', 'INV-{0000}');
   fireEvent.click(screen.getByRole('button', { name: 'Next' }));
   // On Item step — uncheck "Add a starter item"
   const toggle = screen.getByRole('checkbox');
@@ -145,8 +143,6 @@ test('does not collect location details and omits locationMapper from the payloa
   typeInto('Address Line 1', '12 MG Road');
   typeInto('First Name', 'Ravi');
   typeInto('Last Name', 'K');
-  typeInto('Start Counter No', '1');
-  typeInto('Format', 'INV-{0000}');
   fireEvent.click(screen.getByRole('button', { name: 'Next' }));
 
   // Skip item too, then submit from Review
@@ -161,7 +157,12 @@ test('does not collect location details and omits locationMapper from the payloa
   expect(payload.branch.address.contactAddressType).toEqual({ Name: 'Onboarding' });
   // Hidden tags are hardcoded and still reach the API.
   expect(payload.branch.address.TagName).toBe('Onboarding');
-  expect(payload.branch.transactionTypeConfig.TagName).toBe('Onboarding');
+  // Numbering is NOT sent at all any more — the wizard stopped asking, and the
+  // API defaults the whole node (INV-0001, tagged 'Onboarding'). The row is
+  // still created: branchdetail.TransactionTypeConfigId is a NOT NULL foreign
+  // key, so a branch cannot exist without one. Asserting its ABSENCE here is
+  // what catches the section being reintroduced by accident.
+  expect(payload.branch.transactionTypeConfig).toBeUndefined();
 });
 
 test('submitting from Review calls the bootstrap API and shows the id map', async () => {
@@ -175,8 +176,6 @@ test('submitting from Review calls the bootstrap API and shows the id map', asyn
   typeInto('Address Line 1', '12 MG Road');
   typeInto('First Name', 'Ravi');
   typeInto('Last Name', 'K');
-  typeInto('Start Counter No', '1');
-  typeInto('Format', 'INV-{0000}');
   fireEvent.click(screen.getByRole('button', { name: 'Next' }));
   // Skip item to keep the test short
   fireEvent.click(screen.getByRole('checkbox'));
@@ -206,8 +205,6 @@ test('item step hides the Unit of Measure section and sends UnitName as hardcode
   typeInto('Address Line 1', '12 MG Road');
   typeInto('First Name', 'Ravi');
   typeInto('Last Name', 'K');
-  typeInto('Start Counter No', '1');
-  typeInto('Format', 'INV-{0000}');
   fireEvent.click(screen.getByRole('button', { name: 'Next' }));
 
   // On the Item step: keep the starter item, fill required fields.
@@ -238,8 +235,6 @@ describe('setup gate behaviour', () => {
     typeInto('Address Line 1', '12 MG Road');
     typeInto('First Name', 'Ravi');
     typeInto('Last Name', 'K');
-    typeInto('Start Counter No', '1');
-    typeInto('Format', 'INV-{0000}');
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
     fireEvent.click(screen.getByRole('checkbox'));
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
@@ -317,8 +312,6 @@ const fillOrgAndBranch = () => {
   typeInto('Address Line 1', '142 Sarjapura Road');
   typeInto('First Name', 'Priya');
   typeInto('Last Name', 'Raman');
-  typeInto('Start Counter No', '1');
-  typeInto('Format', 'INV-{0000}');
   fireEvent.click(screen.getByRole('button', { name: 'Next' }));
 };
 

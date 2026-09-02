@@ -75,6 +75,11 @@ const TenantDirectoryPanel = ({ currentTenantId, currentEmail }) => {
   const [busy, setBusy] = useState(null)
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('all')
+  // The tenancy queued for deletion, plus what the super admin has typed to
+  // confirm it. Held here rather than on the row so only one can ever be open.
+  const [deleteTarget, setDeleteTarget] = useState(null)
+  const [confirmText, setConfirmText] = useState('')
+  const [deleting, setDeleting] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -120,6 +125,50 @@ const TenantDirectoryPanel = ({ currentTenantId, currentEmail }) => {
       toast.error(e?.response?.data?.message || 'That did not work')
     } finally {
       setBusy(null)
+    }
+  }
+
+  // What the super admin has to type to arm the button. A named tenancy asks for
+  // its name; an unnamed one has nothing to type, so it asks for the word
+  // instead — the friction is the point either way, and a 36-character uuid is
+  // friction you defeat by pasting.
+  const confirmPhrase = (t) => tenantLabel(t) || 'DELETE'
+
+  const closeDelete = () => {
+    setDeleteTarget(null)
+    setConfirmText('')
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      const res = await adminService.deleteTenant(deleteTarget.tenant_id)
+      // Say what happened to the people, not just that rows went. The two
+      // numbers mean genuinely different things and the distinction is the
+      // whole reason this operation needed designing.
+      const kept = n(res?.disassociated)
+      const reset = n(res?.accountsReset)
+      const parts = []
+      if (kept) parts.push(`${kept} ${kept === 1 ? 'account' : 'accounts'} kept their other tenancies`)
+      if (reset) parts.push(`${reset} returned to onboarding`)
+      toast.success(
+        `Deleted ${tenantLabel(deleteTarget) || 'the tenancy'}.${parts.length ? ` ${parts.join('; ')}.` : ''}`
+      )
+      closeDelete()
+      // Collapse it if it happened to be the expanded one — its members are
+      // gone and the fetched list behind it is now describing nothing.
+      setExpanded((cur) => (cur === deleteTarget.tenant_id ? null : cur))
+      setMembers((prev) => {
+        const next = { ...prev }
+        delete next[deleteTarget.tenant_id]
+        return next
+      })
+      await load()
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Could not delete that tenancy.')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -195,6 +244,7 @@ const TenantDirectoryPanel = ({ currentTenantId, currentEmail }) => {
 
         return (
           <div key={id} className={`fd-tenant${open ? ' is-open' : ''}${noAdmin ? ' is-flagged' : ''}`}>
+           <div className="fd-tenant-headrow">
             <button
               className="fd-tenant-head"
               aria-expanded={open}
@@ -222,6 +272,24 @@ const TenantDirectoryPanel = ({ currentTenantId, currentEmail }) => {
                 </span>
               </span>
             </button>
+
+            {/* Outside the toggle rather than inside it: the header is itself a
+                button, and the one thing worse than burying a destructive action
+                is nesting it in a control that expands a row. */}
+            <span className="fd-tenant-danger">
+              <button
+                type="button"
+                className="fd-tenant-delete"
+                disabled={id === currentTenantId}
+                title={id === currentTenantId
+                  ? 'You cannot delete the tenancy you are signed in to.'
+                  : 'Erase this tenancy and everything in it'}
+                onClick={() => { setDeleteTarget(t); setConfirmText('') }}
+              >
+                Delete Tenant
+              </button>
+            </span>
+           </div>
 
             {open && (
               <div className="fd-tenant-body">
@@ -357,6 +425,62 @@ const TenantDirectoryPanel = ({ currentTenantId, currentEmail }) => {
           </div>
         )
       })}
+
+      {/* Deleting a tenancy is irreversible and has no export behind it, so the
+          dialog spends its space on the two things a super admin cannot get
+          back: what the tenancy contained, and what happens to the people in
+          it. The typed phrase exists to stop a misfired click, not to prove
+          anything — the server does the actual checking. */}
+      {deleteTarget && (
+        <div className="fd-modal-backdrop" role="dialog" aria-modal="true" aria-label="Delete tenancy">
+          <div className="fd-confirm-modal fd-tenant-confirm">
+            <h3>Delete {tenantLabel(deleteTarget) || 'this tenancy'}?</h3>
+            <p>
+              This erases the tenancy and everything recorded under it — its
+              branches, menu, orders, bills, ledger and audit trail — across{' '}
+              <b>72 tables</b>. There is no undo and no export.
+            </p>
+
+            <div className="fd-tenant-confirm-counts">
+              <span><b>{n(deleteTarget.user_count)}</b> {n(deleteTarget.user_count) === 1 ? 'person' : 'people'}</span>
+              <span><b>{n(deleteTarget.branch_count)}</b> {n(deleteTarget.branch_count) === 1 ? 'branch' : 'branches'}</span>
+              <span className="fd-tenant-confirm-id">{deleteTarget.tenant_id}</span>
+            </div>
+
+            <p className="fd-confirm-sub">
+              Anybody who also belongs to another tenancy keeps their account and
+              that tenancy untouched — only their membership here goes. Anybody
+              for whom this was their only tenancy is returned to onboarding, so
+              they can be invited somewhere new later.
+            </p>
+
+            <label className="fd-tenant-confirm-label" htmlFor="fd-tenant-confirm-input">
+              Type <b>{confirmPhrase(deleteTarget)}</b> to confirm
+            </label>
+            <input
+              id="fd-tenant-confirm-input"
+              className="fd-input fd-tenant-confirm-input"
+              value={confirmText}
+              autoComplete="off"
+              disabled={deleting}
+              onChange={(e) => setConfirmText(e.target.value)}
+            />
+
+            <div className="fd-confirm-actions">
+              <button className="fd-btn fd-btn-outline" onClick={closeDelete} disabled={deleting}>
+                Cancel
+              </button>
+              <button
+                className="fd-btn fd-btn-danger"
+                disabled={deleting || confirmText.trim() !== confirmPhrase(deleteTarget)}
+                onClick={confirmDelete}
+              >
+                {deleting ? 'Deleting…' : 'Delete permanently'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }
