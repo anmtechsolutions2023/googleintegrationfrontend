@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react'
+import { groupNational, looksComplete, toE164, formatForDisplay } from '../../utils/phone'
 import { toast } from 'react-toastify'
 import adminService from '../../services/adminService'
 import { roleLabel, roleCode, roleDescription, grantableRoles } from '../../utils/roleLabels'
@@ -25,7 +26,7 @@ const STATUS_CLASS = {
 const InvitePanel = ({ roles = [], branches = [], canWrite = true }) => {
   const [invitations, setInvitations] = useState([])
   const [loading, setLoading] = useState(true)
-  const [email, setEmail] = useState('')
+
   // Staff details. Adding somebody to the rota IS inviting them — one person,
   // one record — so these are captured here rather than in a second screen the
   // admin has to remember to visit once the person first signs in.
@@ -55,17 +56,19 @@ const InvitePanel = ({ roles = [], branches = [], canWrite = true }) => {
 
   const submit = async (e) => {
     e.preventDefault()
-    if (!email.trim()) { toast.warn('Enter an email address'); return }
+    if (!looksComplete(phone)) { toast.warn('Enter a valid mobile number'); return }
+    // Required now, not optional: a membership carries the name, and a list of
+    // bare numbers tells an admin nothing about who is who.
+    if (!fullName.trim()) { toast.warn('Enter their full name'); return }
     setSaving(true)
     try {
       await adminService.createInvitation({
-        email: email.trim(), roleIds, isAdmin,
-        fullName: fullName.trim() || undefined,
-        phone: phone.trim() || undefined,
+        phone: toE164(phone), roleIds, isAdmin,
+        fullName: fullName.trim(),
         branchDetailId: branchDetailId || undefined,
       })
-      toast.success(`${fullName.trim() || email.trim()} will join this tenancy when they next sign in`)
-      setEmail(''); setRoleIds([]); setIsAdmin(false)
+      toast.success(`${fullName.trim()} joins this tenancy when they first sign in`)
+      setRoleIds([]); setIsAdmin(false)
       setFullName(''); setPhone(''); setBranchDetailId('')
       await load()
     } catch (err) {
@@ -81,7 +84,7 @@ const InvitePanel = ({ roles = [], branches = [], canWrite = true }) => {
     setBusyId(inv.id)
     try {
       await adminService.revokeInvitation(inv.id)
-      toast.info(`Invitation to ${inv.email} withdrawn`)
+      toast.info(`Invitation to ${inv.full_name || formatForDisplay(inv.phone)} withdrawn`)
       await load()
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Could not withdraw the invitation')
@@ -95,15 +98,20 @@ const InvitePanel = ({ roles = [], branches = [], canWrite = true }) => {
       {canWrite && (
         <form className="fd-invite-form" onSubmit={submit}>
           <div className="fd-invite-row">
-            <label htmlFor="inv-email">Email address</label>
-            <input
-              id="inv-email"
-              type="email"
-              placeholder="person@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
+            <label htmlFor="inv-phone">WhatsApp number</label>
+            <div className="fd-invite-phone">
+              <span className="fd-invite-dial">+91</span>
+              <input
+                id="inv-phone"
+                type="tel"
+                inputMode="numeric"
+                autoComplete="off"
+                placeholder="98765 43210"
+                value={groupNational(phone)}
+                onChange={(e) => setPhone(e.target.value)}
+                required
+              />
+            </div>
           </div>
 
           <div className="fd-invite-row">
@@ -115,18 +123,7 @@ const InvitePanel = ({ roles = [], branches = [], canWrite = true }) => {
               maxLength={100}
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
-            />
-          </div>
-
-          <div className="fd-invite-row">
-            <label htmlFor="inv-phone">Phone</label>
-            <input
-              id="inv-phone"
-              type="tel"
-              placeholder="Optional"
-              maxLength={20}
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              required
             />
           </div>
 
@@ -220,8 +217,8 @@ const InvitePanel = ({ roles = [], branches = [], canWrite = true }) => {
               {invitations.map((inv) => (
                 <tr key={inv.id}>
                   <td>
-                    <strong>{inv.full_name || inv.email}</strong>
-                    {inv.full_name && <div className="muted">{inv.email}</div>}
+                    <strong>{inv.full_name || formatForDisplay(inv.phone)}</strong>
+                    {inv.full_name && <div className="muted">{formatForDisplay(inv.phone)}</div>}
                     {!!inv.is_admin && <span className="fd-source-chip is-token">admin</span>}
                   </td>
                   <td>

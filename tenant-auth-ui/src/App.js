@@ -1,6 +1,5 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { GoogleOAuthProvider } from '@react-oauth/google';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -8,7 +7,6 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { SCOPES, APP_CONFIG } from './constants';
 import { ROUTES } from './constants/routes';
 import { MASTER_DATA_SCOPES } from './config/navigation';
-import { THIRD_PARTY } from './config/config';
 import {
   ProtectedRoute,
   ScopeGuard,
@@ -322,17 +320,15 @@ const AppRoutes = () => {
 };
 
 const App = () => (
-  <GoogleOAuthProvider clientId={THIRD_PARTY.GOOGLE_CLIENT_ID}>
-    <AuthProvider>
-      <BrowserRouter>
-        <AppRoutes />
-        <ToastContainer
-          position={APP_CONFIG.TOAST.POSITION}
-          autoClose={APP_CONFIG.TOAST.DEFAULT_DURATION_MS}
-        />
-      </BrowserRouter>
-    </AuthProvider>
-  </GoogleOAuthProvider>
+  <AuthProvider>
+    <BrowserRouter>
+      <AppRoutes />
+      <ToastContainer
+        position={APP_CONFIG.TOAST.POSITION}
+        autoClose={APP_CONFIG.TOAST.DEFAULT_DURATION_MS}
+      />
+    </BrowserRouter>
+  </AuthProvider>
 );
 
 export default App;

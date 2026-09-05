@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react'
+import { formatForDisplay } from '../utils/phone';
 import { getAuditLogs, getAuditCategories } from '../services/dataService'
 import { toast } from 'react-toastify'
 import { MESSAGES, STRINGS, ERROR_CODES } from '../constants'
@@ -24,7 +25,7 @@ const AuditLogs = () => {
   const [actionOptions, setActionOptions] = useState([])
 
   // Filters
-  const [emailFilter, setEmailFilter] = useState('') // server-side
+  const [phoneFilter, setPhoneFilter] = useState('') // server-side
   const [actionFilter, setActionFilter] = useState('') // client-side only (no backend param)
   const [categoryFilter, setCategoryFilter] = useState('')
   const [logLevelFilter, setLogLevelFilter] = useState('')
@@ -40,8 +41,8 @@ const AuditLogs = () => {
         const params = {
           page: overrides.page ?? page,
           limit: overrides.limit ?? limit,
-          userEmail:
-            (overrides.email !== undefined ? overrides.email : emailFilter) ||
+          userPhone:
+            (overrides.phone !== undefined ? overrides.phone : phoneFilter) ||
             undefined,
           category:
             (overrides.category !== undefined
@@ -86,7 +87,7 @@ const AuditLogs = () => {
     [
       page,
       limit,
-      emailFilter,
+      phoneFilter,
       categoryFilter,
       logLevelFilter,
       startDate,
@@ -107,7 +108,7 @@ const AuditLogs = () => {
       .then((res) => {
         const all = res.data.logs || []
         setEmailOptions(
-          [...new Set(all.map((l) => l.user_email).filter(Boolean))].sort(),
+          [...new Set(all.map((l) => l.user_phone).filter(Boolean))].sort(),
         )
         setActionOptions(
           [...new Set(all.map((l) => l.action).filter(Boolean))].sort(),
@@ -124,7 +125,7 @@ const AuditLogs = () => {
   // Email dropdown: server-side filter
   const handleEmailChange = (e) => {
     const val = e.target.value
-    setEmailFilter(val)
+    setPhoneFilter(val)
     setActionFilter('')
     setPage(1)
     fetchLogs({ email: val, page: 1 })
@@ -149,7 +150,7 @@ const AuditLogs = () => {
   }
 
   const handleReset = () => {
-    setEmailFilter('')
+    setPhoneFilter('')
     setActionFilter('')
     setCategoryFilter('')
     setLogLevelFilter('')
@@ -180,7 +181,7 @@ const AuditLogs = () => {
   const to = Math.min(page * limit, total)
 
   const hasActiveFilter =
-    emailFilter ||
+    phoneFilter ||
     actionFilter ||
     categoryFilter ||
     logLevelFilter ||
@@ -201,7 +202,7 @@ const AuditLogs = () => {
       <div className="al-filters">
         {/* Email dropdown */}
         <select
-          value={emailFilter}
+          value={phoneFilter}
           onChange={handleEmailChange}
           className="al-select"
           title="Filter by user email"
@@ -304,7 +305,7 @@ const AuditLogs = () => {
             <tr>
               <th>#</th>
               <th>{STRINGS.tableHeaders.timestamp}</th>
-              <th>{STRINGS.tableHeaders.email}</th>
+              <th>{STRINGS.tableHeaders.actor}</th>
               <th>{STRINGS.tableHeaders.action}</th>
               <th>Category</th>
               <th>Level</th>
@@ -336,7 +337,7 @@ const AuditLogs = () => {
                   <td>
                     {new Date(log.timestamp).toLocaleString()}
                   </td>
-                  <td>{log.user_email}</td>
+                  <td>{formatForDisplay(log.user_phone)}</td>
                   <td>{log.action}</td>
                   <td>
                     <span className="al-pill al-pill-category">{log.category}</span>

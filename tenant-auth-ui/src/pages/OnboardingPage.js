@@ -102,7 +102,7 @@ const OnboardingPage = () => {
               </div>
               <div>
                 <p className="onboarding-name">{user?.name}</p>
-                <p className="onboarding-email">{user?.email}</p>
+                <p className="onboarding-email">{user?.phone}</p>
               </div>
             </div>
 

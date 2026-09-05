@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { personLabel, formatForDisplay } from '../utils/phone';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { MESSAGES, STRINGS, APP_CONFIG } from '../constants';
@@ -98,8 +99,11 @@ const Navbar = () => {
         {isProfileOpen && (
           <div className="dropdown">
             <div className="dropdown-header">
-              <p><strong>{user.name}</strong></p>
-              <p className="user-email">{user.email}</p>
+              {/* Name leads. A bare '+919876543210' identifies nobody at a
+                  glance — an email at least usually carried a name inside it —
+                  so the number is the secondary line, grouped to be readable. */}
+              <p><strong>{personLabel(user)}</strong></p>
+              <p className="user-email">{formatForDisplay(user.phone)}</p>
               {!isGuest && (
                 <p className="tid-label">
                   {STRINGS.labels.activeId}{' '}

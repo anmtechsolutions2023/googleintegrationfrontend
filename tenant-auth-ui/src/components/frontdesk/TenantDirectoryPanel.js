@@ -66,7 +66,7 @@ const roleChips = (roles, max = 2) => {
   )
 }
 
-const TenantDirectoryPanel = ({ currentTenantId, currentEmail }) => {
+const TenantDirectoryPanel = ({ currentTenantId, currentPhone }) => {
   const [tenants, setTenants] = useState([])
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState(null)
@@ -113,10 +113,10 @@ const TenantDirectoryPanel = ({ currentTenantId, currentEmail }) => {
   // Suspending reaches across tenancies; the server refuses a super admin and
   // refuses you your own account, so neither is offered.
   const setStatus = async (person, status) => {
-    const key = `${person.tenant_id}:${person.user_email}`
+    const key = `${person.tenant_id}:${person.user_phone}`
     setBusy(key)
     try {
-      await adminService.updateUserStatusCrossTenant(person.user_email, person.tenant_id, status)
+      await adminService.updateUserStatusCrossTenant(person.user_phone, person.tenant_id, status)
       toast.success(status === 'ACTIVE' ? 'Access restored' : 'Access suspended')
       const people = await adminService.listTenantUsers(person.tenant_id)
       setMembers((prev) => ({ ...prev, [person.tenant_id]: people }))
@@ -323,14 +323,14 @@ const TenantDirectoryPanel = ({ currentTenantId, currentEmail }) => {
                         <tbody>
                           {people.map((p) => {
                             const active = String(p.status || '').toUpperCase() === 'ACTIVE'
-                            const key = `${p.tenant_id}:${p.user_email}`
-                            const self = String(p.user_email).toLowerCase()
-                              === String(currentEmail || '').toLowerCase()
+                            const key = `${p.tenant_id}:${p.user_phone}`
+                            const self = String(p.user_phone).toLowerCase()
+                              === String(currentPhone || '').toLowerCase()
                             return (
-                              <tr key={p.user_email}>
+                              <tr key={p.user_phone}>
                                 <td>
-                                  <strong>{p.full_name || p.user_email}</strong>
-                                  {p.full_name && <div className="muted">{p.user_email}</div>}
+                                  <strong>{p.full_name || p.user_phone}</strong>
+                                  {p.full_name && <div className="muted">{p.user_phone}</div>}
                                   {p.phone && <div className="muted">{p.phone}</div>}
                                 </td>
                                 <td>{p.branch_name || <span className="muted">—</span>}</td>
@@ -378,15 +378,15 @@ const TenantDirectoryPanel = ({ currentTenantId, currentEmail }) => {
                     <div className="fd-tenant-cards">
                       {people.map((p) => {
                         const active = String(p.status || '').toUpperCase() === 'ACTIVE'
-                        const key = `${p.tenant_id}:${p.user_email}`
-                        const self = String(p.user_email).toLowerCase()
-                          === String(currentEmail || '').toLowerCase()
+                        const key = `${p.tenant_id}:${p.user_phone}`
+                        const self = String(p.user_phone).toLowerCase()
+                          === String(currentPhone || '').toLowerCase()
                         return (
-                          <div className="fd-person-card" key={p.user_email}>
+                          <div className="fd-person-card" key={p.user_phone}>
                             <div className="fd-person-top">
                               <div>
-                                <strong>{p.full_name || p.user_email}</strong>
-                                {p.full_name && <div className="muted">{p.user_email}</div>}
+                                <strong>{p.full_name || p.user_phone}</strong>
+                                {p.full_name && <div className="muted">{p.user_phone}</div>}
                               </div>
                               <span className={`fd-badge fd-badge-${active ? 'settled' : 'closed'}`}>
                                 {p.status || '—'}

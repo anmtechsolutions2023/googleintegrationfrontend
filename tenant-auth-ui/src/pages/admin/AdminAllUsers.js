@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { formatForDisplay } from '../../utils/phone';
 import {
   getAllAdminUsers,
   updateUserStatusCrossTenant,
@@ -69,19 +70,19 @@ const AdminAllUsers = () => {
     const nextStatus = nextActive ? 'ACTIVE' : 'SUSPENDED';
     const tenantLabel = u.tenant_name || u.tenant_id;
     // Suspending your own membership would revoke your own access on next login.
-    if (!nextActive && isSameUser(u.user_email, currentUser?.email)) {
+    if (!nextActive && isSameUser(u.user_phone, currentUser?.phone)) {
       toast.error(s.selfSuspendBlocked);
       return;
     }
     setConfirmData({
       message: nextActive
-        ? `Activate ${u.user_email} in "${tenantLabel}"?\n\nThey will be able to log in again.`
-        : `Suspend ${u.user_email} in "${tenantLabel}"?\n\nThey will be blocked from logging in until re-activated.`,
+        ? `Activate ${u.user_phone} in "${tenantLabel}"?\n\nThey will be able to log in again.`
+        : `Suspend ${u.user_phone} in "${tenantLabel}"?\n\nThey will be blocked from logging in until re-activated.`,
       danger: !nextActive,
       onConfirm: async () => {
         setConfirmData(null);
         try {
-          await updateUserStatusCrossTenant(u.user_email, u.tenant_id, nextStatus);
+          await updateUserStatusCrossTenant(u.user_phone, u.tenant_id, nextStatus);
           toast.success('Status updated.');
           fetchAll();
         } catch (err) {
@@ -95,7 +96,7 @@ const AdminAllUsers = () => {
     const q = search.toLowerCase();
     return (
       !q ||
-      u.user_email?.toLowerCase().includes(q) ||
+      u.user_phone?.toLowerCase().includes(q) ||
       u.roles?.toLowerCase().includes(q) ||
       u.tenant_name?.toLowerCase().includes(q) ||
       u.tenant_id?.toLowerCase().includes(q) ||
@@ -139,7 +140,7 @@ const AdminAllUsers = () => {
           <table className="admin-table">
             <thead>
               <tr>
-                <th>Email</th>
+                <th>Person</th>
                 <th>Tenant</th>
                 <th>Tenancy Setup</th>
                 <th>Status</th>
@@ -151,14 +152,23 @@ const AdminAllUsers = () => {
             <tbody>
               {filtered.map((u) => {
                 const isSuper = !!u.is_super_admin;
-                const isSelf = isSameUser(u.user_email, currentUser?.email);
+                const isSelf = isSameUser(u.user_phone, currentUser?.phone);
                 // Per TENANT, so every row of a tenant shows the same badge. A
                 // tenant with no tenant_setup row reports PENDING from the API;
                 // treat anything that is not COMPLETED as incomplete.
                 const setupDone = u.setup_status === 'COMPLETED';
                 return (
-                  <tr key={`${u.tenant_id}:${u.user_email}`}>
-                    <td style={{ fontWeight: 500 }}>{u.user_email}</td>
+                  <tr key={`${u.tenant_id}:${u.user_phone}`}>
+                    {/* Name leads, number below. A column of bare numbers
+                        tells an admin nothing about who they are looking at. */}
+                    <td style={{ fontWeight: 500 }}>
+                      {u.full_name || formatForDisplay(u.user_phone)}
+                      {u.full_name && (
+                        <div style={{ fontSize: '0.72rem', color: '#a0aec0', fontWeight: 400 }}>
+                          {formatForDisplay(u.user_phone)}
+                        </div>
+                      )}
+                    </td>
                     <td style={{ fontSize: '0.82rem', color: '#4a5568' }}>
                       {u.tenant_name || (
                         <span style={{ color: '#a0aec0' }}>—</span>

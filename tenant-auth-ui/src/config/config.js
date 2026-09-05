@@ -9,7 +9,10 @@ export const WS_BASE_URL =
 
 // Authentication Endpoints
 export const AUTH = {
-  LOGIN: process.env.REACT_APP_AUTH_LOGIN || '/api/auth/google',
+  // Two steps, because asking for a code and spending it fail for completely
+  // different reasons — and only the first one costs money.
+  OTP_REQUEST: process.env.REACT_APP_AUTH_OTP_REQUEST || '/api/auth/otp/request',
+  OTP_VERIFY: process.env.REACT_APP_AUTH_OTP_VERIFY || '/api/auth/otp/verify',
   LOGOUT: process.env.REACT_APP_AUTH_LOGOUT || '/api/user/logout',
   SWITCH_TENANT: process.env.REACT_APP_AUTH_SWITCH || '/api/tenants/switch',
   REFRESH: process.env.REACT_APP_AUTH_REFRESH || '/api/refresh-token',
@@ -121,7 +124,8 @@ export const ENDPOINTS = {
 
 // Third-party service configurations
 export const THIRD_PARTY = {
-  GOOGLE_CLIENT_ID: process.env.REACT_APP_GOOGLE_CLIENT_ID || '',
+  // No Google client id: sign-in is WhatsApp one-time codes, and the OTP is
+  // sent server-side. The browser holds no third-party auth credential at all.
   SENTRY_DSN: process.env.REACT_APP_SENTRY_DSN || '',
   ANALYTICS_ID: process.env.REACT_APP_ANALYTICS_ID || '',
 };

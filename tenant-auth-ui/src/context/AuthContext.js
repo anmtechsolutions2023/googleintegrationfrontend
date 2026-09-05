@@ -4,7 +4,7 @@ import logger from '../utils/logger';
 import { decodeToken, getUserFromToken } from '../utils/tokenUtils';
 import api from '../api/api';
 import {
-  login as authLogin,
+  verifyOtp,
   logout as authLogout,
   switchTenant as authSwitch,
 } from '../services/authService';
@@ -31,9 +31,19 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
-  const login = async (googleToken) => {
+  /**
+   * Spends a one-time code and stores the resulting session.
+   *
+   * Takes the verify arguments rather than a token so the cookie rules — and
+   * the shorter life of a guest session — stay in one place. The Login page
+   * asks for the code; this is what turns a correct one into a session.
+   *
+   * @param {Object} p - { challengeId, code, name? }
+   * @returns {Object} The decoded payload; callers read onboardingStatus.
+   */
+  const login = async ({ challengeId, code, name }) => {
     try {
-      const res = await authLogin(googleToken);
+      const res = await verifyOtp({ challengeId, code, name });
       const { token } = res.data;
       // Guest tokens are short-lived (15m); approved tokens use the normal expiry
       const isGuest = res.data.onboardingStatus !== 'APPROVED';

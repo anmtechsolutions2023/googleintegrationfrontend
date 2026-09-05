@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { formatForDisplay } from '../../utils/phone';
 import {
   getOnboardingRequests,
   approveOnboardingRequest,
@@ -86,7 +87,7 @@ const ApproveModal = ({ request, onClose, onDone }) => {
         </div>
         <div className="modal-body">
           <p style={{ marginTop: 0, fontSize: '0.9rem', color: '#4a5568' }}>
-            Approving access for <strong>{request.name}</strong> ({request.email}).
+            Approving access for <strong>{request.name}</strong> ({request.phone}).
           </p>
 
           <div className="form-group">
@@ -207,7 +208,7 @@ const RejectModal = ({ request, onClose, onDone }) => {
         </div>
         <div className="modal-body">
           <p style={{ marginTop: 0, fontSize: '0.9rem', color: '#4a5568' }}>
-            Rejecting access for <strong>{request.name}</strong> ({request.email}).
+            Rejecting access for <strong>{request.name}</strong> ({request.phone}).
           </p>
           <div className="form-group">
             <label className="form-label">{s.rejectReasonLabel}</label>
@@ -288,7 +289,7 @@ const AdminApprovals = () => {
     const q = search.toLowerCase();
     return (
       !q ||
-      r.email?.toLowerCase().includes(q) ||
+      r.phone?.includes(q) ||
       r.name?.toLowerCase().includes(q)
     );
   });
@@ -342,7 +343,7 @@ const AdminApprovals = () => {
             <thead>
               <tr>
                 <th>Name</th>
-                <th>Email</th>
+                <th>Mobile</th>
                 <th>Status</th>
                 <th>Requested</th>
                 <th>Note</th>
@@ -353,7 +354,7 @@ const AdminApprovals = () => {
               {filtered.map((r) => (
                 <tr key={r.id}>
                   <td style={{ fontWeight: 600 }}>{r.name}</td>
-                  <td style={{ color: '#718096', fontSize: '0.85rem' }}>{r.email}</td>
+                  <td style={{ color: '#718096', fontSize: '0.85rem' }}>{formatForDisplay(r.phone)}</td>
                   <td>
                     {statusBadge(r.status)}
                     {r.reviewed_by === 'system-auto' && (

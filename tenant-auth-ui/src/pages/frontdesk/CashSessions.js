@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react'
+import { formatForDisplay } from '../../utils/phone';
 import { toast } from 'react-toastify'
 import { useAuth } from '../../context/AuthContext'
 import { hasScope } from '../../utils/permissions'
@@ -187,7 +188,7 @@ const CashSessions = () => {
             <div className="fd-session-card" key={s.Id}>
               <div className="fd-session-head">
                 <div>
-                  <strong>{s.CashierEmail}</strong>
+                  <strong>{formatForDisplay(s.CashierPhone)}</strong>
                   <div className="muted small">
                     {s.BranchName || '—'}{s.ShiftLabel ? ` · ${s.ShiftLabel}` : ''}
                   </div>
@@ -237,7 +238,7 @@ const CashSessions = () => {
             <tbody>
               {closedSessions.map((s) => (
                 <tr key={s.Id}>
-                  <td className="strong">{s.CashierEmail}</td>
+                  <td className="strong">{formatForDisplay(s.CashierPhone)}</td>
                   <td>{s.BranchName || '—'}</td>
                   <td>{s.ShiftLabel || <span className="muted">—</span>}</td>
                   <td>{when(s.OpenedAt)}</td>
@@ -294,7 +295,7 @@ const CashSessions = () => {
       {closeTarget && (
         <div className="fd-modal-backdrop" role="dialog" aria-label="Close till">
           <div className="fd-variant-modal">
-            <h3>Close {closeTarget.CashierEmail}'s till</h3>
+            <h3>Close {formatForDisplay(closeTarget.CashierPhone)}'s till</h3>
 
             {summary && (
               <div className="fd-close-expected">

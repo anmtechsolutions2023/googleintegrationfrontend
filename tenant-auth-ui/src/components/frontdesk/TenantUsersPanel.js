@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react'
+import { formatForDisplay } from '../../utils/phone'
 import { toast } from 'react-toastify'
 import adminService from '../../services/adminService'
 import { grantableRoles } from '../../utils/roleLabels'
@@ -19,7 +20,7 @@ import { grantableRoles } from '../../utils/roleLabels'
  * Owns its own data and mutations; the parent supplies the role and branch
  * catalogues so a single fetch serves every panel.
  */
-const TenantUsersPanel = ({ roles = [], branches = [], currentEmail, canWrite = true, onChanged }) => {
+const TenantUsersPanel = ({ roles = [], branches = [], currentPhone, canWrite = true, onChanged }) => {
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(null)      // email being role-edited
@@ -44,7 +45,7 @@ const TenantUsersPanel = ({ roles = [], branches = [], currentEmail, canWrite = 
   useEffect(() => { load() }, [load])
 
   const isSelf = (email) =>
-    String(email || '').toLowerCase() === String(currentEmail || '').toLowerCase()
+    String(email || '').toLowerCase() === String(currentPhone || '').toLowerCase()
 
   const run = async (email, fn, message) => {
     setBusy(email)
@@ -68,7 +69,7 @@ const TenantUsersPanel = ({ roles = [], branches = [], currentEmail, canWrite = 
   // because saving REPLACES the whole set, a short read would quietly strip
   // roles nobody asked to remove.
   const startEdit = async (user) => {
-    const email = user.user_email
+    const email = user.user_phone
     setEditing(email)
     setDraftRoles([])
     setBusy(email)
@@ -85,16 +86,14 @@ const TenantUsersPanel = ({ roles = [], branches = [], currentEmail, canWrite = 
   const startEditProfile = (u) => {
     setDraftProfile({
       fullName: u.full_name || '',
-      phone: u.phone || '',
       branchDetailId: u.branch_detail_id || '',
     })
-    setEditingProfile(u.user_email)
+    setEditingProfile(u.user_phone)
   }
 
   const saveProfile = (email) =>
     run(email, () => adminService.updateUserProfile(email, {
       fullName: draftProfile.fullName.trim() || null,
-      phone: draftProfile.phone.trim() || null,
       branchDetailId: draftProfile.branchDetailId || null,
     }), 'Details updated').then(() => setEditingProfile(null))
 
@@ -117,7 +116,7 @@ const TenantUsersPanel = ({ roles = [], branches = [], currentEmail, canWrite = 
   // looking for "Priya" and one looking for "cashier" are both looking for a row.
   const filtered = users.filter((u) => {
     const q = search.trim().toLowerCase()
-    return !q || `${u.full_name || ''} ${u.user_email} ${u.roles || ''}`.toLowerCase().includes(q)
+    return !q || `${u.full_name || ''} ${u.user_phone} ${u.roles || ''}`.toLowerCase().includes(q)
   })
 
   if (loading) return <div className="fd-loading">Loading users…</div>
@@ -162,7 +161,7 @@ const TenantUsersPanel = ({ roles = [], branches = [], currentEmail, canWrite = 
           </thead>
           <tbody>
             {filtered.map((u) => {
-              const email = u.user_email
+              const email = u.user_phone
               const active = String(u.status || '').toUpperCase() === 'ACTIVE'
               const isEditing = editing === email
               const isEditingProfile = editingProfile === email
@@ -178,18 +177,15 @@ const TenantUsersPanel = ({ roles = [], branches = [], currentEmail, canWrite = 
                           aria-label={`Full name for ${email}`}
                           value={draftProfile.fullName} onChange={setDraft('fullName')}
                         />
-                        <input
-                          type="tel" placeholder="Phone" maxLength={20}
-                          aria-label={`Phone for ${email}`}
-                          value={draftProfile.phone} onChange={setDraft('phone')}
-                        />
-                        <div className="muted">{email}</div>
+                        {/* The number is not editable here: it IS the identity
+                            (user_phone), changed by rebinding the account, not
+                            by editing a profile field beside it. */}
+                        <div className="muted">{formatForDisplay(email)}</div>
                       </div>
                     ) : (
                       <>
-                        <strong>{u.full_name || email}</strong>
-                        {u.full_name && <div className="muted">{email}</div>}
-                        {u.phone && <div className="muted">{u.phone}</div>}
+                        <strong>{u.full_name || formatForDisplay(email)}</strong>
+                        {u.full_name && <div className="muted">{formatForDisplay(email)}</div>}
                         {isSelf(email) && <span className="fd-source-chip is-table">you</span>}
                         {!!u.is_super_admin && <span className="fd-source-chip is-token">super admin</span>}
                       </>
@@ -332,7 +328,7 @@ const TenantUsersPanel = ({ roles = [], branches = [], currentEmail, canWrite = 
         <div className="fd-modal-overlay" onClick={() => setConfirmRemove(null)}>
           <div className="fd-modal fd-confirm" role="dialog" aria-modal="true"
                onClick={(e) => e.stopPropagation()}>
-            <h3>Remove {confirmRemove.user_email}?</h3>
+            <h3>Remove {confirmRemove.user_phone}?</h3>
             <p className="fd-confirm-sub">
               They lose access to <strong>this tenancy</strong> and their roles here are cleared.
               Any other tenancy they belong to is unaffected. If this was their only
@@ -347,9 +343,9 @@ const TenantUsersPanel = ({ roles = [], branches = [], currentEmail, canWrite = 
               </button>
               <button
                 className="fd-btn fd-btn-danger"
-                disabled={busy === confirmRemove.user_email}
+                disabled={busy === confirmRemove.user_phone}
                 onClick={() => {
-                  const email = confirmRemove.user_email
+                  const email = confirmRemove.user_phone
                   setConfirmRemove(null)
                   run(email, () => adminService.removeUser(email), 'Removed from this tenancy')
                 }}

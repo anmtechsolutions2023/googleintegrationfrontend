@@ -121,13 +121,13 @@ const AccessControl = () => {
         <TenantUsersPanel
           roles={roles}
           branches={branches}
-          currentEmail={user?.email}
+          currentPhone={user?.phone}
           canWrite={canManage}
         />
       ) : activeTab === 'invites' ? (
         <InvitePanel roles={roles} branches={branches} canWrite={canManage} />
       ) : activeTab === 'tenants' ? (
-        <TenantDirectoryPanel currentTenantId={user?.tid} currentEmail={user?.email} />
+        <TenantDirectoryPanel currentTenantId={user?.tid} currentPhone={user?.phone} />
       ) : (
         // Reloads the shared catalogue when a role is created, renamed or
         // deleted, so the People and Invitations tabs cannot offer a role that

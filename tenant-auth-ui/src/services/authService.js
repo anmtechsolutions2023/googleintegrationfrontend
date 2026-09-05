@@ -1,9 +1,21 @@
 import api from '../api/api'
 import { AUTH } from '../config/config'
+import { toE164 } from '../utils/phone'
 
-export const login = (googleToken) => {
-  return api.post(AUTH.LOGIN, { id_token: googleToken })
-}
+/**
+ * Ask for a one-time code.
+ *
+ * Resolves the same way whether or not the number is registered — the server
+ * deliberately gives nothing away. A rejection here means something went wrong
+ * (a malformed number, a rate limit, WhatsApp unreachable), never "we do not
+ * know you".
+ */
+export const requestOtp = (phone) =>
+  api.post(AUTH.OTP_REQUEST, { phone: toE164(phone) })
+
+/** Spend the code. `name` is read only when the number turns out to be new. */
+export const verifyOtp = ({ challengeId, code, name }) =>
+  api.post(AUTH.OTP_VERIFY, { challengeId, code, ...(name ? { name } : {}) })
 
 export const logout = () => {
   return api.post(AUTH.LOGOUT)
@@ -21,7 +33,8 @@ export const getMyCapabilities = async () => {
 }
 
 export default {
-  login,
+  requestOtp,
+  verifyOtp,
   logout,
   switchTenant,
   getMyCapabilities,

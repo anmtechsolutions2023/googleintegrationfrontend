@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { formatForDisplay } from '../utils/phone';
 import { useAuth } from '../context/AuthContext';
 import { STRINGS } from '../constants';
 import { getMyCapabilities } from '../services/authService';
@@ -42,7 +43,7 @@ const Dashboard = () => {
         <h1>{STRINGS.pages.dashboard.title}</h1>
         <p>
           {STRINGS.pages.dashboard.welcome} {user?.name || STRINGS.pages.dashboard.defaultUserName}
-          {user?.email ? ` · ${user.email}` : ''}
+          {user?.phone ? ` · ${formatForDisplay(user.phone)}` : ''}
         </p>
       </div>
 

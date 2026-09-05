@@ -53,6 +53,7 @@ const STRINGS = {
   // Common labels
   labels: {
     email: 'Email:',
+    mobile: 'Mobile:',
     name: 'Name:',
     status: 'Status:',
     date: 'Date:',
@@ -114,7 +115,23 @@ const STRINGS = {
   pages: {
     login: {
       title: 'Sign in',
-      subtitle: 'Use the Google account your restaurant registered you with.',
+      subtitle: "We'll send a code to your WhatsApp.",
+      phoneLabel: 'WhatsApp number',
+      sendCode: 'Send code',
+      sending: 'Sending…',
+      // Step two.
+      codeTitle: 'Enter the code',
+      codeLabel: 'Six-digit code',
+      sentTo: 'Sent on WhatsApp to',
+      changeNumber: 'Use a different number',
+      expiresIn: 'Expires in',
+      expired: 'That code has expired.',
+      resendIn: 'Resend in',
+      resend: 'Send a new code',
+      verify: 'Verify and sign in',
+      verifying: 'Checking…',
+      noCode: "Didn't get it? Check WhatsApp is connected on that number, or ask "
+        + 'your manager to sign you in.',
       // The brand panel, shown beside the card from 900px up.
       headline: 'The floor, the kitchen, and the books.',
       blurb: 'One system from the moment an order is taken to the moment it '
@@ -232,6 +249,7 @@ const STRINGS = {
   // Table headers - useful for data tables across pages
   tableHeaders: {
     email: 'Email',
+    actor: 'Who',
     action: 'Action',
     status: 'Status',
     timestamp: 'Timestamp',

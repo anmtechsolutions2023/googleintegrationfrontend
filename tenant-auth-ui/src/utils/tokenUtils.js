@@ -96,7 +96,9 @@ export const getUserFromToken = (token) => {
 
   return {
     name: payload.name,
-    email: payload.email,
+    // The identity claim is `phone` since the migration. This said `email`,
+    // which silently resolved to undefined on every token.
+    phone: payload.phone,
     tid: payload.tid,
     scopes: payload.scopes || [],
     associatedTenants: payload.associatedTenants || [],
