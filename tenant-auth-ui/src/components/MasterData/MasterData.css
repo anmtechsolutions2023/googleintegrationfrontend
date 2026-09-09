@@ -124,6 +124,10 @@
 /* Main Content Area */
 .master-content {
   flex: 1;
+  /* Same trap as .frontdesk-content: a flex item's min-width defaults to AUTO,
+     so a wide table or form keeps this column wider than the phone and the
+     whole page scrolls sideways instead of the table scrolling inside it. */
+  min-width: 0;
   padding: 24px;
   overflow-y: auto;
 }

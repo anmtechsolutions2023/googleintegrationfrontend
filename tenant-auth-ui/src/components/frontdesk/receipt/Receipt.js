@@ -314,6 +314,16 @@ const Kot = ({ format, data }) => {
         )
       })}
       <Solid />
+      {/* ORDER-LEVEL instructions, below the items and above the count.
+          Deliberately AFTER the dishes: a cook reads what to make first, then
+          how the customer wants the whole order treated. Inverted like the KOT
+          number because it is read at arm's length by somebody holding a pan. */}
+      {shows(format, 'orderInstructions', data.orderInstructions) && (
+        <div className="rc-kotinstr">** {String(data.orderInstructions).toUpperCase()} **</div>
+      )}
+      {shows(format, 'noCutlery', data.noCutlery) && data.noCutlery && (
+        <div className="rc-kotinstr rc-kotcutlery">** NO CUTLERY **</div>
+      )}
       <Centre className="rc-sub">{(data.Lines || []).length} items</Centre>
     </>
   )

@@ -1,0 +1,212 @@
+/* Category availability editor.
+   Breakpoints match the rest of Front Desk (1023 / 768 / 480) so this screen
+   reflows at the same widths as everything beside it. */
+
+.cs-page {
+  padding: 20px;
+  max-width: 900px;
+}
+
+.cs-head h1 {
+  margin: 0 0 6px;
+  font-size: 22px;
+  font-weight: 700;
+}
+.cs-head p {
+  margin: 0 0 20px;
+  color: #64748b;
+  font-size: 14px;
+  max-width: 62ch;
+  line-height: 1.55;
+}
+
+.cs-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 20px;
+  max-width: 420px;
+}
+.cs-picker label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #475569;
+}
+.cs-picker select {
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 14px;
+  background: #fff;
+  color: #0f172a;
+}
+
+.cs-empty {
+  color: #64748b;
+  font-size: 14px;
+  padding: 24px 0;
+}
+
+.cs-status {
+  padding: 12px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  margin-bottom: 16px;
+  border: 1px solid;
+}
+/* Always-available is the DEFAULT, not a warning — it reads as calm, not as a
+   problem the user has to fix. */
+.cs-status[data-always='true'] {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #065f46;
+}
+.cs-status[data-always='false'] {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1e40af;
+}
+
+.cs-rules {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cs-rule {
+  display: grid;
+  grid-template-columns: auto 1fr 1fr 1fr auto;
+  gap: 12px;
+  align-items: end;
+  padding: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.cs-rule-badge {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  padding: 5px 8px;
+  border-radius: 5px;
+  background: #f1f5f9;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.cs-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.cs-field > span {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+}
+.cs-field select,
+.cs-field input {
+  padding: 8px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 14px;
+  background: #fff;
+  color: #0f172a;
+  width: 100%;
+}
+.cs-field select:disabled,
+.cs-field input:disabled {
+  background: #f8fafc;
+  color: #94a3b8;
+}
+
+.cs-note {
+  grid-column: 1 / -1;
+  margin: 2px 0 0;
+  font-size: 12.5px;
+  color: #475569;
+}
+.cs-note-bad { color: #b91c1c; font-weight: 600; }
+
+.cs-remove {
+  padding: 8px 12px;
+  border: 1px solid #fecaca;
+  background: #fff;
+  color: #b91c1c;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.cs-remove:hover { background: #fef2f2; }
+
+.cs-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.cs-btn {
+  padding: 10px 16px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #0f172a;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.cs-btn:hover:not(:disabled) { background: #f8fafc; }
+.cs-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.cs-btn-primary {
+  background: #1e293b;
+  border-color: #1e293b;
+  color: #fff;
+}
+.cs-btn-primary:hover:not(:disabled) { background: #0f172a; }
+.cs-btn-quiet { color: #b91c1c; border-color: #fecaca; }
+
+/* Keyboard users must be able to see where they are. */
+.cs-page :is(select, input, button):focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+/* Tablet: the three inputs keep a row, the badge moves above them. */
+@media (max-width: 768px) {
+  .cs-page { padding: 16px; }
+  .cs-rule {
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+  }
+  .cs-rule-badge { grid-column: 1 / -1; justify-self: start; }
+  .cs-remove { grid-column: 1 / -1; justify-self: start; }
+}
+
+/* Phone: one control per row — time inputs are unusable when squeezed. */
+@media (max-width: 480px) {
+  .cs-rule { grid-template-columns: 1fr; }
+  .cs-actions .cs-btn { flex: 1 1 100%; }
+  .cs-picker { max-width: none; }
+}
+
+/* Touch targets on a till or a phone. */
+@media (pointer: coarse) {
+  .cs-field select,
+  .cs-field input,
+  .cs-btn,
+  .cs-remove { min-height: 44px; }
+}

@@ -107,9 +107,24 @@ export const FRONT_DESK_NAV = [
   { group: 'Setup', items: [
     { key: 'fd-menu',       path: '/frontdesk/menu',       label: 'Menu Master',  icon: '🍽️', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
     { key: 'fd-food-types', path: '/frontdesk/food-types', label: 'Food Types',   icon: '🥗', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
+    // Meat type sits next to Food Type because they are read together and
+    // constantly confused — they are ORTHOGONAL, not a hierarchy: a dish is
+    // Non-Veg (food type) AND Chicken (meat type).
+    { key: 'fd-meat-types', path: '/frontdesk/meat-types', label: 'Meat Types',   icon: '🍗', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
+    { key: 'fd-menu-tags',  path: '/frontdesk/menu-tags',  label: 'Menu Tags',    icon: '🏷️', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
+    // Availability sits with the menu-structure screens: it answers "when is
+    // this section on the menu", which is a property of the category.
+    { key: 'fd-cat-schedules', path: '/frontdesk/category-schedules', label: 'Category Hours', icon: '🕒', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
+    // Groups before options: you cannot add an option without a group to put it
+    // in, and the nav order is the order the screens are used.
+    { key: 'fd-addon-groups', path: '/frontdesk/addon-groups', label: 'Add-on Groups', icon: '🧩', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
+    { key: 'fd-addons',     path: '/frontdesk/addons',     label: 'Add-ons',      icon: '➕', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
     { key: 'fd-channels',   path: '/frontdesk/channels',   label: 'Channels',     icon: '📡', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
     // A portal is a SELLER ON a channel, so it sits directly under Channels.
     { key: 'fd-portals',    path: '/frontdesk/portals',    label: 'Portals',      icon: '🔀', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
+    // Under Portals: a rejection reason is something you send a portal, and a
+    // reason may belong to one portal or to the house.
+    { key: 'fd-rejection-reasons', path: '/frontdesk/rejection-reasons', label: 'Rejection Reasons', icon: '🚫', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
     { key: 'fd-variants',   path: '/frontdesk/variants',   label: 'Variants',     icon: '🧩', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
     { key: 'fd-floors',     path: '/frontdesk/floors',     label: 'Floors',       icon: '🏢', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
     { key: 'fd-settings',   path: '/frontdesk/settings',   label: 'POS Settings', icon: '⚙️', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },

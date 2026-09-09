@@ -37,8 +37,13 @@ const SYSTEM_FIELDS = [
   'CreatedBy', 'UpdatedBy', 'createdBy', 'updatedBy',
   'DeletedAt', 'deletedAt', 'DeletedBy', 'deletedBy',
   // Read-only expansion fields returned by GET's joins. An edit form is seeded
-  // from a GET response, so without this they would be echoed back and rejected
-  // as unknown keys by the write schemas.
+  // from a GET response, so without this they would be echoed back to the API.
+  //
+  // No longer load-bearing: the write schemas now derive their own tolerance
+  // from the module's SELECT (backend utils/joinedEchoes), so a joined column
+  // that reaches a PUT is accepted and dropped rather than refusing the save.
+  // Keeping the list only trims the payload — do NOT extend it when a join is
+  // added, which is the maintenance this list used to demand and never got.
   'CostInfoAmount', 'FoodTypeName', 'FoodTypeIsVeg',
   // Computed live by the pricing enricher on every read, never stored.
   'TaxBreakdown',

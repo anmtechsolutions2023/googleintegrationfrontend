@@ -40,6 +40,12 @@ import Tables from './pages/frontdesk/Tables';
 import Kitchen from './pages/frontdesk/Kitchen';
 import MenuMaster from './pages/frontdesk/MenuMaster';
 import FoodTypes from './pages/frontdesk/FoodTypes';
+import MeatTypes from './pages/frontdesk/MeatTypes';
+import MenuTags from './pages/frontdesk/MenuTags';
+import AddonGroups from './pages/frontdesk/AddonGroups';
+import Addons from './pages/frontdesk/Addons';
+import RejectionReasons from './pages/frontdesk/RejectionReasons';
+import CategorySchedules from './pages/frontdesk/CategorySchedules';
 import Channels from './pages/frontdesk/Channels';
 import Variants from './pages/frontdesk/Variants';
 import Floors from './pages/frontdesk/Floors';
@@ -264,6 +270,14 @@ const AppRoutes = () => {
           <Route path="portals/:portalId/menu" element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN]}><PortalMenu /></ScopeGuard>} />
           <Route path="menu"       element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ,  SCOPES.TENANT_ADMIN]}><MenuMaster /></ScopeGuard>} />
           <Route path="food-types" element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ,  SCOPES.TENANT_ADMIN]}><FoodTypes /></ScopeGuard>} />
+          {/* Portal menu masters — what a dish IS beyond its price, and why an
+              order was refused. Same read scope as the other Setup screens. */}
+          <Route path="meat-types" element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ,  SCOPES.TENANT_ADMIN]}><MeatTypes /></ScopeGuard>} />
+          <Route path="menu-tags"  element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ,  SCOPES.TENANT_ADMIN]}><MenuTags /></ScopeGuard>} />
+          <Route path="addon-groups" element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ,  SCOPES.TENANT_ADMIN]}><AddonGroups /></ScopeGuard>} />
+          <Route path="addons"     element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ,  SCOPES.TENANT_ADMIN]}><Addons /></ScopeGuard>} />
+          <Route path="rejection-reasons" element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ,  SCOPES.TENANT_ADMIN]}><RejectionReasons /></ScopeGuard>} />
+          <Route path="category-schedules" element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ,  SCOPES.TENANT_ADMIN]}><CategorySchedules /></ScopeGuard>} />
           <Route path="channels"  element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ,  SCOPES.TENANT_ADMIN]}><Channels /></ScopeGuard>} />
           <Route path="variants"  element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ,  SCOPES.TENANT_ADMIN]}><Variants /></ScopeGuard>} />
           <Route path="floors"    element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ,  SCOPES.TENANT_ADMIN]}><Floors /></ScopeGuard>} />

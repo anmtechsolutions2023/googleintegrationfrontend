@@ -164,16 +164,30 @@ const OnlineOrders = () => {
     if (selectedId && !orders.some((o) => idOf(o) === selectedId)) setSelectedId(null)
   }, [orders, selectedId])
 
-  const handleAccept = useCallback(async (order) => {
+  // kptMinutes is optional. Undefined means "let the server derive it from the
+  // slowest dish", which is what the queue card sends — the fast path.
+  const handleAccept = useCallback(async (order, kptMinutes) => {
     const id = idOf(order)
     setBusyOrderId(id)
     try {
-      const result = await posService.acceptOnlineOrder(id, {})
+      const payload = kptMinutes === undefined ? {} : { KptMinutes: kptMinutes }
+      const result = await posService.acceptOnlineOrder(id, payload)
+      // The prep time is a PROMISE made to the portal on the outlet's behalf,
+      // so it is said out loud rather than left for someone to discover.
+      const promised = result?.KptMinutes ? ` · ${result.KptMinutes} min prep` : ''
       toast.success(
         result?.Kot?.KotNo
-          ? `Accepted — ${result.OrderNo} sent to the kitchen as ${result.Kot.KotNo}`
-          : `Accepted as ${result?.OrderNo || 'an order'}`,
+          ? `Accepted — ${result.OrderNo} sent to the kitchen as ${result.Kot.KotNo}${promised}`
+          : `Accepted as ${result?.OrderNo || 'an order'}${promised}`,
       )
+      // A platform default means neither the dishes nor the branch had a time
+      // configured. The order is fine; the menu data is not, and that is worth
+      // telling a manager once rather than letting every order be a guess.
+      if (result?.KptSource === 'platform-default') {
+        toast.info(
+          `Promised ${result.KptMinutes} min using the platform default — no prep time is set on these dishes or on this branch.`,
+        )
+      }
       // The portal push is best-effort and never undoes the accept, so a
       // failure is worth saying out loud rather than swallowing.
       if (result?.PortalPush && result.PortalPush.pushed === false && result.PortalPush.detail) {

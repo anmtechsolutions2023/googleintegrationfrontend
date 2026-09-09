@@ -122,6 +122,26 @@ export const MODULES = {
     searchFields: [],
   },
 
+  // Parent categories, as a reference source for the parent picker below.
+  //
+  // Points at /api/categories/parent-candidates, NOT /api/categories: the plain
+  // list includes sub-categories, and offering one as a parent is how a user
+  // builds an illegal third level and only finds out when the server refuses
+  // the save. The endpoint returns top-level, active categories only.
+  //
+  // Not a screen: no `category`, so the Master Data index skips it. It exists
+  // to be referenced, like posBranches and posPortals in posModules.js.
+  categoryParents: {
+    key: 'categoryParents',
+    name: 'Parent Categories',
+    endpoint: '/api/categories/parent-candidates',
+    icon: '📁',
+    displayField: 'Name',
+    fields: [],
+    tableColumns: ['Name'],
+    searchFields: ['Name'],
+  },
+
   categories: {
     key: 'categories',
     name: 'Categories',
@@ -129,11 +149,22 @@ export const MODULES = {
     icon: '📁',
     category: MODULE_CATEGORIES.MASTER_DATA,
     fields: [
-      { name: 'Name', type: 'text', required: true, maxLength: 100 },
+      // 50, matching categorydetail.Name VARCHAR(50). It read 100, which let a
+      // too-long name past the form and into MySQL, where it failed as a 500
+      // instead of a field-level message.
+      { name: 'Name', type: 'text', required: true, maxLength: 50 },
+      // Blank = a top-level category. The menu tree is exactly two levels, so
+      // the picker offers only categories that may actually be a parent.
+      { name: 'ParentId', label: 'Parent Category', type: 'select', reference: 'categoryParents' },
+      { name: 'SortOrder', label: 'Sort Order', type: 'number', default: 0 },
       { name: 'Active', type: 'boolean', default: true },
     ],
     tableColumns: [
       'Name',
+      // The joined name, not the uuid — a list has to read as "Soups under
+      // Starters", and an id answers nothing.
+      'ParentName',
+      'SortOrder',
       'Active',
       'CreatedBy',
       'UpdatedBy',

@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { PortalMonogram } from './PortalBadge'
 
 // The selected order, in full.
@@ -35,6 +35,9 @@ const Field = ({ label, value, hint }) => (
 )
 
 const OrderDetailPanel = ({ order, canWrite, busy, onAccept, onReject, onAdvance }) => {
+  // '' means "let the kitchen's own timings decide" — not zero, which would
+  // promise the portal the food is already made.
+  const [kptMinutes, setKptMinutes] = useState('')
   if (!order) {
     return (
       <div className="fd-empty" style={{ background: '#fff', border: '1px solid #e1e5eb', borderRadius: 8 }}>
@@ -173,12 +176,31 @@ const OrderDetailPanel = ({ order, canWrite, busy, onAccept, onReject, onAdvance
         <div style={{ padding: '13px 18px', borderTop: '1px solid #e1e5eb', display: 'flex', gap: 8 }}>
           {status === 'new' && (
             <>
+              {/* Kitchen Preparation Time, optional on purpose.
+                  Blank is the FAST PATH and the normal case: the server derives
+                  the time from the slowest dish on the order, so a busy till
+                  accepts in one tap. Typing a number overrides it — the person
+                  at the pass can see the kitchen and the server cannot. */}
+              <label className="fd-kpt">
+                <span>Prep mins</span>
+                <input
+                  type="number"
+                  min="1"
+                  max="120"
+                  inputMode="numeric"
+                  placeholder="auto"
+                  value={kptMinutes}
+                  disabled={busy}
+                  onChange={(e) => setKptMinutes(e.target.value)}
+                  aria-label="Kitchen preparation time in minutes. Leave blank to use the kitchen's own timings."
+                />
+              </label>
               <button
                 type="button"
                 className="fd-btn fd-btn-success fd-btn-lg"
                 style={{ flex: 1 }}
                 disabled={busy}
-                onClick={() => onAccept?.(order)}
+                onClick={() => onAccept?.(order, kptMinutes === '' ? undefined : Number(kptMinutes))}
               >
                 {busy ? 'Accepting…' : 'Accept & fire KOT'}
               </button>

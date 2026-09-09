@@ -113,3 +113,23 @@
    the duration of the print, NOT here. @page cannot be scoped by a selector, so
    a rule in this file would set every page in the application to 80mm — which
    is what made a report print as a blank till roll. */
+
+/* Order-level instructions on a kitchen ticket.
+   Bigger and bolder than a per-line note: this applies to the whole order and
+   is read across a pass, not held at arm's length. Both print black-on-white
+   on thermal paper regardless of screen theme — a ticket has one colour. */
+.rc-kotinstr {
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  padding: 4px 2px;
+  line-height: 1.3;
+  word-break: break-word;
+}
+/* The cutlery flag gets the strongest treatment on the ticket: it is acted on
+   by whoever bags the order, who is not reading the cooking notes above it. */
+.rc-kotcutlery {
+  border: 2px solid #000;
+  margin-top: 3px;
+  letter-spacing: 0.06em;
+}

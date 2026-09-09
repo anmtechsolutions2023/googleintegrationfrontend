@@ -37,6 +37,10 @@ const itemPrice = (meta) => {
 // line, a printed bill and a kitchen ticket is worse than an honest "Unnamed
 // item", and it used to travel all the way to the cook.
 const itemName = (meta, detail) => {
+  // The menu payload now carries the catalogue name — positemmeta joins
+  // itemdetail — so the common path resolves without a second request.
+  // `detail` remains the fallback for a row the join could not name.
+  if (meta?.ItemName) return meta.ItemName
   if (detail) return detail.Name || detail.name || 'Unnamed item'
   return 'Unnamed item'
 }
@@ -190,12 +194,20 @@ const Billing = () => {
       const open = (orders || []).filter((o) => (o.Status || '').toLowerCase() !== 'closed')
       setActiveOrders(open)
 
-      // Fetch item details for all ItemDetailIds (to show names). A miss here is
-      // not cosmetic: the name resolved from these is what goes onto the order
-      // line, into the KOT snapshot and onto the kitchen display. Silently
-      // swallowing the failure printed a raw uuid to the cook, so the count of
-      // unresolved names is surfaced instead.
-      const ids = [...new Set((m || []).map((x) => x.ItemDetailId).filter(Boolean))]
+      // Names arrive WITH the menu now, so the common path fetches nothing here.
+      //
+      // This used to resolve every name with its own GET /api/itemdetails/:id:
+      // 51 extra requests on a 51-dish menu, on EVERY load, each taking one of
+      // the four pool connections. That storm is what a settle then queued
+      // behind — the reason a settlement could sit for seconds and then fail.
+      //
+      // The per-id fetch survives only for rows the join could not name, which
+      // is normally none. A missing name is still not cosmetic: it travels onto
+      // the order line, into the KOT snapshot and onto the kitchen display, so
+      // the unresolved count is surfaced rather than a raw uuid reaching a cook.
+      const ids = [...new Set(
+        (m || []).filter((x) => !x.ItemName).map((x) => x.ItemDetailId).filter(Boolean),
+      )]
       if (ids.length > 0) {
         const details = {}
         let unresolved = 0
@@ -297,7 +309,10 @@ const Billing = () => {
         // campaign names the catalogue item and its category — carrying both
         // here is what lets the till evaluate offers without a second lookup.
         itemId: meta.ItemDetailId || null,
-        categoryId: itemDetails[meta.ItemDetailId]?.CategoryId || null,
+        // From the menu row first: the join supplies it, and itemDetails is
+        // empty whenever every name resolved — which would have left every
+        // category-triggered campaign seeing a null category.
+        categoryId: meta.CategoryId || itemDetails[meta.ItemDetailId]?.CategoryId || null,
         name: itemName(meta, itemDetails[meta.ItemDetailId]),
         // Display only — the server recomputes from the variant master.
         price: itemPrice(meta) + addOn,
@@ -854,8 +869,7 @@ const Billing = () => {
     setSelectedTable(tableId)
   }
 
-  // Switch the till to counter service. No table, no session to resume — each
-  // customer is one order, paid for on the spot.
+  // Switch the till to counter service for a NEW sale.
   const handlePickCounter = () => {
     if (cartItems.length > 0) {
       setCartItems([])
@@ -864,6 +878,25 @@ const Billing = () => {
     setSelectedTable('')
     setSelectedOrderId(null)
     setCounterOrderId(null)
+    setCounterMode(true)
+  }
+
+  // Reopen a counter sale that was rung up but never paid for.
+  //
+  // This is the counterpart of picking an occupied table, and it was missing.
+  // A counter order's id lived only in `counterOrderId`, set once when the
+  // order was created and cleared by starting the next one — so ringing up a
+  // second customer stranded the first: food made, order open, and no way back
+  // to take the money. The order was not lost, only unreachable; everything
+  // below (rounds, bill summary, settle) already works from the id alone.
+  const handleResumeCounter = (orderId) => {
+    if (cartItems.length > 0) {
+      setCartItems([])
+      toast.info('Cart cleared — it belonged to the previous sale')
+    }
+    setSelectedTable('')
+    setSelectedOrderId(null)
+    setCounterOrderId(orderId)
     setCounterMode(true)
   }
 
@@ -1317,6 +1350,7 @@ const Billing = () => {
           orders={activeOrders}
           onPick={handleTableChange}
           onPickCounter={handlePickCounter}
+          onPickCounterOrder={handleResumeCounter}
         />
       ) : (
       <div className="fd-billing-layout">

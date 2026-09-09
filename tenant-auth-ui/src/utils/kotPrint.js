@@ -57,6 +57,17 @@ export const buildKotPrintData = ({
     tokenLabel: tokenLabel || null,
     round: round?.round ?? null,
     waiter: waiter || null,
+    // ORDER-LEVEL, as opposed to each line's own Note. Read off the KOT itself
+    // rather than the live order: the ticket is a snapshot of what the kitchen
+    // was told, and an edit behind it must not rewrite paper already on the pass.
+    //
+    // This is the whole point of the change — the instruction always arrived
+    // from the portal, but nothing carried it this far, so the kitchen never
+    // saw it.
+    orderInstructions: kot.CookingInstructions || kot.cookingInstructions || null,
+    // A boolean, not a phrase to find inside the instructions: it is acted on
+    // by whoever bags the order, who is not reading the cooking notes.
+    noCutlery: !!(kot.NoCutlery ?? kot.noCutlery),
     Lines,
   }
 }

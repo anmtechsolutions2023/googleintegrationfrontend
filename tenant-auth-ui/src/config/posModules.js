@@ -199,6 +199,131 @@ export const POS_MODULES = {
     tableColumns: ['TokenNumber', 'OrderId', 'Status', 'Active', 'CreatedOn'],
     searchFields: ['Status'],
   },
+
+  // ── Portal menu masters ────────────────────────────────────────────────────
+  // What a dish IS beyond its price, and why an order was refused. All five are
+  // both screens AND reference sources: posAddonGroups feeds the add-on form's
+  // group select, and posMeatTypes will feed the Menu Master form.
+
+  posMeatTypes: {
+    key: 'posMeatTypes',
+    name: 'Meat Types',
+    endpoint: '/api/pos/meat-types',
+    icon: '🍗',
+    category: POS_CATEGORIES.CONFIG,
+    displayField: 'Name',
+    fields: [
+      { name: 'Name', type: 'text', required: true, maxLength: 100 },
+      { name: 'Code', type: 'text', required: true, maxLength: 50 },
+      { name: 'Description', type: 'textarea', maxLength: 255 },
+      { name: 'SortOrder', label: 'Sort Order', type: 'number', default: 0 },
+      { name: 'Active', type: 'boolean', default: true },
+    ],
+    tableColumns: ['Name', 'Code', 'Description', 'SortOrder', 'Active', 'CreatedBy', 'CreatedOn'],
+    searchFields: ['Name', 'Code'],
+  },
+
+  posMenuTags: {
+    key: 'posMenuTags',
+    name: 'Menu Tags',
+    endpoint: '/api/pos/menu-tags',
+    icon: '🏷️',
+    category: POS_CATEGORIES.CONFIG,
+    displayField: 'Name',
+    fields: [
+      { name: 'Name', type: 'text', required: true, maxLength: 100 },
+      { name: 'Code', type: 'text', required: true, maxLength: 50 },
+      // Inline options rather than a reference: the three types are a closed
+      // vocabulary the column is validated against, not tenant data.
+      {
+        name: 'TagType',
+        label: 'Tag Type',
+        type: 'select',
+        required: true,
+        default: 'CATEGORY',
+        options: [
+          { value: 'CATEGORY', label: 'Category' },
+          { value: 'BEVERAGE', label: 'Beverage' },
+          { value: 'CUISINE', label: 'Cuisine' },
+        ],
+      },
+      { name: 'SortOrder', label: 'Sort Order', type: 'number', default: 0 },
+      { name: 'Active', type: 'boolean', default: true },
+    ],
+    tableColumns: ['Name', 'Code', 'TagType', 'SortOrder', 'Active', 'CreatedBy', 'CreatedOn'],
+    searchFields: ['Name', 'Code', 'TagType'],
+  },
+
+  posAddonGroups: {
+    key: 'posAddonGroups',
+    name: 'Add-on Groups',
+    endpoint: '/api/pos/addon-groups',
+    icon: '🧩',
+    category: POS_CATEGORIES.CONFIG,
+    displayField: 'Name',
+    fields: [
+      { name: 'Name', type: 'text', required: true, maxLength: 100 },
+      { name: 'Code', type: 'text', required: true, maxLength: 50 },
+      { name: 'Description', type: 'textarea', maxLength: 255 },
+      // Min above 0 makes the group mandatory. The server refuses Min > Max
+      // with a 400 — the pair is what a portal validates an order line against.
+      { name: 'MinSelection', label: 'Min Selection', type: 'number', min: 0, default: 0 },
+      { name: 'MaxSelection', label: 'Max Selection', type: 'number', min: 1, default: 1 },
+      { name: 'SortOrder', label: 'Sort Order', type: 'number', default: 0 },
+      { name: 'Active', type: 'boolean', default: true },
+    ],
+    tableColumns: ['Name', 'Code', 'MinSelection', 'MaxSelection', 'AddonCount', 'SortOrder', 'Active', 'CreatedOn'],
+    searchFields: ['Name', 'Code'],
+  },
+
+  posAddons: {
+    key: 'posAddons',
+    name: 'Add-ons',
+    endpoint: '/api/pos/addons',
+    icon: '➕',
+    category: POS_CATEGORIES.CONFIG,
+    displayField: 'Name',
+    fields: [
+      { name: 'AddonGroupId', label: 'Add-on Group', type: 'select', required: true, reference: 'posAddonGroups' },
+      { name: 'Name', type: 'text', required: true, maxLength: 100 },
+      { name: 'Code', type: 'text', required: true, maxLength: 50 },
+      // Zero is valid and common — "no onions" costs nothing but is still a
+      // choice the kitchen has to be told about.
+      { name: 'Price', type: 'number', min: 0, step: 0.01, default: 0 },
+      // Dietary tag on the add-on ITSELF: a veg dish with a chicken topping is
+      // not a veg order, and this is the only field that can say so.
+      { name: 'FoodTypeId', label: 'Food Type', type: 'select', reference: 'posFoodType' },
+      { name: 'SortOrder', label: 'Sort Order', type: 'number', default: 0 },
+      { name: 'Active', type: 'boolean', default: true },
+    ],
+    // Names, not ids: the server joins them, and a uuid answers nothing.
+    tableColumns: ['Name', 'Code', 'AddonGroupName', 'Price', 'FoodTypeName', 'SortOrder', 'Active', 'CreatedOn'],
+    searchFields: ['Name', 'Code'],
+  },
+
+  posRejectionReasons: {
+    key: 'posRejectionReasons',
+    name: 'Rejection Reasons',
+    endpoint: '/api/pos/rejection-reasons',
+    icon: '🚫',
+    category: POS_CATEGORIES.CONFIG,
+    displayField: 'Name',
+    fields: [
+      { name: 'Name', type: 'text', required: true, maxLength: 100 },
+      { name: 'Code', type: 'text', required: true, maxLength: 50 },
+      // Left blank until certification maps it. Inventing a value would push
+      // something a live portal API rejects on the first refusal.
+      { name: 'ExternalCode', label: 'Portal Code', type: 'text', maxLength: 50 },
+      // Blank = a house reason, offered on every portal.
+      { name: 'PortalId', label: 'Portal (blank = all)', type: 'select', reference: 'posPortals' },
+      { name: 'RequiresItems', label: 'Must Name Items', type: 'boolean', default: false },
+      { name: 'Description', type: 'textarea', maxLength: 255 },
+      { name: 'SortOrder', label: 'Sort Order', type: 'number', default: 0 },
+      { name: 'Active', type: 'boolean', default: true },
+    ],
+    tableColumns: ['Name', 'Code', 'ExternalCode', 'PortalName', 'RequiresItems', 'SortOrder', 'Active', 'CreatedOn'],
+    searchFields: ['Name', 'Code', 'ExternalCode'],
+  },
 }
 
 export default POS_MODULES

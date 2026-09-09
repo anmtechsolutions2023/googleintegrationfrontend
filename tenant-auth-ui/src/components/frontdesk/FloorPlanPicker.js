@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react'
 import { tableStatusMeta } from './TableSelect'
-import { buildTableRounds } from '../../utils/posRounds'
+import { buildTableRounds, formatRoundTime } from '../../utils/posRounds'
 import { summarizeSession } from '../../utils/posBilling'
 import './frontdesk.css'
 
@@ -26,6 +26,7 @@ const UNASSIGNED = '__unassigned__'
 
 const FloorPlanPicker = ({
   floors = [], tables = [], orders = [], onPick, onPickCounter = null,
+  onPickCounterOrder = null,
   title = 'Pick a table to start',
 }) => {
   // A table's live session, priced from what each round already stored.
@@ -40,6 +41,25 @@ const FloorPlanPicker = ({
     })
     return map
   }, [tables, orders])
+
+  // Counter sales that were rung up but never paid for.
+  //
+  // A dine-in round is always recoverable: the table is the handle, and it sits
+  // on the floor plan until the session is settled. A counter sale had NO
+  // handle. Its id lived only in component state, so ordering a second one —
+  // or reloading the page — orphaned the first: still open, food already made,
+  // and no way back to it to take the money. It showed up afterwards only in
+  // Reports, as a row saying "not billed yet" with nothing to click.
+  //
+  // Table-less and not closed is exactly that set, and it comes from the same
+  // `orders` the floor plan is already given.
+  const openCounterOrders = useMemo(() => {
+    if (!onPickCounterOrder) return []
+    return orders
+      .filter((o) => !(o.TableId || o.tableId))
+      .filter((o) => !/closed/i.test(String(o.Status || o.status || '')))
+      .sort((a, b) => new Date(b.CreatedOn || 0) - new Date(a.CreatedOn || 0))
+  }, [orders, onPickCounterOrder])
 
   // Grouped by floor, in the floor order the tenant configured. Tables with no
   // floor still have to be reachable, so they get a group of their own rather
@@ -76,20 +96,48 @@ const FloorPlanPicker = ({
   // Takeaway ordered over the counter. It sits apart from the floor plan
   // because it is not a place in the room — there is no table to occupy, and
   // the customer is handed a token instead.
-  const counterTile = onPickCounter && (
+  const counterTile = (onPickCounter || openCounterOrders.length > 0) && (
     <section className="fd-floorplan-group" key="__counter__">
       <h3>Counter</h3>
       <div className="fd-floorplan-grid">
-        <button
-          type="button"
-          className="fd-tablecard fd-tablecard-counter"
-          onClick={onPickCounter}
-          aria-label="Counter takeaway, pay first then issue a token"
-        >
-          <span className="fd-tablecard-name">🎫 Counter</span>
-          <span className="fd-tablecard-status">Takeaway</span>
-          <span className="fd-tablecard-seats">Token issued on payment</span>
-        </button>
+        {onPickCounter && (
+          <button
+            type="button"
+            className="fd-tablecard fd-tablecard-counter"
+            onClick={onPickCounter}
+            aria-label="New counter takeaway, pay first then issue a token"
+          >
+            <span className="fd-tablecard-name">🎫 New sale</span>
+            <span className="fd-tablecard-status">Takeaway</span>
+            <span className="fd-tablecard-seats">Token issued on payment</span>
+          </button>
+        )}
+        {/* Styled 'occupied' on purpose: an unpaid sale is money still owed,
+            and it should read the same as a table that is still running. */}
+        {openCounterOrders.map((o) => {
+          const id = o.Id || o.id
+          const no = o.OrderNo || o.orderNo || 'Order'
+          const status = String(o.Status || o.status || 'open').toLowerCase()
+          const placed = formatRoundTime(o.CreatedOn)
+          return (
+            <button
+              type="button"
+              key={id}
+              className="fd-tablecard occupied"
+              onClick={() => onPickCounterOrder(id)}
+              aria-label={`${no}, takeaway, ${status}, ₹${money(o.Total)} unpaid${
+                placed ? `, placed ${placed}` : ''
+              }. Open it to take payment.`}
+            >
+              <span className="fd-tablecard-name">{no}</span>
+              <span className="fd-tablecard-session">
+                <span className="rounds">{status === 'fired' ? 'In kitchen' : 'Unpaid'}</span>
+                <span className="total">₹{money(o.Total)}</span>
+              </span>
+              <span className="fd-tablecard-seats">{placed || 'Takeaway'}</span>
+            </button>
+          )
+        })}
       </div>
     </section>
   )

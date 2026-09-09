@@ -13,10 +13,16 @@ import './MasterData.css'
 const MasterDataIndex = () => {
   const { user } = useAuth()
 
-  // Group modules by category
+  // Group modules by category.
+  //
+  // An entry with NO category is a reference source, not a screen — it exists so
+  // a select somewhere can resolve its list, the same way POS_MODULES holds
+  // posBranches and posPortals. Without this guard those entries land in an
+  // `undefined` bucket and render as a stray, unnamed section on the index.
   const groupedModules = Object.entries(MODULES).reduce(
     (acc, [key, module]) => {
       const category = module.category
+      if (!category) return acc
       if (!acc[category]) {
         acc[category] = []
       }

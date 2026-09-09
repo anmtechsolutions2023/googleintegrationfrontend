@@ -13,6 +13,13 @@
 
 .frontdesk-content {
   flex: 1;
+  /* Without this the whole front desk overflows on a phone.
+     A flex item's min-width defaults to AUTO, not 0 — it refuses to shrink
+     below its content's intrinsic minimum. The billing menu's chip row and card
+     grid want ~560px, so at 430px the content stayed 560px wide and the page
+     scrolled sideways, clipping cards at both edges. Every screen in this shell
+     was affected; billing showed it worst because its content is widest. */
+  min-width: 0;
   overflow-y: auto;
   padding: 24px;
 }
@@ -326,10 +333,18 @@
   grid-template-columns: minmax(0, 1fr) clamp(320px, 26%, 460px);
   gap: 16px;
   flex: 1;
+  /* Completes the chain: this is itself a flex child of .fd-billing, so it too
+     must be allowed to be narrower than its tracks' content. A single link
+     missing anywhere between the shell and the card grid is enough to push the
+     whole page sideways. */
+  min-width: 0;
   min-height: 0; /* lets the children scroll rather than stretching the page */
 }
 
 .fd-menu-panel {
+  /* Grid item: same reason as above — its children (the scrolling chip row and
+     the card grid) must be allowed to be narrower than their content. */
+  min-width: 0;
   background: #fff;
   border-radius: 8px;
   padding: 16px;
@@ -387,6 +402,10 @@
 .fd-menu-cats {
   display: flex;
   gap: 8px;
+  /* This row is DESIGNED to scroll sideways. Without min-width it instead
+     widens its ancestors until the page scrolls, and the scroll container
+     never engages. */
+  min-width: 0;
   overflow-x: auto;
   padding-bottom: 8px;
   margin-bottom: 10px;
@@ -470,6 +489,9 @@
    dead band under the menu. Cards are sized for a finger first (min 140px wide,
    ~72px tall) and simply pack more columns on a desktop. */
 .fd-menu-grid {
+  /* The grid must be allowed to be narrower than one card, or it widens its
+     ancestors instead of reflowing to fewer columns. */
+  min-width: 0;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   grid-auto-rows: min-content;
@@ -649,6 +671,8 @@
    are pinned below it, so they never drift down the page as an order grows —
    the two things a cashier reaches for stay in the same place all shift. */
 .fd-cart-panel {
+  /* Grid item beside the menu; same min-width rule applies. */
+  min-width: 0;
   background: #fff;
   border-radius: 8px;
   padding: 16px;
@@ -660,6 +684,7 @@
 
 .fd-cart-scroll {
   flex: 1;
+  min-width: 0;
   min-height: 0;
   overflow-y: auto;
   margin: -4px -4px 0;
@@ -842,7 +867,10 @@
    viewport height only helps when there are two columns to fill. */
 @media (max-width: 767px) {
   .fd-billing { height: auto; min-height: 0; }
-  .fd-billing-layout { grid-template-columns: 1fr; }
+  /* minmax(0, 1fr), not 1fr: a bare 1fr is minmax(AUTO, 1fr), whose floor is
+     the content's min-content width — the same trap as the flex item above.
+     The desktop rule already gets this right; the mobile override lost it. */
+  .fd-billing-layout { grid-template-columns: minmax(0, 1fr); }
   .fd-menu-grid { max-height: 46vh; }
   .fd-cart-panel { position: static; }
   .fd-cart-scroll { overflow: visible; }
@@ -855,6 +883,7 @@
    who is free, who is running and how big their bill is, and picking is one
    tap. Cards are 44px+ in both directions for a till tablet. */
 .fd-floorplan {
+  min-width: 0;
   background: #fff;
   border-radius: 8px;
   padding: 20px 22px 24px;
@@ -2937,4 +2966,47 @@
 .fd-invite-phone input {
   flex: 1;
   min-width: 0;
+}
+
+/* ── Kitchen Preparation Time, on the accept action ──────────────────────────
+   Optional override beside "Accept & fire KOT". Blank means the server derives
+   the time from the slowest dish, which is the normal path — so this sits
+   quietly next to the button rather than competing with it. */
+.fd-kpt {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 0 0 88px;
+  min-width: 0;
+}
+.fd-kpt > span {
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+  white-space: nowrap;
+}
+.fd-kpt input {
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #0f172a;
+  background: #fff;
+  text-align: center;
+}
+.fd-kpt input::placeholder { color: #94a3b8; font-style: italic; }
+.fd-kpt input:disabled { background: #f8fafc; color: #94a3b8; }
+.fd-kpt input:focus-visible { outline: 2px solid #2563eb; outline-offset: 1px; }
+
+/* On a narrow till the three controls stack; the field goes full width so the
+   number stays tappable rather than being squeezed to a sliver. */
+@media (max-width: 600px) {
+  .fd-kpt { flex: 1 1 100%; }
+  .fd-kpt > span { text-align: left; }
+}
+@media (pointer: coarse) {
+  .fd-kpt input { min-height: 44px; }
 }

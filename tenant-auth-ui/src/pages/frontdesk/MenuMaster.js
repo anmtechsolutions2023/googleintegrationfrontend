@@ -45,16 +45,49 @@ const ITEM_META_CONFIG = {
       emptyText: 'No price set on this item',
     },
     { name: 'FoodTypeId', label: 'Food Type', type: 'select', required: true, reference: 'posFoodType' },
+    // ORTHOGONAL to Food Type, not a refinement of it: a dish is Non-Veg (food
+    // type) AND Chicken (meat type). Optional — a vegetarian kitchen sets none.
+    { name: 'MeatTypeId', label: 'Meat Type', type: 'select', reference: 'posMeatTypes' },
     { name: 'BranchDetailId', label: 'Branch', type: 'select', required: true, reference: 'posBranches' },
     { name: 'ChannelIds', label: 'Channels', type: 'multiselect', reference: 'posChannel', wide: true },
     { name: 'VariantIds', label: 'Variants', type: 'multiselect', reference: 'posVariant', wide: true },
+    // A variant REPLACES the price (Half/Full); an add-on group AUGMENTS it
+    // (extra cheese) and carries its own min/max selection rules. Two different
+    // things, deliberately two different fields.
+    { name: 'AddonGroupIds', label: 'Add-on Groups', type: 'multiselect', reference: 'posAddonGroups', wide: true },
+    { name: 'TagIds', label: 'Menu Tags', type: 'multiselect', reference: 'posMenuTags', wide: true },
+    // ServesCount counts people; PortionSize is the measure ("350 ml"). They
+    // answer different questions, which is why one field could not do both.
+    { name: 'ServesCount', label: 'Serves', type: 'number', min: 0, max: 255 },
+    { name: 'PortionSize', label: 'Portion Size', type: 'text', maxLength: 50, hint: 'e.g. 350 ml, 12 pieces' },
+    {
+      name: 'PrepTimeMinutes',
+      label: 'Prep Time (min)',
+      type: 'number',
+      min: 0,
+      hint: "This dish's own prep time. An order's KPT comes from its slowest line.",
+    },
+    {
+      name: 'Nutrition',
+      label: 'Nutrition',
+      type: 'json',
+      wide: true,
+      // A JSON field rather than ten inputs: the data is sparse (most kitchens
+      // never record it), it is optional per dish, and giving it ten permanent
+      // rows on this form would push everything a cashier actually edits below
+      // the fold. Send null to clear the record entirely.
+      hint: 'Optional. Keys: ServingSizeG, Calories, ProteinG, CarbohydrateG, SugarG, FatG, SaturatedFatG, FibreG, SodiumMg, Allergens. Leave empty for no data.',
+    },
     { name: 'Active', type: 'boolean', default: true },
   ],
   tableColumns: [
     // CostInfoAmount rather than CostInfoId — the price is more useful in the
     // list than the id of the cost row, and the API already joins it.
-    'ItemDetailId', 'FoodTypeId', 'BranchDetailId', 'CostInfoAmount',
-    'ChannelIds', 'VariantIds', 'Active', 'CreatedOn',
+    // MeatTypeName, not MeatTypeId: the API joins the name, and a uuid in a
+    // list answers nothing.
+    'ItemDetailId', 'FoodTypeId', 'MeatTypeName', 'BranchDetailId', 'CostInfoAmount',
+    'ChannelIds', 'VariantIds', 'AddonGroupIds', 'ServesCount', 'PrepTimeMinutes',
+    'Active', 'CreatedOn',
   ],
   searchFields: ['FoodTypeId'],
 }
