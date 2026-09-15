@@ -556,3 +556,7 @@
   .mds-enter-hint { display: none; }
   .mds-drop-actions .mds-btn-sm { margin-left: 0; }
 }
+
+/* Rates may be empty now: the Exempt group carries none. Said, not left blank. */
+.mds-rates-empty { margin: 4px 0 8px; font-size: 13px; color: #5a6c7d; }
+.mds-rates-actions { display: flex; gap: 16px; flex-wrap: wrap; }

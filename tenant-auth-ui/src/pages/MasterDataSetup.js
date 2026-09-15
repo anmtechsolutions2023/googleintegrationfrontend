@@ -4,7 +4,7 @@ import { toast } from 'react-toastify';
 import { bootstrapMasterData } from '../services/masterSetupService';
 import importService from '../services/importService';
 import { toCsv } from '../utils/csv';
-import { COLUMNS, TEMPLATE_ROWS, DEFAULT_TAX, checkFile, download } from '../utils/itemImport';
+import { COLUMNS, TEMPLATE_ROWS, DEFAULT_TAX, checkFile, download, EXEMPT_TAX_GROUP, isExemptGroup } from '../utils/itemImport';
 import { useAuth } from '../context/AuthContext';
 import { isSetupPending } from '../utils/permissions';
 import { ROUTES } from '../constants/routes';
@@ -86,7 +86,9 @@ const STEPS = [
         { name: 'Amount', label: 'Amount', type: 'number', required: true },
       ] },
       { title: 'Tax Group', path: 'item.costInfo.taxGroup', fields: [
-        { name: 'Name', label: 'Tax Group Name', required: true, hint: 'A label — the rates below are what gets charged' },
+        // Optional, and starts as the tenant's Exempt (0%) group: a starter item
+        // is sold tax-free unless somebody names a group and gives it rates.
+        { name: 'Name', label: 'Tax Group Name', hint: `Optional — ${EXEMPT_TAX_GROUP} sells it tax-free. Name a group and add its rates to charge tax.` },
       ] },
     ],
   },
@@ -136,7 +138,9 @@ const MasterDataSetup = () => {
   const navigate = useNavigate();
   const [started, setStarted] = useState(false);
   const [stepIdx, setStepIdx] = useState(0);
-  const [form, setForm] = useState({});
+  // The starter item's tax group begins as the tenant's Exempt (0%) group, so
+  // the Tax Group section can be left untouched.
+  const [form, setForm] = useState({ item: { costInfo: { taxGroup: { Name: EXEMPT_TAX_GROUP } } } });
   const [includeItem, setIncludeItem] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
@@ -144,7 +148,8 @@ const MasterDataSetup = () => {
 
   // ── Step 3 ─────────────────────────────────────────────────────────────────
   const [itemSource, setItemSource] = useState(SOURCE.SINGLE);
-  const [taxRates, setTaxRates] = useState(DEFAULT_RATES);
+  // Empty: the tax group starts as Exempt (0%), which carries no rates.
+  const [taxRates, setTaxRates] = useState([]);
   const [csvText, setCsvText] = useState('');
   const [fileName, setFileName] = useState('');
   const [parsed, setParsed] = useState(null);
@@ -214,18 +219,34 @@ const MasterDataSetup = () => {
       .map(({ i }) => i);
   }, [taxRates, typingItem]);
 
+  // The tax group and its rates have to agree. Exempt (0%) — or a blank name —
+  // carries no rates; any other group has to carry some, or it is a group named
+  // "GST 18%" that charges nothing.
+  const taxGroupName = String(getVal(form, 'item.costInfo.taxGroup', 'Name')).trim();
+  const exemptGroup = isExemptGroup(taxGroupName);
+  const taxProblem = useMemo(() => {
+    if (!typingItem) return null;
+    if (exemptGroup && taxRates.length > 0) {
+      return `${EXEMPT_TAX_GROUP} carries no rates. Give this group its own name to charge tax, or remove the rates.`;
+    }
+    if (!exemptGroup && taxRates.length === 0) {
+      return `Add the rates for “${taxGroupName}”, or set the group back to ${EXEMPT_TAX_GROUP}.`;
+    }
+    return null;
+  }, [typingItem, exemptGroup, taxRates, taxGroupName]);
+
   // Can this step move on? Stated once, because both the button and the Enter
   // key ask it.
   const canAdvance = useMemo(() => {
     if (isReview) return false;
     if (missing.length > 0) return false;
     if (Object.keys(problems).length > 0) return false;
-    if (isItemStep && typingItem) return taxRates.length > 0 && badRates.length === 0;
+    if (isItemStep && typingItem) return badRates.length === 0 && !taxProblem;
     // A file was chosen but has nothing usable in it: moving on would silently
     // mean "no items", which is what the checkbox above is for.
     if (isItemStep && uploadingItems) return importRows.length > 0;
     return true;
-  }, [isReview, missing, problems, isItemStep, typingItem, uploadingItems, taxRates, badRates, importRows]);
+  }, [isReview, missing, problems, isItemStep, typingItem, uploadingItems, badRates, taxProblem, importRows]);
 
   const update = (path, name, value) => setForm((prev) => setVal(prev, path, name, value));
 
@@ -303,10 +324,14 @@ const MasterDataSetup = () => {
       // The rates the group is named for. Sent as the group's own field so the
       // orchestrator maps them in; without them the group prices at 0%.
       payload.item.costInfo = payload.item.costInfo || {};
-      payload.item.costInfo.taxGroup = {
-        ...(payload.item.costInfo.taxGroup || {}),
-        taxTypes: taxRates.map((r) => ({ Name: String(r.Name).trim(), Value: String(r.Value).trim() })),
-      };
+      payload.item.costInfo.taxGroup = exemptGroup
+        // Sold tax-free under the tenant's Exempt group, which the server
+        // provisions in this same transaction. No rates: none apply.
+        ? { Name: EXEMPT_TAX_GROUP }
+        : {
+          ...(payload.item.costInfo.taxGroup || {}),
+          taxTypes: taxRates.map((r) => ({ Name: String(r.Name).trim(), Value: String(r.Value).trim() })),
+        };
     }
     return payload;
   };
@@ -599,6 +624,8 @@ const MasterDataSetup = () => {
                     rates={taxRates}
                     invalid={showErrors ? badRates : []}
                     onChange={setTaxRates}
+                    exempt={exemptGroup}
+                    problem={showErrors ? taxProblem : null}
                   />
                 )}
               </fieldset>
@@ -661,17 +688,24 @@ const MasterDataSetup = () => {
 };
 
 // ── The rates inside a tax group ─────────────────────────────────────────────
-const TaxRates = ({ rates, invalid, onChange }) => {
+const TaxRates = ({ rates, invalid, onChange, exempt, problem }) => {
   const set = (i, key, value) => onChange(rates.map((r, j) => (j === i ? { ...r, [key]: value } : r)));
   const total = rateTotal(rates);
 
   return (
     <div className="mds-rates">
       <div className="mds-rates-head">
-        <span className="mds-rates-title">Rates<span className="mds-req">*</span></span>
+        <span className="mds-rates-title">Rates</span>
         <span className="mds-hint">CGST + SGST for an intra-state sale</span>
         <span className="mds-rates-total">Total {total}%</span>
       </div>
+      {rates.length === 0 && (
+        <p className="mds-rates-empty">
+          {exempt
+            ? 'No rates — this item is sold tax-free.'
+            : 'No rates yet. A named group charges only the rates added here.'}
+        </p>
+      )}
       <div className="mds-rates-rows">
         {rates.map((r, i) => (
           // eslint-disable-next-line react/no-array-index-key
@@ -691,7 +725,6 @@ const TaxRates = ({ rates, invalid, onChange }) => {
             />
             <button
               type="button" className="mds-rate-x" aria-label={`Remove rate ${i + 1}`}
-              disabled={rates.length <= 1}
               onClick={() => onChange(rates.filter((_, j) => j !== i))}
             >
               ×
@@ -699,10 +732,18 @@ const TaxRates = ({ rates, invalid, onChange }) => {
           </React.Fragment>
         ))}
       </div>
-      <button type="button" className="mds-linkish" onClick={() => onChange([...rates, { Name: '', Value: '' }])}>
-        + Add a rate
-      </button>
+      <span className="mds-rates-actions">
+        <button type="button" className="mds-linkish" onClick={() => onChange([...rates, { Name: '', Value: '' }])}>
+          + Add a rate
+        </button>
+        {rates.length === 0 && (
+          <button type="button" className="mds-linkish" onClick={() => onChange(DEFAULT_RATES.map((r) => ({ ...r })))}>
+            + Use CGST 2.5% + SGST 2.5%
+          </button>
+        )}
+      </span>
       {invalid.length > 0 && <small className="mds-error">Every rate needs a name and a percentage</small>}
+      {problem && <small className="mds-error">{problem}</small>}
       <small className="mds-hint mds-rates-note">
         The group's name is a label — these rates are what actually gets charged. Replace
         both with a single IGST row for an inter-state sale.
@@ -726,7 +767,7 @@ const ItemFilePicker = ({
         <>
           <button type="button" className="mds-drop" onClick={() => fileRef.current?.click()}>
             <strong>Choose a CSV</strong>
-            name, category, unit, price and tax group are required
+            name, category, unit and price are required — a blank tax_group sells tax-free
           </button>
           <input ref={fileRef} type="file" accept=".csv,text/csv" hidden onChange={onFile} aria-label="Choose a CSV" />
           <div className="mds-or">or paste rows</div>
@@ -862,7 +903,12 @@ const ReviewPanel = ({ form, includeItem, taxRates }) => {
     push('Category', form.item?.category, ['Name']);
     push('Unit', form.item?.uom, ['UnitName']);
     push('Cost', form.item?.costInfo, ['Amount']);
-    push('Tax Group', form.item?.costInfo?.taxGroup, ['Name']);
+    // A blank name is Exempt (0%), and says so rather than leaving the row out.
+    if (isExemptGroup(form.item?.costInfo?.taxGroup?.Name)) {
+      rows.push({ label: 'Tax Group', value: `${EXEMPT_TAX_GROUP} · sold tax-free` });
+    } else {
+      push('Tax Group', form.item?.costInfo?.taxGroup, ['Name']);
+    }
     // The rates, not just the group's name — the name is a label and this is
     // the last chance to notice it says 18% while the rates add up to 5%.
     if (taxRates?.length) {

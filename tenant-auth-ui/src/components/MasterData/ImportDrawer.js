@@ -132,7 +132,7 @@ const ImportDrawer = ({ onClose, onImported }) => {
             <div className="imp-body">
               <div className="imp-drop" onClick={() => fileRef.current?.click()}>
                 <strong>Choose a CSV</strong>
-                name, category, unit, price and tax group are required
+                name, category, unit and price are required — a blank tax_group sells tax-free
                 <input ref={fileRef} type="file" accept=".csv,text/csv" hidden onChange={onFile} />
               </div>
               <div className="imp-or">or paste rows</div>

@@ -23,7 +23,17 @@ export const COLUMNS = ['name', 'category', 'unit', 'price', 'tax_group', 'tax_c
 // person sees it before it is applied, never after.
 export const DEFAULT_TAX = 'CGST:2.5|SGST:2.5'
 
-export const REQUIRED = ['name', 'category', 'unit', 'price', 'taxgroup']
+// The tenant's zero-rate group. Mirrors TAX_GROUP_DEFAULTS.EXEMPT_NAME on the
+// server: a blank tax_group is sold under it, tax-free, and it never carries rates.
+export const EXEMPT_TAX_GROUP = 'Exempt (0%)'
+
+export const isExemptGroup = (name) => {
+  const n = String(name || '').trim().toLowerCase()
+  return !n || n === EXEMPT_TAX_GROUP.toLowerCase()
+}
+
+// tax_group is not here: blank means Exempt (0%).
+export const REQUIRED = ['name', 'category', 'unit', 'price']
 
 export const TEMPLATE_ROWS = [
   ['Plain Tea', 'Tea', 'Glass', '15', 'GST 5%', DEFAULT_TAX, 'Veg', 'TEA-01', '', 'true'],
@@ -82,6 +92,11 @@ export const validateRow = (r) => {
 
   const tax = parseTaxComponents(r.taxcomponents)
   if (tax.error) return { error: tax.error }
+  // Rates with no group to hold them would land on Exempt, which is 0% by
+  // definition — refused here rather than silently dropped.
+  if (isExemptGroup(r.taxgroup) && tax.value.length > 0) {
+    return { error: `tax_components need a tax_group of their own — ${EXEMPT_TAX_GROUP} carries no rates` }
+  }
 
   return {
     value: {
@@ -89,7 +104,7 @@ export const validateRow = (r) => {
       category: r.category,
       unit: r.unit,
       price,
-      taxGroup: r.taxgroup,
+      taxGroup: isExemptGroup(r.taxgroup) ? EXEMPT_TAX_GROUP : r.taxgroup,
       taxComponents: tax.value,
       taxIncluded: String(r.taxincluded || 'true').toLowerCase() !== 'false',
       code: r.code || null,
@@ -106,7 +121,7 @@ export const validateRow = (r) => {
  * @param {Object} row - A validated row.
  * @returns {Array<{name: string, value: number}>}
  */
-const ratesOf = (row) => (row.taxComponents.length
+const ratesOf = (row) => (isExemptGroup(row.taxGroup) ? [] : row.taxComponents.length
   ? row.taxComponents
   : DEFAULT_TAX.split('|').map((c) => {
     const [name, value] = c.split(':')
@@ -187,7 +202,8 @@ export const summarise = (valid, invalid) => {
     taxGroups: askedByGroup.size,
     taxTypes: taxTypes.size,
     // Rows that will be given the standard split because they state none.
-    defaulted: valid.filter((v) => v.taxComponents.length === 0).length,
+    // Exempt rows state none on purpose — they are sold tax-free, not defaulted.
+    defaulted: valid.filter((v) => v.taxComponents.length === 0 && !isExemptGroup(v.taxGroup)).length,
     // Group names given two different sets of rates in one file.
     conflicts,
   }

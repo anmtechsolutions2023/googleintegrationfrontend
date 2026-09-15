@@ -214,7 +214,6 @@ test('item step hides the Unit of Measure section and sends UnitName as hardcode
   typeInto('Item Name', 'Paneer Tikka');
   typeInto('Category Name', 'Starter');
   typeInto('Amount', '250');
-  typeInto('Tax Group Name', 'GST5');
   fireEvent.click(screen.getByRole('button', { name: 'Next' }));
 
   fireEvent.click(screen.getByRole('button', { name: /Create everything/i }));
@@ -333,16 +332,82 @@ describe('tax rates on the typed starter item', () => {
   // A tax group is a CONTAINER — the rates live in the tax types mapped into
   // it. Naming one "GST 18%" and stopping there created a group that charged
   // nothing, on every bill, silently. The form must never produce that.
-  test('starts from the standard split rather than an empty group', () => {
+  // Optional now: the group starts as the tenant's Exempt (0%), which carries no
+  // rates, and the standard split is one click away.
+  test('starts as Exempt (0%) with no rates', () => {
     toItemStep();
+    expect(screen.getByLabelText('Tax Group Name')).toHaveValue('Exempt (0%)');
+    expect(screen.queryByLabelText('Rate 1 name')).not.toBeInTheDocument();
+    expect(screen.getByText(/No rates — this item is sold tax-free/)).toBeInTheDocument();
+    expect(screen.getByText('Total 0%')).toBeInTheDocument();
+  });
+
+  test('offers the standard split in one click', () => {
+    toItemStep();
+    fireEvent.click(screen.getByRole('button', { name: /Use CGST 2.5% \+ SGST 2.5%/i }));
     expect(screen.getByLabelText('Rate 1 name')).toHaveValue('CGST');
-    expect(screen.getByLabelText('Rate 1 percent')).toHaveValue(2.5);
     expect(screen.getByLabelText('Rate 2 name')).toHaveValue('SGST');
     expect(screen.getByText('Total 5%')).toBeInTheDocument();
   });
 
+  test('left untouched, the item is sent under Exempt (0%) with no rates', async () => {
+    masterSetupService.bootstrapMasterData.mockResolvedValue({
+      data: { data: { organization: 'org-1', branch: 'br-1' } },
+    });
+    toItemStep();
+    typeInto('Item Name', 'Plain Water');
+    typeInto('Category Name', 'Drinks');
+    typeInto('Amount', '20');
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    expect(screen.getByText('Exempt (0%) · sold tax-free')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Create everything/i }));
+
+    await waitFor(() => expect(masterSetupService.bootstrapMasterData).toHaveBeenCalled());
+    const [payload] = masterSetupService.bootstrapMasterData.mock.calls[0];
+    expect(payload.item.costInfo.taxGroup).toEqual({ Name: 'Exempt (0%)' });
+  });
+
+  test('a blank tax group name is Exempt too', async () => {
+    masterSetupService.bootstrapMasterData.mockResolvedValue({
+      data: { data: { organization: 'org-1', branch: 'br-1' } },
+    });
+    toItemStep();
+    typeInto('Item Name', 'Plain Water');
+    typeInto('Category Name', 'Drinks');
+    typeInto('Amount', '20');
+    typeInto('Tax Group Name', '');
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    fireEvent.click(screen.getByRole('button', { name: /Create everything/i }));
+    await waitFor(() => expect(masterSetupService.bootstrapMasterData).toHaveBeenCalled());
+    expect(masterSetupService.bootstrapMasterData.mock.calls[0][0].item.costInfo.taxGroup)
+      .toEqual({ Name: 'Exempt (0%)' });
+  });
+
+  test('a named group with no rates cannot move on', () => {
+    toItemStep();
+    typeInto('Item Name', 'Paneer Tikka');
+    typeInto('Category Name', 'Starters');
+    typeInto('Amount', '240');
+    typeInto('Tax Group Name', 'GST 18%');
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    expect(screen.getByText(/Add the rates for “GST 18%”/)).toBeInTheDocument();
+    // Still on the item step: the review never opened.
+    expect(screen.queryByRole('button', { name: /Create everything/i })).not.toBeInTheDocument();
+  });
+
+  test('the Exempt group cannot carry rates', () => {
+    toItemStep();
+    typeInto('Item Name', 'Paneer Tikka');
+    typeInto('Category Name', 'Starters');
+    typeInto('Amount', '240');
+    fireEvent.click(screen.getByRole('button', { name: /Use CGST 2.5% \+ SGST 2.5%/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    expect(screen.getByText(/Exempt \(0%\) carries no rates/)).toBeInTheDocument();
+  });
+
   test('totals the rates as they are edited', () => {
     toItemStep();
+    fireEvent.click(screen.getByRole('button', { name: /Use CGST 2.5% \+ SGST 2.5%/i }));
     fireEvent.change(screen.getByLabelText('Rate 1 percent'), { target: { value: '9' } });
     fireEvent.change(screen.getByLabelText('Rate 2 percent'), { target: { value: '9' } });
     expect(screen.getByText('Total 18%')).toBeInTheDocument();
@@ -352,6 +417,7 @@ describe('tax rates on the typed starter item', () => {
   // so removing a row has to be possible.
   test('a rate can be removed and another added', () => {
     toItemStep();
+    fireEvent.click(screen.getByRole('button', { name: /Use CGST 2.5% \+ SGST 2.5%/i }));
     fireEvent.click(screen.getByRole('button', { name: /Remove rate 2/i }));
     expect(screen.queryByLabelText('Rate 2 name')).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Rate 1 name'), { target: { value: 'IGST' } });
@@ -359,10 +425,14 @@ describe('tax rates on the typed starter item', () => {
     expect(screen.getByText('Total 18%')).toBeInTheDocument();
   });
 
-  test('the last rate cannot be removed — a group with none prices at 0%', () => {
+  // Removing every rate is allowed now — it is how a group goes back to 0% — and
+  // the step guard, not a disabled button, stops a NAMED group leaving with none.
+  test('every rate can be removed', () => {
     toItemStep();
+    fireEvent.click(screen.getByRole('button', { name: /Use CGST 2.5% \+ SGST 2.5%/i }));
     fireEvent.click(screen.getByRole('button', { name: /Remove rate 2/i }));
-    expect(screen.getByRole('button', { name: /Remove rate 1/i })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: /Remove rate 1/i }));
+    expect(screen.queryByLabelText('Rate 1 name')).not.toBeInTheDocument();
   });
 
   test('refuses to move on with a rate that has no percentage', () => {
@@ -371,6 +441,7 @@ describe('tax rates on the typed starter item', () => {
     typeInto('Category Name', 'Starters');
     typeInto('Amount', '240');
     typeInto('Tax Group Name', 'GST 18%');
+    fireEvent.click(screen.getByRole('button', { name: /Use CGST 2.5% \+ SGST 2.5%/i }));
     fireEvent.change(screen.getByLabelText('Rate 1 percent'), { target: { value: '' } });
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
     expect(screen.getByText(/Every rate needs a name and a percentage/i)).toBeInTheDocument();
@@ -387,6 +458,7 @@ describe('tax rates on the typed starter item', () => {
     typeInto('Category Name', 'Starters');
     typeInto('Amount', '240');
     typeInto('Tax Group Name', 'GST 18%');
+    fireEvent.click(screen.getByRole('button', { name: /Use CGST 2.5% \+ SGST 2.5%/i }));
     fireEvent.change(screen.getByLabelText('Rate 1 percent'), { target: { value: '9' } });
     fireEvent.change(screen.getByLabelText('Rate 2 percent'), { target: { value: '9' } });
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
@@ -408,6 +480,7 @@ describe('tax rates on the typed starter item', () => {
     typeInto('Category Name', 'Starters');
     typeInto('Amount', '240');
     typeInto('Tax Group Name', 'GST 18%');
+    fireEvent.click(screen.getByRole('button', { name: /Use CGST 2.5% \+ SGST 2.5%/i }));
     fireEvent.change(screen.getByLabelText('Rate 1 percent'), { target: { value: '9' } });
     fireEvent.change(screen.getByLabelText('Rate 2 percent'), { target: { value: '9' } });
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
@@ -459,6 +532,16 @@ describe('step 3 — uploading a list', () => {
 
   // A row stating no rate is not a row with no tax. Announced before it is
   // applied, never discovered afterwards.
+  test('a blank tax_group is read as Exempt, not given the 5% default', () => {
+    toItemStep();
+    pasteAndCheck([
+      'name,category,unit,price,tax_group',
+      'Plain Water,Drinks,Glass,20,',
+    ].join('\n'));
+    expect(screen.getByText('1 item will be created')).toBeInTheDocument();
+    expect(screen.queryByText(/states no tax rate/)).not.toBeInTheDocument();
+  });
+
   test('announces the default split before applying it', () => {
     toItemStep();
     pasteAndCheck([
@@ -646,7 +729,8 @@ describe('"Create everything" — two passes, in order', () => {
     typeInto('Item Name', 'Paneer Tikka');
     typeInto('Category Name', 'Starters');
     typeInto('Amount', '240');
-    typeInto('Tax Group Name', 'GST 5%');
+    // The tax group is left as Exempt (0%) — naming one without rates is now
+    // refused, and this test is about the passes, not the tax.
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
     fireEvent.click(screen.getByRole('button', { name: /Create everything/i }));
 
