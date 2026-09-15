@@ -157,6 +157,28 @@ export const MODULES = {
       // the picker offers only categories that may actually be a parent.
       { name: 'ParentId', label: 'Parent Category', type: 'select', reference: 'categoryParents' },
       { name: 'SortOrder', label: 'Sort Order', type: 'number', default: 0 },
+      // Tags applied to the SECTION. Every dish filed under it inherits them,
+      // so one assignment here covers a category instead of one per dish — and
+      // the till filters on the union of the two. Grouped by TagType because
+      // 'Starter' and 'Chinese' are not the same kind of choice.
+      {
+        name: 'TagIds',
+        label: 'Menu Tags',
+        type: 'multiselect',
+        reference: 'posMenuTags',
+        groupBy: 'TagType',
+        wide: true,
+        // Tagging a section is a BULK edit — it reaches every dish filed here —
+        // and a form that does not say so is hiding the interesting part of the
+        // action. Counted from the record, so it is true of THIS category.
+        hint: (row) => {
+          const n = Number(row?.ItemCount) || 0
+          const t = Array.isArray(row?.TagIds) ? row.TagIds.length : 0
+          const dishes = `${n} ${n === 1 ? 'dish is' : 'dishes are'} filed here`
+          if (t === 0) return `${dishes}. None of them carries a tag from this section yet.`
+          return `${dishes} — saving applies ${t === 1 ? 'this tag' : `these ${t} tags`} to all of them.`
+        },
+      },
       { name: 'Active', type: 'boolean', default: true },
     ],
     tableColumns: [
@@ -297,7 +319,7 @@ export const MODULES = {
         reference: 'transactionTypeConfigs',
       },
       { name: 'TINNo', label: 'TIN No', type: 'text', maxLength: 50 },
-      { name: 'GSTIN', label: 'GSTIN', type: 'text', maxLength: 50 },
+      { name: 'GSTIN', label: 'GSTIN', type: 'text', maxLength: 15 },
       { name: 'PAN', label: 'PAN', type: 'text', maxLength: 50 },
       { name: 'CF1', label: 'CF1', type: 'text', maxLength: 50 },
       { name: 'CF2', label: 'CF2', type: 'text', maxLength: 50 },
@@ -832,6 +854,9 @@ export const MODULES = {
       { name: 'SKU', type: 'text', maxLength: 100 },
       { name: 'Barcode', type: 'text', maxLength: 100 },
       { name: 'HSNCode', label: 'HSN Code', type: 'text', maxLength: 50 },
+      // Services — restaurant food is SAC 996331 at most outlets. The GST export
+      // reports each dish under this code, so a dish without one is flagged.
+      { name: 'SACCode', label: 'SAC Code', type: 'text', maxLength: 50 },
       { name: 'Active', type: 'boolean', default: true },
     ],
     tableColumns: [

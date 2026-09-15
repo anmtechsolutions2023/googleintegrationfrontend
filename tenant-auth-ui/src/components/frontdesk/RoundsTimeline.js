@@ -1,5 +1,6 @@
 import React from 'react'
-import { itemLabel, itemQty, itemVariants, formatRoundTime } from '../../utils/posRounds'
+import { itemLabel, itemQty, formatRoundTime } from '../../utils/posRounds'
+import LineOptions, { OrderInstructions } from './LineOptions'
 import { summarizeRound } from '../../utils/posBilling'
 import './frontdesk.css'
 
@@ -85,7 +86,6 @@ const RoundsTimeline = ({
                 <li className="fd-round-empty">No item details</li>
               ) : (
                 r.items.map((it, i) => {
-                  const variants = itemVariants(it)
                   const rate = lineTaxRate(it)
                   return (
                     <li key={i}>
@@ -105,22 +105,21 @@ const RoundsTimeline = ({
                           <span className="fd-round-line-amt">₹{money(lineGross(it))}</span>
                         )}
                       </div>
-                      {/* Options chosen when the round was placed, so a repeat
-                          order or a reprint shows exactly what was served. */}
-                      {variants.length > 0 && (
-                        <div className="fd-round-variants">
-                          {variants.map((v, vi) => (
-                            <span className="ci-variant-chip" key={v.id || vi}>
-                              {v.name}{Number(v.price) > 0 ? ` +₹${money(v.price)}` : ''}
-                            </span>
-                          ))}
-                        </div>
-                      )}
+                      {/* Options, add-ons and the kitchen note chosen when the
+                          round was placed, so a repeat order or a reprint shows
+                          exactly what was served and how. */}
+                      <div className="fd-round-variants">
+                        <LineOptions line={it} />
+                      </div>
                     </li>
                   )
                 })
               )}
             </ul>
+            <OrderInstructions
+              instructions={r.order?.CookingInstructions}
+              noCutlery={r.order?.NoCutlery}
+            />
             {summary && (
               <div className="fd-round-subtotal">
                 <span>Round {r.round} total</span>

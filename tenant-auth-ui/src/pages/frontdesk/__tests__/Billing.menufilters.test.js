@@ -12,6 +12,7 @@ jest.mock('../../../services/posService', () => ({
   default: {
     getTables: jest.fn(), getFloors: jest.fn(), getItemMeta: jest.fn(),
     getOrders: jest.fn(), getItemDetail: jest.fn(), getVariants: jest.fn(),
+    getAddonGroups: jest.fn(), getAddons: jest.fn(),
     getPaymentModes: jest.fn(), getKots: jest.fn(), quotePricing: jest.fn(),
     createOrder: jest.fn(), updateOrder: jest.fn(), updateTable: jest.fn(),
     transferOrder: jest.fn(), deleteOrder: jest.fn(),
@@ -63,6 +64,8 @@ beforeEach(() => {
   posService.getOrders.mockResolvedValue([]);
   posService.getItemMeta.mockResolvedValue(MENU);
   posService.getVariants.mockResolvedValue([]);
+  posService.getAddonGroups.mockResolvedValue([]);
+  posService.getAddons.mockResolvedValue([]);
   posService.getKots.mockResolvedValue([]);
   posService.getItemDetail.mockImplementation((id) =>
     Promise.resolve({ Id: id, Name: NAMES[id] || id }));
@@ -198,7 +201,7 @@ describe('when nothing matches', () => {
   test('a search inside a category that cannot match is escapable', async () => {
     await openTill();
     fireEvent.click(chip('Beverages'));
-    fireEvent.change(screen.getByPlaceholderText(/Search menu/i), { target: { value: 'margh' } });
+    fireEvent.change(screen.getByPlaceholderText(/Search dishes/i), { target: { value: 'margh' } });
 
     expect(screen.getByText(/Nothing matches these filters/i)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Clear filters/i }));

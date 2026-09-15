@@ -36,6 +36,7 @@ const PORTAL_FIELDS = [
   { name: 'ColorHex', label: 'Colour', type: 'text', maxLength: 9, hint: 'Hex, e.g. #E23744. The order queue paints its rail from this.' },
   { name: 'ShortCode', label: 'Monogram', type: 'text', maxLength: 4, hint: 'Two letters shown beside the colour, e.g. ZO.' },
   { name: 'CommissionPct', label: 'Commission %', type: 'number', min: 0, max: 100, step: 0.001 },
+  { name: 'GSTIN', label: 'Aggregator GSTIN', type: 'text', maxLength: 15, hint: 'Food sold through this portal is reported against it in the GST return (Table 14).' },
   {
     name: 'SettlementPaymentModeId',
     label: 'Settlement tender',

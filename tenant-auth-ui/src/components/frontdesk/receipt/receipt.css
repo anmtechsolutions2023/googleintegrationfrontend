@@ -46,6 +46,11 @@
 .rc-item { margin-top: 3px; }
 .rc-qty { padding-left: 12px; }
 .rc-note { font-size: 8.5px; }
+/* A dish's options on the bill: the dish price, then each choice with what it
+   added, indented under the qty × rate row it explains. */
+.rc-opts { display: flex; flex-direction: column; }
+.rc-opt { padding-left: 24px; font-size: 8.5px; }
+.rc-w58 .rc-opt { padding-left: 14px; }
 .rc-back { font-size: 8.5px; }
 
 .rc-sign { margin-top: 22px; }
@@ -66,6 +71,11 @@
 .rc-w58 .rc-kotname { font-size: 13px; }
 .rc-kotprice { font-variant-numeric: tabular-nums; }
 .rc-kotnote { font-size: 11px; padding-left: 12px; }
+/* Options and add-ons under a dish on the kitchen ticket: the portion bold,
+   because it changes what is cooked; each add-on with its group on the right. */
+.rc-kotopt { font-size: 12px; font-weight: 700; padding-left: 30px; }
+.rc-kotadd { font-size: 12px; padding-left: 30px; }
+.rc-w58 .rc-kotopt, .rc-w58 .rc-kotadd { font-size: 11px; padding-left: 18px; }
 
 /* ── The preview, on screen ─────────────────────────────────────────────────
    Same markup, shown in place. The grey stage is what makes it read as paper

@@ -6,6 +6,7 @@ import { OrderNoLink } from '../../components/frontdesk/OrderLinkProvider'
 import { SCOPES } from '../../constants'
 import { useCan } from '../../hooks/useCan'
 import ReturnPicker from '../../components/frontdesk/ReturnPicker'
+import LineOptions from '../../components/frontdesk/LineOptions'
 import Receipt from '../../components/frontdesk/receipt/Receipt'
 import usePrintReceipt from '../../components/frontdesk/receipt/usePrintReceipt'
 import './ledger.css'
@@ -170,7 +171,8 @@ const Ledger = () => {
     const isNote = doc.TypeName === 'POS Return'
     print(isNote ? 'creditNote' : 'bill', {
       ...doc,
-      taxMode,
+      // As issued — a reprint never takes today's GST switch.
+      taxMode: doc.TaxMode || taxMode,
       isReprint: !isNote,
       tokenLabel: doc.Source?.kind === 'token' ? doc.Source.label : null,
       tableName: doc.Source?.kind === 'table' ? doc.Source.label : null,
@@ -435,16 +437,11 @@ const Ledger = () => {
                           <td>{l.LineNo}</td>
                           <td>
                             {l.ItemName || l.Comment || l.ItemId}
-                            {/* Options as sold, so the customer can see what they got. */}
-                            {(l.Variants || []).length > 0 && (
-                              <div className="fd-invoice-variants">
-                                {l.Variants.map((v, i) => (
-                                  <span className="ci-variant-chip" key={v.id || i}>
-                                    {v.name}{Number(v.price) > 0 ? ` +₹${money(v.price)}` : ''}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
+                            {/* Options, add-ons and the kitchen note as sold, and how the
+                                rate was built — so "Rate ₹479" explains itself. */}
+                            <div className="fd-invoice-options">
+                              <LineOptions line={l} showBreakdown />
+                            </div>
                           </td>
                           <td className="num">
                             {Number(l.Quantity)}

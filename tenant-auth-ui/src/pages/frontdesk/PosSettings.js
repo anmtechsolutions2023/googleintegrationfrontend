@@ -4,6 +4,9 @@ import posService from '../../services/posService'
 import { useAuth } from '../../context/AuthContext'
 import { hasScope } from '../../utils/permissions'
 import { SCOPES } from '../../constants'
+import KitchenNotePresets from '../../components/frontdesk/KitchenNotePresets'
+import GstSettingsCard from '../../components/frontdesk/GstSettingsCard'
+import { NOTE_PRESETS_KEY, parsePresets } from '../../utils/lineOptions'
 
 // Mirrors POS_SETTING_KEYS / TOKEN_NUMBERING in the backend's config/constants.js.
 const TOKEN_NUMBERING_KEY = 'token.numbering'
@@ -109,7 +112,9 @@ const PosSettings = () => {
     return (
       <div className="fd-crud-page">
         <h1>⚙️ POS Settings</h1>
-        <div className="fd-empty">
+        {/* Tenant-wide, so it does not wait for a branch to exist. */}
+        <GstSettingsCard canWrite={canWrite} />
+        <div className="fd-empty" style={{ marginTop: 16 }}>
           These settings are per branch. Add a branch under Organization →
           Branch Details first.
         </div>
@@ -125,7 +130,10 @@ const PosSettings = () => {
   return (
     <div className="fd-crud-page">
       <h1>⚙️ POS Settings</h1>
-      <p className="fd-page-sub">
+      {/* First, and above the branch picker: GST is one switch for the whole
+          business, not a per-branch preference. */}
+      <GstSettingsCard canWrite={canWrite} />
+      <p className="fd-page-sub" style={{ marginTop: 20 }}>
         Applies to one branch at a time. A branch you have never saved here runs
         on the defaults shown below.
       </p>
@@ -215,6 +223,22 @@ const PosSettings = () => {
             You have read-only access to POS configuration.
           </p>
         )}
+      </section>
+
+      {/* The quick picks Billing offers for a dish's kitchen note. */}
+      <section className="fd-setting-card" style={{ marginTop: 16 }}>
+        <h2>Kitchen notes</h2>
+        <p className="fd-setting-desc">
+          Quick picks offered when a dish is added or a cart line is tapped in
+          Billing. They save typing at a busy counter; the cashier can still type
+          any note. Opposites such as Less spicy and Extra spicy cannot both be
+          picked for one dish.
+        </p>
+        <KitchenNotePresets
+          value={parsePresets(settings?.[NOTE_PRESETS_KEY])}
+          disabled={!canWrite || saving}
+          onSave={(list) => save(NOTE_PRESETS_KEY, list)}
+        />
       </section>
     </div>
   )

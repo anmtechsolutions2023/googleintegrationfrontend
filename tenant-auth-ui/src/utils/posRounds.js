@@ -24,8 +24,7 @@ export const itemQty = (item) =>
 // Options chosen for a line, as the order snapshotted them. Orders placed before
 // variants shipped simply have none, so callers get an empty list rather than
 // having to guard.
-export const itemVariants = (item) => {
-  const raw = item?.variants ?? item?.Variants
+const normalizeChoices = (raw) => {
   if (!Array.isArray(raw)) return []
   return raw
     .filter(Boolean)
@@ -34,6 +33,14 @@ export const itemVariants = (item) => {
       : { id: v.id ?? v.Id, name: v.name ?? v.Name ?? '', price: Number(v.price ?? v.Price) || 0 }))
     .filter((v) => v.name)
 }
+
+export const itemVariants = (item) => normalizeChoices(item?.variants ?? item?.Variants)
+
+// Add-ons chosen for a line, read exactly as variants are and kept SEPARATE
+// from them. Merging the two lists here would be simpler and wrong: the kitchen
+// treats "Large" and "extra cheese" differently, and a round placed before
+// add-ons shipped has only the first.
+export const itemAddons = (item) => normalizeChoices(item?.addons ?? item?.Addons)
 
 const orderTime = (o) => new Date(o?.CreatedOn || o?.createdAt || 0).getTime()
 

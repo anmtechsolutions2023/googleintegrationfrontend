@@ -180,6 +180,19 @@ const ReceiptFormat = () => {
     }
   }
 
+  // The GST switch outranks this picker. While GST is off the server refuses a
+  // change here, so the buttons are disabled with the reason beside them rather
+  // than failing on click.
+  const [gstOff, setGstOff] = useState(false)
+  useEffect(() => {
+    // Wrapped so a missing or synchronously-throwing call degrades to "on"
+    // rather than taking the whole editor down with it.
+    Promise.resolve()
+      .then(() => posService.getTaxSettings())
+      .then((s) => setGstOff(s?.gstCharging === false))
+      .catch(() => setGstOff(false))
+  }, [])
+
   const changeTaxMode = async (taxMode) => {
     setSaving(true)
     try {
@@ -268,12 +281,18 @@ const ReceiptFormat = () => {
       {schema && (
         <div className="rf-mode">
           <span className="rf-mode-label">How this branch charges tax</span>
+          {gstOff && (
+            <span className="rf-mode-note">
+              GST is switched off in POS Settings → GST, so every branch prints a bill of
+              supply. Change it there.
+            </span>
+          )}
           <span className="rf-mode-opts">
             {TAX_MODES.map((m) => (
               <button
                 key={m.value} type="button"
                 className={`rf-mode-opt ${schema.taxMode === m.value ? 'is-on' : ''}`}
-                disabled={saving || !canEdit}
+                disabled={saving || !canEdit || gstOff}
                 onClick={() => changeTaxMode(m.value)}
               >
                 <strong>{m.label}</strong>
@@ -349,7 +368,15 @@ const FALLBACK_SALE = {
   CustomerName: 'Aarti K.', CustomerMobile: '98765', CreatedBy: 'cashier',
   Source: { kind: 'token', label: 'A-14' },
   Lines: [
-    { Id: 'a', ItemName: 'Paneer Tikka', Quantity: 2, UnitPrice: 240, GrossAmount: 480 },
+    // One line with a choice of each kind, so the preview shows how options,
+    // add-ons and a kitchen note print under their dish.
+    {
+      Id: 'a', ItemName: 'Paneer Tikka', Quantity: 2, UnitPrice: 240, GrossAmount: 480,
+      BasePrice: 190, VariantAmount: 30, AddonAmount: 20,
+      Variants: [{ id: 'v', name: 'Large', price: 30 }],
+      Addons: [{ id: 'x', name: 'Mint chutney', price: 20, groupName: 'Dips' }],
+      Note: 'Less spicy',
+    },
     { Id: 'b', ItemName: 'Butter Naan', Quantity: 3, UnitPrice: 65, GrossAmount: 195 },
   ],
   TaxByComponent: [{ name: 'CGST', rate: 9, amount: 51.08 }, { name: 'SGST', rate: 9, amount: 51.07 }],
@@ -362,7 +389,11 @@ const SAMPLE_KOT = {
   KotNo: 'KOT-0231', CreatedOn: new Date().toISOString(),
   tableName: 'TABLE 7', round: 2, waiter: 'ravi',
   Lines: [
-    { Id: 'a', ItemName: 'Paneer Tikka', Quantity: 2, Note: 'Jain — no onion garlic', GrossAmount: 480 },
+    {
+      Id: 'a', ItemName: 'Paneer Tikka', Quantity: 2, GrossAmount: 480,
+      Options: ['Large'], Addons: [{ name: 'Mint chutney', groupName: 'Dips' }],
+      Note: 'Jain — no onion garlic',
+    },
     { Id: 'b', ItemName: 'Butter Naan', Quantity: 3, GrossAmount: 195 },
   ],
 }

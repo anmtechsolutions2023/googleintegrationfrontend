@@ -10,6 +10,8 @@ import { isSetupPending } from '../utils/permissions';
 import { ROUTES } from '../constants/routes';
 import './MasterDataSetup.css';
 
+import { gstinProblem, stateOfGstin } from '../utils/gstin';
+
 // ── Declarative step / group / field definitions ─────────────────────────────
 // Each field's `path` addresses a node in the nested payload; the orchestrator
 // on the backend resolves all foreign keys, so the client never sends ids.
@@ -31,6 +33,14 @@ const STEPS = [
     groups: [
       { title: 'Branch', path: 'branch', fields: [
         { name: 'Name', label: 'Branch Name', required: true },
+        // Optional: a new restaurant may not be registered yet. When given, it
+        // is printed on tax invoices and used for the GST report.
+        {
+          name: 'GSTIN', label: 'GSTIN (optional)', maxLength: 15, upper: true,
+          hint: 'Printed on tax invoices and used for GST returns. You can add or change it later in POS Settings → GST.',
+          validate: gstinProblem,
+          describe: (v) => (stateOfGstin(v) ? `Registered in ${stateOfGstin(v)}` : null),
+        },
       ] },
       { title: 'Address', path: 'branch.address', fields: [
         { name: 'AddressLine1', label: 'Address Line 1', required: true },
@@ -179,6 +189,21 @@ const MasterDataSetup = () => {
     return out;
   }, [form, step, isReview, isItemStep, typingItem]);
 
+  // Optional fields that were filled in wrongly — a GSTIN with a typo. Blank is
+  // never a problem here; that is what `missing` is for.
+  const problems = useMemo(() => {
+    if (isReview) return {};
+    if (isItemStep && !typingItem) return {};
+    const out = {};
+    step.groups?.forEach((g) => g.fields.forEach((f) => {
+      if (f.hidden || !f.validate) return;
+      const fp = f.path || g.path;
+      const message = f.validate(getVal(form, fp, f.name));
+      if (message) out[`${fp}.${f.name}`] = message;
+    }));
+    return out;
+  }, [form, step, isReview, isItemStep, typingItem]);
+
   // A rate row is only usable if it names something and states a number.
   const badRates = useMemo(() => {
     if (!typingItem) return [];
@@ -194,12 +219,13 @@ const MasterDataSetup = () => {
   const canAdvance = useMemo(() => {
     if (isReview) return false;
     if (missing.length > 0) return false;
+    if (Object.keys(problems).length > 0) return false;
     if (isItemStep && typingItem) return taxRates.length > 0 && badRates.length === 0;
     // A file was chosen but has nothing usable in it: moving on would silently
     // mean "no items", which is what the checkbox above is for.
     if (isItemStep && uploadingItems) return importRows.length > 0;
     return true;
-  }, [isReview, missing, isItemStep, typingItem, uploadingItems, taxRates, badRates, importRows]);
+  }, [isReview, missing, problems, isItemStep, typingItem, uploadingItems, taxRates, badRates, importRows]);
 
   const update = (path, name, value) => setForm((prev) => setVal(prev, path, name, value));
 
@@ -531,9 +557,16 @@ const MasterDataSetup = () => {
                   {g.fields.filter((f) => !f.hidden).map((f) => {
                     const fp = f.path || g.path;
                     const id = `${fp}.${f.name}`;
+                    const value = getVal(form, fp, f.name);
                     const invalid = showErrors && missing.includes(id);
+                    const problem = problems[id];
+                    // Said once they try to move on, or once the value is as long
+                    // as it can be — not after the first character.
+                    const showProblem = !!problem
+                      && (showErrors || (f.maxLength && String(value).length >= f.maxLength));
+                    const described = !problem && f.describe ? f.describe(value) : null;
                     return (
-                      <div className={`mds-field ${invalid ? 'is-invalid' : ''}`} key={id}>
+                      <div className={`mds-field ${invalid || showProblem ? 'is-invalid' : ''}`} key={id}>
                         <label htmlFor={id}>
                           {f.label || f.name}{f.required && <span className="mds-req">*</span>}
                         </label>
@@ -541,11 +574,18 @@ const MasterDataSetup = () => {
                           id={id}
                           type={f.type === 'number' ? 'number' : 'text'}
                           step={f.type === 'number' ? 'any' : undefined}
-                          value={getVal(form, fp, f.name)}
-                          onChange={(e) => update(fp, f.name, e.target.value)}
+                          maxLength={f.maxLength}
+                          autoCapitalize={f.upper ? 'characters' : undefined}
+                          spellCheck={f.upper ? false : undefined}
+                          aria-invalid={invalid || showProblem ? true : undefined}
+                          value={value}
+                          onChange={(e) => update(fp, f.name, f.upper ? e.target.value.toUpperCase() : e.target.value)}
                         />
-                        {f.hint && <small className="mds-hint">{f.hint}</small>}
+                        {described
+                          ? <small className="mds-hint">{described}</small>
+                          : f.hint && <small className="mds-hint">{f.hint}</small>}
                         {invalid && <small className="mds-error">Required</small>}
+                        {showProblem && <small className="mds-error">{problem}</small>}
                       </div>
                     );
                   })}
@@ -813,6 +853,7 @@ const ReviewPanel = ({ form, includeItem, taxRates }) => {
   };
   push('Organization', form.organization, ['Name']);
   push('Branch', form.branch, ['Name']);
+  push('GSTIN', form.branch, ['GSTIN']);
   push('Address', form.branch?.address, ['AddressLine1', 'City', 'State', 'Pincode']);
   push('Address Type', form.branch?.address?.contactAddressType, ['Name']);
   push('Contact', form.branch?.contact, ['FirstName', 'LastName', 'Email']);

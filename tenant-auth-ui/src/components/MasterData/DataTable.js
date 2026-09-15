@@ -20,6 +20,9 @@ import './MasterData.css';
  * @param {Object} props.sortConfig - { key, direction } for current sort
  * @param {Function} props.onSort - Sort handler (columnKey) => void
  * @param {string} props.emptyMessage - Message when no data
+ * @param {Object} [props.selection] - Optional row selection. When omitted no
+ *   checkbox column is drawn, so every existing caller renders as before.
+ *   { isSelected(row), onToggle(row), onTogglePage(rows, checked), labelOf(row) }
  */
 const DataTable = ({
   columns = [],
@@ -33,6 +36,7 @@ const DataTable = ({
   sortConfig = { key: null, direction: 'asc' },
   onSort,
   emptyMessage = 'No data available',
+  selection = null,
 }) => {
   // Calculate pagination info
   const paginationInfo = useMemo(() => {
@@ -143,11 +147,26 @@ const DataTable = ({
     return sortConfig.direction === 'asc' ? ' ↑' : ' ↓';
   };
 
+  const pageAllSelected = !!selection && data.length > 0 && data.every((r) => selection.isSelected(r));
+  const pageSomeSelected = !!selection && data.some((r) => selection.isSelected(r));
+
   return (
     <div className="data-table-container">
       <table className="data-table">
         <thead>
           <tr>
+            {selection && (
+              <th className="col-select">
+                <input
+                  type="checkbox"
+                  className="dt-select"
+                  aria-label="Select all on this page"
+                  checked={pageAllSelected}
+                  ref={(el) => { if (el) el.indeterminate = pageSomeSelected && !pageAllSelected; }}
+                  onChange={(e) => selection.onTogglePage(data, e.target.checked)}
+                />
+              </th>
+            )}
             {columns.map((column) => (
               <th
                 key={column.key}
@@ -180,7 +199,21 @@ const DataTable = ({
         </thead>
         <tbody>
           {data.map((row, index) => (
-            <tr key={row.id || row.Id || index}>
+            <tr
+              key={row.id || row.Id || index}
+              className={selection && selection.isSelected(row) ? 'is-selected' : undefined}
+            >
+              {selection && (
+                <td className="col-select">
+                  <input
+                    type="checkbox"
+                    className="dt-select"
+                    aria-label={`Select ${selection.labelOf ? selection.labelOf(row) : 'row'}`}
+                    checked={selection.isSelected(row)}
+                    onChange={() => selection.onToggle(row)}
+                  />
+                </td>
+              )}
               {columns.map((column) => (
                 <td key={column.key}>{renderCell(column, row)}</td>
               ))}

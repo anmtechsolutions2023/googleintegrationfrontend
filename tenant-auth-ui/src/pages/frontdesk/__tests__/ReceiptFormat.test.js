@@ -13,6 +13,8 @@ jest.mock('../../../services/posService', () => ({
     getReceiptFormatSchema: jest.fn(),
     updateReceiptFormat: jest.fn(),
     setReceiptTaxMode: jest.fn(),
+    // The GST switch. On unless a test says otherwise.
+    getTaxSettings: jest.fn(() => Promise.resolve({ gstCharging: true })),
     getLedgerDocuments: jest.fn(),
     getLedgerDocument: jest.fn(),
   },
@@ -31,7 +33,9 @@ const asUser = (scopes) => useAuth.mockReturnValue({
 const SCHEMA = (over = {}) => ({
   doc: 'bill', label: 'Bill', description: 'What the customer walks away with.',
   branchId: 'b-1', taxMode: 'gst',
-  shop: { name: 'Sarjapura Foods', address: '142 Sarjapura Road', gstin: '29AABCS1429B1ZQ', fssai: '' },
+  // A real licence number: an ALWAYS field with nothing in it prints nothing,
+  // so the preview test below needs one to show and hide.
+  shop: { name: 'Sarjapura Foods', address: '142 Sarjapura Road', gstin: '29AABCS1429B1ZQ', fssai: '11224333000123' },
   documents: [
     { key: 'bill', label: 'Bill' }, { key: 'creditNote', label: 'Credit note' },
     { key: 'kot', label: 'Kitchen ticket' }, { key: 'tokenSlip', label: 'Token slip' },

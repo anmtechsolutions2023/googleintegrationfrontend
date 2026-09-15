@@ -96,6 +96,10 @@ export const POS_MODULES = {
       { name: 'Name', type: 'text', required: true, maxLength: 100 },
       { name: 'Phone', type: 'text', maxLength: 20 },
       { name: 'Email', type: 'email', maxLength: 100 },
+      // A business customer. With a GSTIN on the record, their bills are
+      // issued B2B and reported against it in the GST return.
+      { name: 'GSTIN', label: 'GSTIN (business customers)', type: 'text', maxLength: 15 },
+      { name: 'LegalName', label: 'Legal name (as on GSTIN)', type: 'text', maxLength: 150 },
       { name: 'Visits', type: 'number', min: 0 },
       { name: 'TotalSpent', label: 'Total Spent', type: 'number', min: 0, step: 0.01 },
       { name: 'LoyaltyPoints', label: 'Loyalty Points', type: 'number', min: 0 },

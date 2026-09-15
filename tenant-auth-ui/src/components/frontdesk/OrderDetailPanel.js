@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { PortalMonogram } from './PortalBadge'
+import LineOptions from './LineOptions'
 
 // The selected order, in full.
 //
@@ -19,6 +20,20 @@ const asLines = (v) => {
   }
   return []
 }
+
+// A portal's add-ons arrive in the portal's own shape — plain strings from one,
+// { name, price } or { title, price } from another. Normalised into what
+// LineOptions reads, so an online order's extras show the way a till order's do.
+const portalAddons = (line) => (Array.isArray(line?.addOns) ? line.addOns : [])
+  .map((a) => (typeof a === 'string'
+    ? { name: a, price: 0 }
+    : {
+      id: a?.id ?? a?.Id,
+      name: a?.name ?? a?.Name ?? a?.title ?? a?.label ?? '',
+      price: Number(a?.price ?? a?.Price ?? a?.unitPrice) || 0,
+      groupName: a?.groupName ?? a?.group ?? null,
+    }))
+  .filter((a) => a.name)
 
 const Field = ({ label, value, hint }) => (
   <div>
@@ -128,6 +143,10 @@ const OrderDetailPanel = ({ order, canWrite, busy, onAccept, onReject, onAdvance
               <div style={{ fontSize: 13.5, color: line.unmapped ? '#7a4a00' : '#2c3e50' }}>
                 {line.name}
               </div>
+              {/* What the customer added on the portal, priced as the portal
+                  charged it. Kept for unmapped lines too — the kitchen still
+                  has to make it right. */}
+              <LineOptions line={{ addons: portalAddons(line) }} showNote={false} />
               {line.unmapped && (
                 <div style={{ fontSize: 11.5, color: '#9a6a1f' }}>
                   Not on our menu — kept as sent. Map it on the portal&apos;s listings so

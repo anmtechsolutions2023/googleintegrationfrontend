@@ -8,6 +8,7 @@ jest.mock('../../../services/posService', () => ({
   default: {
     getTables: jest.fn(), getFloors: jest.fn(), getItemMeta: jest.fn(),
     getOrders: jest.fn(), getItemDetail: jest.fn(), getVariants: jest.fn(),
+    getAddonGroups: jest.fn(), getAddons: jest.fn(),
     getPaymentModes: jest.fn(),
     getKots: jest.fn(),
     quotePricing: jest.fn(),
@@ -46,6 +47,26 @@ const VARIANTS = [
   { Id: VAR_CHEESE, Name: 'Extra Cheese', Price: 20 },
 ];
 
+// Add-on masters. The two rules that matter are on the GROUP: Spice is
+// compulsory and single-choice, Extras is optional and capped at two.
+const GRP_SPICE = 'gggggggg-0000-0000-0000-000000000001';
+const GRP_EXTRAS = 'gggggggg-0000-0000-0000-000000000002';
+const ADD_MILD = 'dddddddd-0000-0000-0000-000000000001';
+const ADD_HOT = 'dddddddd-0000-0000-0000-000000000002';
+const ADD_SAUCE = 'dddddddd-0000-0000-0000-000000000003';
+const ADD_DIP = 'dddddddd-0000-0000-0000-000000000004';
+
+const ADDON_GROUPS = [
+  { Id: GRP_SPICE, Name: 'Spice', MinSelection: 1, MaxSelection: 1, SortOrder: 1 },
+  { Id: GRP_EXTRAS, Name: 'Extras', MinSelection: 0, MaxSelection: 2, SortOrder: 2 },
+];
+const ADDONS = [
+  { Id: ADD_MILD, AddonGroupId: GRP_SPICE, Name: 'Mild', Price: 0, SortOrder: 1 },
+  { Id: ADD_HOT, AddonGroupId: GRP_SPICE, Name: 'Fire hot', Price: 0, SortOrder: 2 },
+  { Id: ADD_SAUCE, AddonGroupId: GRP_EXTRAS, Name: 'Cheese sauce', Price: 45, SortOrder: 1 },
+  { Id: ADD_DIP, AddonGroupId: GRP_EXTRAS, Name: 'Garlic dip', Price: 25, SortOrder: 2 },
+];
+
 // A menu row as the API now returns it: CostInfoId + server-resolved TaxBreakdown.
 const menuRow = (id, name, costInfoId, amount, rate, opts = {}) => ({
   Id: id,
@@ -55,6 +76,7 @@ const menuRow = (id, name, costInfoId, amount, rate, opts = {}) => ({
   FoodTypeName: 'Veg',
   FoodTypeIsVeg: 1,
   VariantIds: opts.variantIds || [],
+  AddonGroupIds: opts.addonGroupIds || [],
   TaxBreakdown: costInfoId
     ? {
         netAmount: amount, taxAmount: 0, grossAmount: amount,
@@ -148,6 +170,8 @@ beforeEach(() => {
   posService.getOrders.mockResolvedValue([]);
   posService.getItemMeta.mockResolvedValue(MENU);
   posService.getVariants.mockResolvedValue(VARIANTS);
+  posService.getAddonGroups.mockResolvedValue(ADDON_GROUPS);
+  posService.getAddons.mockResolvedValue(ADDONS);
   posService.getPaymentModes.mockResolvedValue(PAYMENT_MODES);
   posService.getItemDetail.mockImplementation(async (id) => ({
     Id: id, Name: id === 'item-m1' ? 'Masala Dosa' : 'Water',
@@ -199,7 +223,7 @@ describe('Billing — cart totals come from the server', () => {
       // `discount` rides along so the cart is priced with campaign offers and
       // hand-typed line discounts folded in — Tax and Total have to be the
       // discounted ones, not the list-price ones.
-      { costInfoId: CI_DOSA, quantity: 1, variantIds: [], ref: 'm1', discount: null },
+      { costInfoId: CI_DOSA, quantity: 1, variantIds: [], addonIds: [], ref: 'm1', discount: null },
     ]);
   });
 
@@ -260,15 +284,15 @@ describe('Billing — cart totals come from the server', () => {
   });
 });
 
-describe('Billing — variant picker', () => {
-  const openPicker = async () => {
+describe('Billing — customise sheet', () => {
+  const openSheet = async () => {
     await renderBilling();
     clickDosaCard();
-    await screen.findByRole('dialog', { name: /Choose options/i });
+    await screen.findByRole('dialog', { name: /Customise item/i });
   };
 
   test('opens for an item that offers options', async () => {
-    await openPicker();
+    await openSheet();
     expect(screen.getByText('Large')).toBeInTheDocument();
     expect(screen.getByText('Extra Cheese')).toBeInTheDocument();
     expect(screen.getByText('+₹30.00')).toBeInTheDocument();
@@ -277,14 +301,14 @@ describe('Billing — variant picker', () => {
   test('does NOT open for an item with no options — adds straight away', async () => {
     await renderBilling();
     fireEvent.click(screen.getAllByText('Water').find((el) => el.className === 'item-name'));
-    expect(screen.queryByRole('dialog', { name: /Choose options/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: /Customise item/i })).not.toBeInTheDocument();
     await waitFor(() => expect(posService.quotePricing).toHaveBeenCalled());
   });
 
   test('shows a running item total as options are ticked', async () => {
-    await openPicker();
+    await openSheet();
     // Scope to the dialog — the menu card behind it shows the base price too.
-    const dialog = screen.getByRole('dialog', { name: /Choose options/i });
+    const dialog = screen.getByRole('dialog', { name: /Customise item/i });
     expect(within(dialog).getByText('₹100.00')).toBeInTheDocument();
 
     fireEvent.click(within(dialog).getByRole('checkbox', { name: /Large/i }));
@@ -295,7 +319,7 @@ describe('Billing — variant picker', () => {
   });
 
   test('sends the selected variantIds to be priced', async () => {
-    await openPicker();
+    await openSheet();
     fireEvent.click(screen.getByRole('checkbox', { name: /Large/i }));
     fireEvent.click(screen.getByRole('button', { name: /Add to Order/i }));
 
@@ -305,7 +329,7 @@ describe('Billing — variant picker', () => {
   });
 
   test('Skip Options adds the plain item', async () => {
-    await openPicker();
+    await openSheet();
     fireEvent.click(screen.getByRole('button', { name: /Skip Options/i }));
 
     await waitFor(() => expect(posService.quotePricing).toHaveBeenCalled());
@@ -314,14 +338,14 @@ describe('Billing — variant picker', () => {
   });
 
   test('Cancel adds nothing', async () => {
-    await openPicker();
+    await openSheet();
     fireEvent.click(screen.getByRole('button', { name: /^Cancel$/i }));
-    expect(screen.queryByRole('dialog', { name: /Choose options/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: /Customise item/i })).not.toBeInTheDocument();
     await waitFor(() => expect(posService.quotePricing).not.toHaveBeenCalled());
   });
 
   test('shows the chosen options as chips on the cart line', async () => {
-    await openPicker();
+    await openSheet();
     fireEvent.click(screen.getByRole('checkbox', { name: /Large/i }));
     fireEvent.click(screen.getByRole('button', { name: /Add to Order/i }));
 
@@ -329,7 +353,7 @@ describe('Billing — variant picker', () => {
   });
 
   test('same item with different options is a SEPARATE cart line', async () => {
-    await openPicker();
+    await openSheet();
     fireEvent.click(screen.getByRole('checkbox', { name: /Large/i }));
     fireEvent.click(screen.getByRole('button', { name: /Add to Order/i }));
     await waitFor(() => expect(posService.quotePricing).toHaveBeenCalledTimes(1));
@@ -347,7 +371,7 @@ describe('Billing — variant picker', () => {
   });
 
   test('re-selecting the identical options increments the existing line', async () => {
-    await openPicker();
+    await openSheet();
     fireEvent.click(screen.getByRole('checkbox', { name: /Large/i }));
     fireEvent.click(screen.getByRole('button', { name: /Add to Order/i }));
     await waitFor(() => expect(posService.quotePricing).toHaveBeenCalledTimes(1));
@@ -360,6 +384,137 @@ describe('Billing — variant picker', () => {
       const [lines] = posService.quotePricing.mock.calls.at(-1);
       expect(lines).toHaveLength(1);
       expect(lines[0].quantity).toBe(2);
+    });
+  });
+});
+
+// The three shapes a dish can have — see the "Add-ons in the order" canvas.
+// Scenario A (variants only) is covered by the block above; these are B and C.
+describe('Billing — add-on groups on the customise sheet', () => {
+  // Add-ons only: a pizza with a compulsory crust and capped toppings.
+  const PIZZA = {
+    ...menuRow('m4', 'Pizza', CI_DOSA, 100, 18, {
+      addonGroupIds: [GRP_SPICE, GRP_EXTRAS],
+    }),
+    // The menu join carries the catalogue name, so the till needs no second
+    // lookup — same as the real payload.
+    ItemName: 'Pizza',
+  };
+  // Both: the dosa keeps its variants AND gains the same two groups.
+  const DOSA_BOTH = {
+    ...menuRow('m1', 'Masala Dosa', CI_DOSA, 100, 18, {
+      variantIds: [VAR_LARGE, VAR_CHEESE],
+      addonGroupIds: [GRP_SPICE, GRP_EXTRAS],
+    }),
+    ItemName: 'Masala Dosa',
+  };
+
+  const openFor = async (rows, label) => {
+    posService.getItemMeta.mockResolvedValue(rows);
+    await renderBilling();
+    fireEvent.click(screen.getAllByText(label).find((el) => el.className === 'item-name'));
+    return screen.findByRole('dialog', { name: /Customise item/i });
+  };
+
+  test('draws a section per group, with each group’s own rule', async () => {
+    const dialog = await openFor([PIZZA], 'Pizza');
+    expect(within(dialog).getByText('Spice')).toBeInTheDocument();
+    expect(within(dialog).getByText('Extras')).toBeInTheDocument();
+    expect(within(dialog).getByText(/Required · pick 1/i)).toBeInTheDocument();
+    expect(within(dialog).getByText(/0 of 2 chosen/i)).toBeInTheDocument();
+  });
+
+  test('no Options section when the dish has no variants', async () => {
+    const dialog = await openFor([PIZZA], 'Pizza');
+    // An empty heading reads as a loading bug, so it is not drawn at all.
+    expect(within(dialog).queryByText('Options')).not.toBeInTheDocument();
+  });
+
+  test('Add is blocked, and says which group is unanswered', async () => {
+    const dialog = await openFor([PIZZA], 'Pizza');
+    const add = within(dialog).getByRole('button', { name: /Choose spice first/i });
+    expect(add).toBeDisabled();
+    // Skip would build a line the server refuses, so it is not offered.
+    expect(within(dialog).queryByRole('button', { name: /Skip Options/i })).not.toBeInTheDocument();
+  });
+
+  test('answering the required group unblocks Add', async () => {
+    const dialog = await openFor([PIZZA], 'Pizza');
+    fireEvent.click(within(dialog).getByRole('radio', { name: /Fire hot/i }));
+    expect(within(dialog).getByRole('button', { name: /Add to Order/i })).toBeEnabled();
+  });
+
+  test('a group capped at one swaps rather than accumulates', async () => {
+    const dialog = await openFor([PIZZA], 'Pizza');
+    fireEvent.click(within(dialog).getByRole('radio', { name: /Mild/i }));
+    fireEvent.click(within(dialog).getByRole('radio', { name: /Fire hot/i }));
+
+    fireEvent.click(within(dialog).getByRole('button', { name: /Add to Order/i }));
+    return waitFor(() => {
+      const [lines] = posService.quotePricing.mock.calls.at(-1);
+      expect(lines[0].addonIds).toEqual([ADD_HOT]);
+    });
+  });
+
+  test('the cap is spoken in the counter and enforced on the third pick', async () => {
+    const dialog = await openFor([PIZZA], 'Pizza');
+    fireEvent.click(within(dialog).getByRole('radio', { name: /Mild/i }));
+    fireEvent.click(within(dialog).getByRole('checkbox', { name: /Cheese sauce/i }));
+    fireEvent.click(within(dialog).getByRole('checkbox', { name: /Garlic dip/i }));
+    expect(within(dialog).getByText(/2 of 2 chosen/i)).toBeInTheDocument();
+  });
+
+  test('prices add-ons into the running total', async () => {
+    const dialog = await openFor([PIZZA], 'Pizza');
+    fireEvent.click(within(dialog).getByRole('radio', { name: /Mild/i }));
+    fireEvent.click(within(dialog).getByRole('checkbox', { name: /Cheese sauce/i }));
+    // 100 base + 45 sauce, with the breakdown spelled out beside it.
+    expect(within(dialog).getByText('₹145.00')).toBeInTheDocument();
+    expect(within(dialog).getByText(/extras ₹45\.00/i)).toBeInTheDocument();
+  });
+
+  test('sends variantIds AND addonIds when the dish has both', async () => {
+    const dialog = await openFor([DOSA_BOTH], 'Masala Dosa');
+    // Options comes first — it decides what the dish IS.
+    expect(within(dialog).getByText('Options')).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole('checkbox', { name: /Large/i }));
+    fireEvent.click(within(dialog).getByRole('radio', { name: /Mild/i }));
+    fireEvent.click(within(dialog).getByRole('checkbox', { name: /Cheese sauce/i }));
+    fireEvent.click(within(dialog).getByRole('button', { name: /Add to Order/i }));
+
+    await waitFor(() => {
+      const [lines] = posService.quotePricing.mock.calls.at(-1);
+      expect(lines[0].variantIds).toEqual([VAR_LARGE]);
+      expect(lines[0].addonIds).toEqual([ADD_MILD, ADD_SAUCE].sort());
+    });
+  });
+
+  test('shows add-ons as chips on the cart line', async () => {
+    const dialog = await openFor([PIZZA], 'Pizza');
+    fireEvent.click(within(dialog).getByRole('radio', { name: /Mild/i }));
+    fireEvent.click(within(dialog).getByRole('checkbox', { name: /Cheese sauce/i }));
+    fireEvent.click(within(dialog).getByRole('button', { name: /Add to Order/i }));
+
+    await waitFor(() =>
+      expect(screen.getByText('Cheese sauce +₹45.00')).toBeInTheDocument());
+  });
+
+  test('different add-ons make a SEPARATE cart line', async () => {
+    const dialog = await openFor([PIZZA], 'Pizza');
+    fireEvent.click(within(dialog).getByRole('radio', { name: /Mild/i }));
+    fireEvent.click(within(dialog).getByRole('button', { name: /Add to Order/i }));
+    await waitFor(() => expect(posService.quotePricing).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(screen.getAllByText('Pizza').find((el) => el.className === 'item-name'));
+    const again = await screen.findByRole('dialog', { name: /Customise item/i });
+    fireEvent.click(within(again).getByRole('radio', { name: /Fire hot/i }));
+    fireEvent.click(within(again).getByRole('button', { name: /Add to Order/i }));
+
+    await waitFor(() => {
+      const [lines] = posService.quotePricing.mock.calls.at(-1);
+      expect(lines).toHaveLength(2);
+      expect(lines.every((l) => l.quantity === 1)).toBe(true);
     });
   });
 });
@@ -1002,7 +1157,7 @@ describe('Billing — the menu is gated on a table', () => {
   test('does not render the menu panel at all until a table is picked', async () => {
     await renderBilling({ table: null });
     // Not a disabled menu — no menu. Nothing to search, nothing to tap.
-    expect(screen.queryByPlaceholderText(/Search menu/i)).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(/Search dishes/i)).not.toBeInTheDocument();
   });
 
   test('shows the room, so picking is one tap and tells you who is busy', async () => {

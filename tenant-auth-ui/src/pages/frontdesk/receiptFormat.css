@@ -119,3 +119,6 @@
   .rf-field { flex-wrap: wrap; }
   .rf-text { flex: 1 1 100%; }
 }
+
+/* Said beside the picker it disables: GST is off, so the mode is not this page's. */
+.rf-mode-note { display: block; margin: -4px 0 9px; font-size: 12px; color: #7a4a00; }

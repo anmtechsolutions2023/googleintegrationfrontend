@@ -49,6 +49,46 @@ describe('summarizeRound', () => {
   })
 })
 
+describe('summarizeSession — customised plates', () => {
+  const pizza = (extra) => ({
+    name: 'Pizza', qty: 1, taxPct: 5, isTaxIncluded: true,
+    netAmount: 227.62, taxAmount: 11.38, grossAmount: 239,
+    basePrice: 219, price: 239, taxComponents: [],
+    ...extra,
+  })
+  const olives = { id: 'a-olives', name: 'Olives', price: 20, groupName: 'Toppings' }
+
+  it('keeps a customised plate apart from a plain one of the same dish', () => {
+    const s = summarizeSession([
+      round(1, 'o1', [pizza({ addons: [olives], addonAmount: 20 })]),
+      round(2, 'o2', [pizza({ basePrice: 219, price: 219, grossAmount: 219, addons: [] })]),
+    ])
+    expect(s.items.filter((i) => i.name === 'Pizza')).toHaveLength(2)
+  })
+
+  it('still merges identically customised plates across rounds', () => {
+    const line = pizza({ addons: [olives], addonAmount: 20 })
+    const s = summarizeSession([round(1, 'o1', [line]), round(2, 'o2', [line])])
+    expect(s.items).toHaveLength(1)
+    expect(s.items[0].qty).toBe(2)
+  })
+
+  it('treats add-ons in a different order as the same plate', () => {
+    const b = { id: 'a-basil', name: 'Basil', price: 10 }
+    const s = summarizeSession([
+      round(1, 'o1', [pizza({ addons: [olives, b] })]),
+      round(2, 'o2', [pizza({ addons: [b, olives] })]),
+    ])
+    expect(s.items).toHaveLength(1)
+  })
+
+  it('carries the stored line so the bill can show what was chosen', () => {
+    const s = summarizeSession([round(1, 'o1', [pizza({ addons: [olives], addonAmount: 20 })])])
+    expect(s.items[0].line.addons).toEqual([olives])
+    expect(s.items[0].line.basePrice).toBe(219)
+  })
+})
+
 describe('summarizeSession', () => {
   const session = summarizeSession([
     round(1, 'o1', [dosa]),

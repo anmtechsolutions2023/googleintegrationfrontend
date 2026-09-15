@@ -353,3 +353,32 @@ describe('Return items', () => {
     ));
   });
 });
+
+describe('options, add-ons and notes on the invoice', () => {
+  // ORD-0001 as it really sold. The invoice used to show only the Half portion.
+  const RICE_LINE = {
+    Id: 'ln1', LineNo: 1, ItemName: 'Veg Triple Fried Rice', Comment: 'Veg Triple Fried Rice',
+    Quantity: 1, ReturnedQty: 0, UnitPrice: 479, BasePrice: 239, VariantAmount: 170, AddonAmount: 70,
+    GrossAmount: 479, Note: 'Less spicy', TaxComponents: [],
+    Variants: [{ id: 'v1', name: 'Half portion', price: 170 }],
+    Addons: [
+      { id: 'a1', name: 'Raita', price: 20, groupName: 'Extra dip' },
+      { id: 'a2', name: 'Paneer', price: 50, groupName: 'Extra' },
+    ],
+  };
+
+  test('every add-on with its group, the kitchen note, and how the rate was built', async () => {
+    posService.getLedgerDocument.mockResolvedValue({ ...DETAIL, Lines: [RICE_LINE] });
+    await renderLedger();
+    fireEvent.click(screen.getByText('INV-0042'));
+
+    expect(await screen.findByText('Raita +₹20.00')).toBeInTheDocument();
+    expect(screen.getByText('Paneer +₹50.00')).toBeInTheDocument();
+    expect(screen.getByText('Half portion +₹170.00')).toBeInTheDocument();
+    expect(screen.getByText('₹239.00 + options ₹170.00 + extras ₹70.00')).toBeInTheDocument();
+    expect(screen.getByTitle('Kitchen note')).toHaveTextContent('Less spicy');
+    // The dish name kept in Comment is never shown as a note.
+    expect(screen.queryByTitle('Kitchen note')).not.toHaveTextContent('Veg Triple Fried Rice');
+  });
+});
+

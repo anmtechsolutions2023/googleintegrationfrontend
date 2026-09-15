@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { toast } from 'react-toastify'
 import { useAuth } from '../../context/AuthContext'
 import { hasScope } from '../../utils/permissions'
@@ -47,6 +47,10 @@ const SYSTEM_FIELDS = [
   'CostInfoAmount', 'FoodTypeName', 'FoodTypeIsVeg',
   // Computed live by the pricing enricher on every read, never stored.
   'TaxBreakdown',
+  // Computed IN THE FORM, not by the server — so unlike the joined columns
+  // above, no write schema has ever heard of it and none should. The only
+  // entry here that is still load-bearing.
+  'EffectiveTags',
 ]
 
 const stripSystemFields = (data) => {
@@ -70,7 +74,23 @@ const PAGE_SIZE = APP_CONFIG.PAGINATION.DEFAULT_LIMIT
 // `onView` is optional and passed straight through: a module that has a richer
 // read view (a customer profile, say) opts in, and every other module renders
 // exactly as before.
-const PosCrudPage = ({ moduleConfig, writeScopes, onView }) => {
+//
+// `filterPanel` is optional too: a component given every loaded row as `items`
+// and an `onFilter(rows, key)` callback. It replaces the plain search box for a
+// module that needs richer filters (Menu Master's category, diet and tags). The
+// list then shows the rows it hands back; `key` names the filter state, so the
+// page resets to 1 when the filters change but not when the data merely reloads.
+//
+// `bulkBar` and `leadingColumns` add row selection. `bulkBar` is a component
+// given `api` (selection, visible rows, refresh, patchRows); `leadingColumns(api)`
+// returns columns drawn before the configured ones. Selection is offered only
+// to someone who can write.
+const idOf = (row) => row?.id || row?.Id
+
+const PosCrudPage = ({
+  moduleConfig, writeScopes, onView, filterPanel: FilterPanel = null,
+  bulkBar: BulkBar = null, leadingColumns = null,
+}) => {
   const { user } = useAuth()
   const canWrite = hasScope(user, writeScopes || [SCOPES.TENANT_ADMIN])
 
@@ -89,6 +109,20 @@ const PosCrudPage = ({ moduleConfig, writeScopes, onView }) => {
 
   const [referenceData, setReferenceData] = useState({})
 
+  // Selected row ids, for a module with a bulk bar.
+  const [selectedIds, setSelectedIds] = useState([])
+
+  // What the filter panel currently lets through; null until it has spoken.
+  const [panelItems, setPanelItems] = useState(null)
+  const panelKey = useRef('')
+  const handlePanelFilter = useCallback((rows, key = '') => {
+    if (panelKey.current !== key) {
+      panelKey.current = key
+      setCurrentPage(1)
+    }
+    setPanelItems(rows)
+  }, [])
+
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
@@ -102,6 +136,20 @@ const PosCrudPage = ({ moduleConfig, writeScopes, onView }) => {
   }, [moduleConfig.endpoint, moduleConfig.name])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  // A row deleted or gone after a reload cannot stay selected.
+  useEffect(() => {
+    setSelectedIds((prev) => {
+      const present = new Set(allItems.map(idOf))
+      const next = prev.filter((id) => present.has(id))
+      return next.length === prev.length ? prev : next
+    })
+  }, [allItems])
+
+  // Apply a saved change to rows already loaded, without a full reload.
+  const patchRows = useCallback((ids, patch) => {
+    setAllItems((prev) => prev.map((r) => (ids.includes(idOf(r)) ? { ...r, ...patch } : r)))
+  }, [])
 
   // Hydrate dropdown options for any `select` field that points at a
   // master-data reference module (e.g. Menu Item → itemDetails).
@@ -127,14 +175,15 @@ const PosCrudPage = ({ moduleConfig, writeScopes, onView }) => {
 
   // Client-side filter
   const filteredData = useMemo(() => {
-    if (!searchQuery) return allItems
+    const source = FilterPanel && panelItems ? panelItems : allItems
+    if (!searchQuery) return source
     const q = searchQuery.toLowerCase()
-    return allItems.filter((item) =>
+    return source.filter((item) =>
       (moduleConfig.searchFields || []).some((f) =>
         String(item[f] ?? '').toLowerCase().includes(q)
       ) || Object.values(item).some((v) => String(v ?? '').toLowerCase().includes(q))
     )
-  }, [allItems, searchQuery, moduleConfig.searchFields])
+  }, [allItems, panelItems, FilterPanel, searchQuery, moduleConfig.searchFields])
 
   // Client-side sort
   const sortedData = useMemo(() => {
@@ -168,6 +217,9 @@ const PosCrudPage = ({ moduleConfig, writeScopes, onView }) => {
   // stored ids into labels instead of showing raw GUIDs.
   const columns = useMemo(() =>
     (moduleConfig.tableColumns || []).map((col) => {
+      // A column given as { key, label, render } is used as it is — for values
+      // that are computed or joined rather than a field on the form.
+      if (col && typeof col === 'object') return col
       const fieldDef = (moduleConfig.fields || []).find((f) => f.name === col)
       const column = { key: col, label: fieldDef?.label || col }
       if (fieldDef?.reference) {
@@ -184,6 +236,34 @@ const PosCrudPage = ({ moduleConfig, writeScopes, onView }) => {
     }),
     [moduleConfig.tableColumns, moduleConfig.fields, referenceData]
   )
+
+  const api = {
+    canWrite,
+    selectedIds,
+    selectedRows: allItems.filter((r) => selectedIds.includes(idOf(r))),
+    visibleRows: sortedData,
+    setSelectedIds,
+    clearSelection: () => setSelectedIds([]),
+    refresh: fetchData,
+    patchRows,
+    referenceData,
+  }
+
+  const selection = BulkBar && canWrite ? {
+    isSelected: (row) => selectedIds.includes(idOf(row)),
+    onToggle: (row) => setSelectedIds((prev) => (
+      prev.includes(idOf(row)) ? prev.filter((x) => x !== idOf(row)) : [...prev, idOf(row)]
+    )),
+    onTogglePage: (rows, checked) => setSelectedIds((prev) => {
+      const ids = rows.map(idOf)
+      return checked ? [...new Set([...prev, ...ids])] : prev.filter((x) => !ids.includes(x))
+    }),
+    labelOf: (row) => (moduleConfig.selectionLabel
+      ? moduleConfig.selectionLabel(row)
+      : String(row?.[moduleConfig.displayField] ?? idOf(row))),
+  } : null
+
+  const tableColumns = leadingColumns ? [...leadingColumns(api), ...columns] : columns
 
   const handleCreate   = () => { setEditRecord(null); setModalOpen(true) }
   const handleEdit     = (record) => { setEditRecord(record); setModalOpen(true) }
@@ -279,6 +359,12 @@ const PosCrudPage = ({ moduleConfig, writeScopes, onView }) => {
       <div className="content-header">
         <h1>{moduleConfig.icon} {moduleConfig.name}</h1>
         <div className="content-header-actions">
+          {/* With a filter panel the plain search bar goes, so Refresh moves up here. */}
+          {FilterPanel && (
+            <button className="btn btn-secondary" onClick={fetchData} disabled={loading}>
+              🔄 Refresh
+            </button>
+          )}
           {canWrite && (
             <button className="btn btn-primary" onClick={handleCreate}>
               ➕ Add {moduleConfig.name}
@@ -287,6 +373,9 @@ const PosCrudPage = ({ moduleConfig, writeScopes, onView }) => {
         </div>
       </div>
 
+      {FilterPanel && <FilterPanel items={allItems} onFilter={handlePanelFilter} />}
+
+      {!FilterPanel && (
       <div className="filter-bar">
         <input
           type="text"
@@ -299,9 +388,13 @@ const PosCrudPage = ({ moduleConfig, writeScopes, onView }) => {
           🔄 Refresh
         </button>
       </div>
+      )}
+
+      {BulkBar && canWrite && <BulkBar api={api} />}
 
       <DataTable
-        columns={columns}
+        columns={tableColumns}
+        selection={selection}
         data={pagedData}
         loading={loading}
         onView={onView}
@@ -311,7 +404,9 @@ const PosCrudPage = ({ moduleConfig, writeScopes, onView }) => {
         onPageChange={setCurrentPage}
         sortConfig={sortConfig}
         onSort={handleSort}
-        emptyMessage={`No ${moduleConfig.name.toLowerCase()} found. Click "Add ${moduleConfig.name}" to create one.`}
+        emptyMessage={FilterPanel && allItems.length > 0 && filteredData.length === 0
+          ? 'Nothing matches these filters.'
+          : `No ${moduleConfig.name.toLowerCase()} found. Click "Add ${moduleConfig.name}" to create one.`}
       />
 
       <FormModal

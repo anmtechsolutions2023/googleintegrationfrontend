@@ -174,3 +174,38 @@ describe('KDS popup — marks the round you tapped', () => {
     expect(within(modal).getByText('ORD-0009')).toBeInTheDocument();
   });
 });
+
+describe('KDS tile — what the kitchen was told', () => {
+  test('a dish note stands out, and the whole-order note sits under the dishes', async () => {
+    posService.getOrders.mockResolvedValue([{ ...ROUND_1, TableId: null }]);
+    posService.getKots.mockResolvedValue([kot('k1', 'o1', {
+      TableId: null,
+      Items: [{ name: 'Mashroom Chilli', qty: 1, note: 'Less oil' }],
+      CookingInstructions: 'Pack sauces separately',
+      NoCutlery: 1,
+    })]);
+    await renderKds();
+
+    expect(await screen.findByText('Less oil')).toBeInTheDocument();
+    expect(screen.getByText('Pack sauces separately')).toBeInTheDocument();
+    expect(screen.getByText('NO CUTLERY')).toBeInTheDocument();
+  });
+
+  test('add-ons show with the group they came from', async () => {
+    posService.getKots.mockResolvedValue([kot('k2', 'o2', {
+      Items: [{ name: 'Veg Triple Fried Rice', qty: 1, addons: [{ id: 'a1', name: 'Raita', price: 20, groupName: 'Extra dip' }] }],
+    })]);
+    await renderKds();
+
+    expect(await screen.findByText('Raita +₹20.00')).toBeInTheDocument();
+    expect(screen.getByText('Extra dip ·')).toBeInTheDocument();
+  });
+
+  test('a ticket with no instructions shows no panel', async () => {
+    posService.getKots.mockResolvedValue([kot('k2', 'o2', { Items: ROUND_2.Items, NoCutlery: 0 })]);
+    await renderKds();
+    await screen.findByText(/Round 2/);
+    expect(screen.queryByText('Whole order')).toBeNull();
+  });
+});
+

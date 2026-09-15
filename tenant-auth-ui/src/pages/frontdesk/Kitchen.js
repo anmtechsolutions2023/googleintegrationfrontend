@@ -5,20 +5,19 @@ import { APP_CONFIG, SCOPES } from '../../constants'
 import { useCan } from '../../hooks/useCan'
 import RoundsTimeline from '../../components/frontdesk/RoundsTimeline'
 import {
-  buildTableRounds, buildRoundIndex, itemLabel, itemQty, itemVariants, formatRoundTime,
+  buildTableRounds, buildRoundIndex, itemLabel, itemQty, formatRoundTime,
 } from '../../utils/posRounds'
 import { normalizeStatus, statusLabel, isKotPending } from '../../utils/posStatus'
 import Receipt from '../../components/frontdesk/receipt/Receipt'
 import usePrintReceipt from '../../components/frontdesk/receipt/usePrintReceipt'
 import { buildKotPrintData } from '../../utils/kotPrint'
+import LineOptions, { OrderInstructions } from '../../components/frontdesk/LineOptions'
 
 const { MAX_LIMIT } = APP_CONFIG.PAGINATION
 
 // The pass is a live surface — a cook does not think to press Refresh, and a
 // ticket that arrives only when someone does is a ticket that arrives late.
 const POLL_MS = 15000
-
-const money = (n) => (Number(n) || 0).toFixed(2)
 
 const Kitchen = () => {
   // The pass is offered on POS_KITCHEN:READ so an expeditor or a manager can
@@ -240,20 +239,17 @@ const Kitchen = () => {
                           needs these more than anyone. Prices are shown because
                           the round view shows them, and a cook comparing the two
                           should see the same line twice, not two versions of it. */}
-                      {itemVariants(item).length > 0 && (
-                        <div className="kot-item-variants">
-                          {itemVariants(item).map((v, vi) => (
-                            <span className="ci-variant-chip" key={v.id || vi}>
-                              {v.name}{Number(v.price) > 0 ? ` +₹${money(v.price)}` : ''}
-                            </span>
-                          ))}
-                        </div>
-                      )}
+                      <LineOptions line={item} noteStyle="strong" />
                     </li>
                   )) : (
                     <li style={{ color: '#aaa', fontStyle: 'italic' }}>No item details</li>
                   )}
                 </ul>
+
+                {/* The whole-order note under the dishes, as the ticket prints it.
+                    A delivery app's instruction arrives here too, where it used
+                    to reach only the paper. */}
+                <OrderInstructions instructions={kot.CookingInstructions} noCutlery={kot.NoCutlery} />
 
                 <div className="fd-kds-times">
                   {round?.time && <span>Placed: {formatRoundTime(round.time)}</span>}

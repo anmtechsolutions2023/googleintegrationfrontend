@@ -1,6 +1,7 @@
 import React from 'react'
 import { createPortal } from 'react-dom'
 import { shows, choice, line, hasValue } from '../../../utils/receiptFields'
+import { lineOptions, lineAddons, lineNote, lineBreakdown } from '../../../utils/lineOptions'
 import './receipt.css'
 
 /**
@@ -41,6 +42,13 @@ const dt = (value, mode) => {
   return `${date} ${time}`
 }
 
+// A field that prints its VALUE needs one. `shows` answers whether the format
+// wants the field; ALWAYS says yes even when the sale has nothing to put there,
+// which is how a counter ticket printed "** NULL **", a bare "ROUND" and an
+// "FSSAI" with no licence number. A labelled row can stand empty; a line made
+// of the value alone cannot.
+const present = (format, key, value) => shows(format, key, value) && hasValue(value)
+
 // ── Paper primitives ─────────────────────────────────────────────────────────
 const Row = ({ label, value, strong }) => (
   <div className={`rc-row${strong ? ' rc-strong' : ''}`}>
@@ -59,9 +67,9 @@ const Head = ({ format, shop }) => (
     {shows(format, 'shopName', shop.name) && (
       <Centre className="rc-shop">{String(shop.name || '').toUpperCase()}</Centre>
     )}
-    {shows(format, 'address', shop.address) && <Centre className="rc-sub">{shop.address}</Centre>}
-    {shows(format, 'gstin', shop.gstin) && <Centre className="rc-sub">GSTIN {shop.gstin}</Centre>}
-    {shows(format, 'fssai', shop.fssai) && <Centre className="rc-sub">FSSAI {shop.fssai}</Centre>}
+    {present(format, 'address', shop.address) && <Centre className="rc-sub">{shop.address}</Centre>}
+    {present(format, 'gstin', shop.gstin) && <Centre className="rc-sub">GSTIN {shop.gstin}</Centre>}
+    {present(format, 'fssai', shop.fssai) && <Centre className="rc-sub">FSSAI {shop.fssai}</Centre>}
     {hasValue(line(format, 'headerLine')) && (
       <Centre className="rc-sub">{line(format, 'headerLine')}</Centre>
     )}
@@ -88,6 +96,48 @@ const TaxRows = ({ format, taxByComponent, taxAmount }) => {
   ))
 }
 
+/**
+ * A dish's options and add-ons under it, as Receipt Format → Options & add-ons
+ * says: itemised (the dish price, then each choice with what it added — the
+ * rate adds up on paper), names only, or hidden.
+ *
+ * The paper has one ink, so ">" marks an option and "+" an add-on — the job the
+ * chip colours do on screen. Amounts are per plate; the line total above them
+ * carries the quantity.
+ */
+const OptionLines = ({ format, l, compact }) => {
+  const mode = choice(format, 'itemOptions', 'itemised')
+  if (mode === 'hidden') return null
+  const options = lineOptions(l)
+  const addons = lineAddons(l)
+  if (options.length === 0 && addons.length === 0) return null
+  const addonLabel = (a) => (a.groupName ? `${a.groupName}: ${a.name}` : a.name)
+
+  if (mode === 'names' || compact) {
+    return (
+      <div className="rc-qty rc-note">
+        {[...options.map((o) => o.name), ...addons.map(addonLabel)].join(' · ')}
+      </div>
+    )
+  }
+  const b = lineBreakdown(l)
+  return (
+    <div className="rc-opts">
+      {b && <div className="rc-row rc-opt"><span>Dish</span><span>{money(b.base)}</span></div>}
+      {options.map((o, i) => (
+        <div className="rc-row rc-opt" key={`o${o.id || i}`}>
+          <span>&gt; {o.name}</span><span>{o.price > 0 ? `+${money(o.price)}` : ''}</span>
+        </div>
+      ))}
+      {addons.map((a, i) => (
+        <div className="rc-row rc-opt" key={`a${a.id || i}`}>
+          <span>+ {addonLabel(a)}</span><span>{a.price > 0 ? `+${money(a.price)}` : ''}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 const Items = ({ format, lines }) => {
   const layout = choice(format, 'itemLayout', 'two_line')
   return lines.map((l, i) => {
@@ -96,7 +146,9 @@ const Items = ({ format, lines }) => {
     const rate = Number(l.UnitPrice ?? l.unitPrice ?? 0)
     const amount = Number(l.GrossAmount ?? l.amount ?? 0)
     const code = l.ItemCode || l.code
-    const note = l.Comment !== name ? l.Comment : (l.Note || l.note)
+    // The kitchen note first. Comment is a note only when it is not the dish
+    // name again — an invoice line keeps the name there.
+    const note = lineNote(l) || (l.Comment && l.Comment !== name ? l.Comment : '')
     const returned = Number(l.ReturnedQty || 0)
 
     if (layout === 'single_line') {
@@ -106,6 +158,7 @@ const Items = ({ format, lines }) => {
             <span>{name}{shows(format, 'itemCode', code) ? ` (${code})` : ''}</span>
             <span>{money(amount)}</span>
           </div>
+          <OptionLines format={format} l={l} compact />
           {shows(format, 'returnedQty', returned) && (
             <div className="rc-row rc-qty rc-back"><span>{qty(returned)} returned</span><span /></div>
           )}
@@ -118,7 +171,8 @@ const Items = ({ format, lines }) => {
         <div className="rc-row rc-qty">
           <span>{qty(q)} x {money(rate)}</span><span>{money(amount)}</span>
         </div>
-        {shows(format, 'itemNotes', note) && <div className="rc-qty rc-note">{note}</div>}
+        <OptionLines format={format} l={l} />
+        {present(format, 'itemNotes', note) && <div className="rc-qty rc-note">Note: {note}</div>}
         {/* The quantity SOLD is never rewritten — overwrite it and the paper
             stops matching the document, which is what a reprint exists to do. */}
         {shows(format, 'returnedQty', returned) && (
@@ -285,13 +339,13 @@ const Kot = ({ format, data }) => {
       <Centre className="rc-title rc-invert rc-kotno">{data.KotNo}</Centre>
 
       <div className="rc-row rc-kothead">
-        {shows(format, 'table', data.tableName) && <span>{data.tableName}</span>}
-        {shows(format, 'token', data.tokenLabel) && <span>TOKEN {data.tokenLabel}</span>}
-        {shows(format, 'round', data.round) && <span>ROUND {data.round}</span>}
+        {present(format, 'table', data.tableName) && <span>{data.tableName}</span>}
+        {present(format, 'token', data.tokenLabel) && <span>TOKEN {data.tokenLabel}</span>}
+        {present(format, 'round', data.round) && <span>ROUND {data.round}</span>}
       </div>
       <div className="rc-row">
         {dateMode !== 'never' && <span>{dt(data.CreatedOn, dateMode)}</span>}
-        {shows(format, 'waiter', data.waiter) && <span>{data.waiter}</span>}
+        {present(format, 'waiter', data.waiter) && <span>{data.waiter}</span>}
       </div>
 
       <Solid />
@@ -299,6 +353,13 @@ const Kot = ({ format, data }) => {
         const name = l.ItemName || l.name || 'Item'
         const q = Number(l.Quantity ?? l.quantity ?? 0)
         const note = l.Note || l.note || l.Comment
+        // The portion straight under the dish, then each add-on with its group
+        // on the right. Read from the ticket data when it carries them, from
+        // the raw line otherwise.
+        const opts = Array.isArray(l.Options) ? l.Options : lineOptions(l).map((v) => v.name)
+        const adds = Array.isArray(l.Addons) && l.Addons.every((a) => a && typeof a === 'object' && 'name' in a && !('price' in a))
+          ? l.Addons
+          : lineAddons(l).map((a) => ({ name: a.name, groupName: a.groupName }))
         return (
           <div className="rc-kotitem" key={l.Id || i}>
             <div className="rc-kotline">
@@ -308,8 +369,21 @@ const Kot = ({ format, data }) => {
                 <span className="rc-kotprice">{money(l.GrossAmount)}</span>
               )}
             </div>
+            {shows(format, 'itemOptions', opts.length + adds.length) && (
+              <>
+                {opts.map((o, oi) => (
+                  <div className="rc-kotopt" key={`o${oi}`}>&gt; {String(o).toUpperCase()}</div>
+                ))}
+                {adds.map((a, ai) => (
+                  <div className="rc-row rc-kotadd" key={`a${ai}`}>
+                    <span>+ {String(a.name).toUpperCase()}</span>
+                    <span>{a.groupName ? String(a.groupName).toUpperCase() : ''}</span>
+                  </div>
+                ))}
+              </>
+            )}
             {/* The single most important line on this ticket. */}
-            {shows(format, 'itemNotes', note) && <div className="rc-kotnote">** {String(note).toUpperCase()} **</div>}
+            {present(format, 'itemNotes', note) && <div className="rc-kotnote">** {String(note).toUpperCase()} **</div>}
           </div>
         )
       })}
@@ -318,7 +392,7 @@ const Kot = ({ format, data }) => {
           Deliberately AFTER the dishes: a cook reads what to make first, then
           how the customer wants the whole order treated. Inverted like the KOT
           number because it is read at arm's length by somebody holding a pan. */}
-      {shows(format, 'orderInstructions', data.orderInstructions) && (
+      {present(format, 'orderInstructions', data.orderInstructions) && (
         <div className="rc-kotinstr">** {String(data.orderInstructions).toUpperCase()} **</div>
       )}
       {shows(format, 'noCutlery', data.noCutlery) && data.noCutlery && (
@@ -372,9 +446,16 @@ const Receipt = ({ doc, format, shop = {}, data, inline = false }) => {
   const width = choice(format, 'paperWidth', '80')
   const copies = Number(choice(format, 'copies', '1')) || 1
 
+  // An issued document prints the GSTIN it was issued under, not whatever the
+  // branch holds today — a reprint must say what the paper said. Anything
+  // without the snapshot (the format preview, a token slip) takes the branch's.
+  const printedShop = Object.prototype.hasOwnProperty.call(data, 'SellerGstin')
+    ? { ...shop, gstin: data.SellerGstin || '' }
+    : shop
+
   const paper = (
     <div className={`rc-paper rc-w${width}`} data-testid={`receipt-${doc}`}>
-      <Body format={format} shop={shop} data={data} />
+      <Body format={format} shop={printedShop} data={data} />
     </div>
   )
 

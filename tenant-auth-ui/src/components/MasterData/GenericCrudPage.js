@@ -215,7 +215,13 @@ const GenericCrudPage = () => {
     if (!module?.fields) return []
     const refs = new Set()
     module.fields.forEach((field) => {
-      if (field.type === 'select' && field.reference) refs.add(field.reference)
+      // multiselect as well as select. Without it a multi-value field renders
+      // "No options available" — the reference is declared on the field and
+      // simply never fetched, which looks like empty master data rather than a
+      // wiring gap. PosCrudPage has always loaded both.
+      if ((field.type === 'select' || field.type === 'multiselect') && field.reference) {
+        refs.add(field.reference)
+      }
     })
     return Array.from(refs)
   }, [module])

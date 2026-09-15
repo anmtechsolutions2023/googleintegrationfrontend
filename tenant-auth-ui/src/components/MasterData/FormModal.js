@@ -280,6 +280,56 @@ const FormModal = ({
     const hasError = !!errors[field.name]
 
     switch (field.type) {
+      // Read-only chips for a value the SERVER computed and the form only
+      // reports — a dish's inherited tags, say. Deliberately not editable:
+      // those belong to the category, and offering a second editable copy here
+      // invites two places to fight over one fact.
+      case 'chips': {
+        // `source` lets a field be COMPUTED from the rest of the record — the
+        // effective tag set is the union of two other fields and belongs to
+        // neither. Without it the only chips a form can show are ones the
+        // server already shaped.
+        const items = field.source
+          ? (field.source(formData, referenceData) || [])
+          : (Array.isArray(value) ? value : [])
+        return (
+          <div
+            style={{
+              border: '1px solid #dce1e6',
+              borderRadius: '8px',
+              background: '#f7f9fa',
+              padding: '10px 12px',
+              minHeight: '44px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              flexWrap: 'wrap',
+            }}
+          >
+            {items.length === 0 ? (
+              <span style={{ color: '#95a5a6', fontSize: '0.9em' }}>
+                {field.emptyText || '—'}
+              </span>
+            ) : items.map((it) => (
+              <span
+                key={it.id || it.Id || it}
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  padding: '3px 9px',
+                  borderRadius: '10px',
+                  background: '#fff',
+                  border: '1px dashed #cbd5e1',
+                  color: '#7f8c8d',
+                }}
+              >
+                {it.name || it.Name || String(it)}
+              </span>
+            ))}
+          </div>
+        )
+      }
+
       // Read-only value that belongs to another record and is only mirrored here
       // — e.g. a menu item's price, which is owned by the master item. The user
       // picks the source record (`derive.from`) and this shows what will be
@@ -515,6 +565,37 @@ const FormModal = ({
             : [...selected, optId]
           handleChange(field.name, next, 'array')
         }
+        // Grouped when the field asks for it (`groupBy: 'TagType'`). A flat run
+        // of a dozen checkboxes is where "Starter" stops looking like a
+        // different KIND of thing from "Chinese"; the master already carries
+        // the distinction, so the form should not throw it away.
+        const groups = field.groupBy
+          ? [...options.reduce((map, opt) => {
+            const key = opt[field.groupBy] || 'Other'
+            if (!map.has(key)) map.set(key, [])
+            map.get(key).push(opt)
+            return map
+          }, new Map()).entries()].map(([label, items]) => ({ label, items }))
+          : [{ label: null, items: options }]
+
+        const optionRow = (opt) => {
+          const optId = opt.id || opt.Id
+          return (
+            <label
+              key={optId}
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0 }}
+            >
+              <input
+                type="checkbox"
+                checked={selected.includes(optId)}
+                onChange={() => toggle(optId)}
+                disabled={loading}
+              />
+              <span>{optLabel(opt)}</span>
+            </label>
+          )
+        }
+
         return (
           <div
             className="form-multiselect"
@@ -532,23 +613,24 @@ const FormModal = ({
             {options.length === 0 && (
               <span style={{ color: '#95a5a6', fontSize: '0.9em' }}>No options available</span>
             )}
-            {options.map((opt) => {
-              const optId = opt.id || opt.Id
-              return (
-                <label
-                  key={optId}
-                  style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0 }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={selected.includes(optId)}
-                    onChange={() => toggle(optId)}
-                    disabled={loading}
-                  />
-                  <span>{optLabel(opt)}</span>
-                </label>
-              )
-            })}
+            {groups.map((g) => (
+              <React.Fragment key={g.label || '__all__'}>
+                {g.label && (
+                  <span
+                    style={{
+                      fontSize: '10px',
+                      fontWeight: 700,
+                      color: '#95a5a6',
+                      letterSpacing: '0.07em',
+                      padding: '5px 0 1px',
+                    }}
+                  >
+                    {String(g.label).toUpperCase()}
+                  </span>
+                )}
+                {g.items.map(optionRow)}
+              </React.Fragment>
+            ))}
           </div>
         )
       }
@@ -711,7 +793,14 @@ const FormModal = ({
                 )}
                 {renderField(field)}
                 {field.hint && !errors[field.name] && (
-                  <div className="form-hint">{field.hint}</div>
+                  <div className="form-hint">
+                    {/* A hint may be a function of the record: "3 dishes are
+                        filed here" is only true of the record in front of you,
+                        and a static sentence cannot say it. */}
+                    {typeof field.hint === 'function'
+                      ? field.hint(formData, referenceData)
+                      : field.hint}
+                  </div>
                 )}
                 {errors[field.name] && (
                   <div className="form-error">{errors[field.name]}</div>

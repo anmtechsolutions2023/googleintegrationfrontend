@@ -111,32 +111,55 @@
 }
 .fd-range-note strong { color: #2c3e50; }
 
-/* ── Tabs ─────────────────────────────────────────────────────────────────── */
+/* ── Tabs ─────────────────────────────────────────────────────────────────────
+   All fourteen reports in one panel, nothing scrolled out of sight. Groups sit
+   side by side when there is room (three on a desktop, two on a tablet) and
+   stack on a phone; chips inside a group wrap rather than scroll. */
 .fd-tabs {
-  display: flex;
-  gap: 4px;
-  border-bottom: 2px solid #e4e8ed;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+  gap: 12px 24px;
+  padding: 12px 14px 14px;
   margin-bottom: 16px;
-  overflow-x: auto;
+  background: #fff;
+  border: 1px solid #e4e8ed;
+  border-radius: 10px;
 }
+.fd-tab-group { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.fd-tab-group-label {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: #7f8c8d;
+}
+.fd-tab-group-items { display: flex; flex-wrap: wrap; gap: 6px; }
 
 .fd-tab {
-  padding: 10px 16px;
-  border: none;
-  background: none;
-  color: #7f8c8d;
-  font-size: 14px;
-  cursor: pointer;
-  white-space: nowrap;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -2px;
-}
-.fd-tab:hover { color: #3498db; }
-.fd-tab.is-active {
-  color: #3498db;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 6px 12px;
+  border: 1px solid #d0d4da;
+  border-radius: 17px;
+  background: #fff;
+  color: #5a6c7d;
+  font: inherit;
+  font-size: 13px;
   font-weight: 600;
-  border-bottom-color: #3498db;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
+.fd-tab:hover:not(.is-active) { border-color: #3498db; color: #2c3e50; }
+.fd-tab:focus-visible { outline: 2px solid #2980b9; outline-offset: 2px; }
+.fd-tab.is-active { background: #0f3460; border-color: #0f3460; color: #fff; }
+
+@media (max-width: 600px) {
+  .fd-tabs { gap: 10px; padding: 10px 12px 12px; }
+  .fd-tab { padding: 6px 11px; font-size: 12.5px; }
+}
+/* A finger needs more than a cursor does. */
+@media (pointer: coarse) { .fd-tab { min-height: 40px; } }
+@media (prefers-reduced-motion: reduce) { .fd-tab { transition: none; } }
 
 /* ── KPI hints ────────────────────────────────────────────────────────────── */
 .fd-kpi-card .kpi-hint {
@@ -332,4 +355,149 @@
   .fd-session-grid { grid-template-columns: 1fr; }
   /* Wide tables scroll inside their own container; the page never does. */
   .fd-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
+
+/* ── Options & add-ons ────────────────────────────────────────────────────────
+   The expandable product row and the Options & Add-ons tab. Indigo is an
+   option and green an add-on, as on every other screen. */
+.fd-table .opt   { color: #4f46e5; }
+.fd-table .addon { color: #1e7e4f; }
+.fd-expand-btn {
+  display: inline-flex; align-items: center; gap: 6px; padding: 0; border: none; background: none;
+  font: inherit; font-weight: 700; color: #2c3e50; text-align: left; cursor: pointer;
+}
+.fd-expand-btn:hover { color: #0f3460; }
+.fd-expand-btn:focus-visible { outline: 2px solid #2980b9; outline-offset: 2px; border-radius: 4px; }
+.fd-expand-caret {
+  flex: 0 0 18px; width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 4px; color: #4f46e5; transition: transform 0.15s ease;
+}
+.fd-expand-btn[aria-expanded="true"] .fd-expand-caret { transform: rotate(90deg); background: #eef2ff; }
+@media (pointer: coarse) { .fd-expand-btn { min-height: 44px; } }
+.fd-table tr.is-open > td { background: #fbfcff; }
+.fd-table tr.fd-product-detail-row > td { padding: 0; background: #fafbfc; }
+.fd-product-options {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px;
+  padding: 16px 20px 18px 44px; border-bottom: 1px solid #e1e5eb; white-space: normal;
+}
+.fd-mix-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 8px; }
+.fd-mix-head span:first-child { font-size: 11px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: #7f8c8d; }
+.fd-mix-head span:last-child { font-size: 11px; color: #95a5a6; }
+.fd-mix { display: flex; flex-direction: column; gap: 8px; }
+.fd-mix-row {
+  display: grid; grid-template-columns: minmax(80px, 130px) minmax(48px, 1fr) auto auto;
+  gap: 8px 12px; align-items: center; font-size: 13px; color: #2c3e50;
+}
+.fd-mix-row.is-muted { color: #95a5a6; }
+.fd-mix-row .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.fd-mix-row .opt { color: #4f46e5; }
+.fd-mix-row .addon { color: #1e7e4f; }
+.fd-mix-name { min-width: 0; overflow-wrap: anywhere; }
+.fd-mix-group {
+  display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 8px;
+  padding-top: 6px; border-top: 1px dashed #e1e5eb; font-size: 12px; font-weight: 600; color: #2c3e50;
+}
+.fd-mix-group:first-child { padding-top: 0; border-top: none; }
+.fd-mix-group em { font-style: normal; font-weight: 400; color: #95a5a6; }
+.fd-mix-bar { display: block; height: 8px; min-width: 40px; border-radius: 4px; background: #e9edf2; overflow: hidden; }
+.fd-mix-bar > span { display: block; height: 100%; border-radius: 4px; background: #b9c2cc; }
+.fd-mix-bar.is-option > span { background: #4f46e5; }
+.fd-mix-bar.is-addon > span { background: #27ae60; }
+.fd-rate { display: flex; align-items: center; gap: 10px; min-width: 140px; }
+.fd-rate .fd-mix-bar { flex: 1; }
+.fd-rate b { min-width: 44px; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.fd-table tr.is-group > td { background: #fbfcfd; }
+.fd-table tr.is-child > td:first-child { padding-left: 32px; }
+/* Wide enough that a chip, a group name and a take-rate bar each keep one line;
+   on a phone the table scrolls sideways inside .fd-table-scroll instead. */
+.fd-options-table { min-width: 720px; }
+.fd-options-table .ci-variant-chip { white-space: nowrap; }
+.fd-options-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; margin-bottom: 16px; }
+.fd-options-filters label { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: #7f8c8d; }
+.fd-options-filters select {
+  min-width: 180px; max-width: 100%; padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 8px;
+  font-size: 13px; background: #fff; color: #2c3e50;
+}
+.fd-footnote { margin: 10px 0 0; max-width: 78ch; font-size: 12px; line-height: 1.5; color: #7f8c8d; }
+@media (max-width: 900px) {
+  .fd-product-options { grid-template-columns: minmax(0, 1fr); gap: 20px; padding: 14px 16px; }
+}
+/* On a phone the product table scrolls sideways, and a panel as wide as the
+   table would put its counts off-screen. Pin it to the visible width instead:
+   sticky at the scroll container's left edge. */
+/* The products table's scroll box is the container the panel measures itself
+   against, so the panel is exactly as wide as what is visible — whatever
+   padding the page wraps around the table. */
+.fd-products-scroll { container-type: inline-size; }
+@media (max-width: 1023px) {
+  .fd-product-options {
+    position: sticky; left: 0; box-sizing: border-box;
+    /* Older browsers without container units fall back to the screen width. */
+    width: calc(100vw - 32px);
+    width: 100cqw;
+  }
+}
+@media (max-width: 600px) {
+  .fd-mix-row { grid-template-columns: minmax(0, 1fr) auto auto; }
+  .fd-mix-row .fd-mix-bar { grid-column: 1 / -1; order: 3; }
+  .fd-options-filters label { flex: 1 1 100%; }
+  .fd-options-filters select { flex: 1; min-width: 0; }
+  .fd-options-filters select { font-size: 16px; }
+}
+@media (prefers-reduced-motion: reduce) { .fd-expand-caret { transition: none; } }
+
+
+/* ── GST tab ──────────────────────────────────────────────────────────────── */
+.fd-gst-section { display: flex; flex-direction: column; gap: 14px; margin-bottom: 28px; }
+.fd-gst-controls { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.fd-gst-controls label, .fd-gst-filing label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #5a6c7d; }
+.fd-gst-controls select, .fd-gst-filing input {
+  padding: 8px 12px; border: 1px solid #d0d4da; border-radius: 6px; font-size: 14px;
+  background: #fff; color: #2c3e50; font-family: inherit; min-width: 0; max-width: 100%;
+}
+.fd-gst-gstin { font-size: 12px; color: #7f8c8d; padding-bottom: 9px; }
+.fd-gst-panel {
+  background: #fff; border: 1px solid #e1e5eb; border-radius: 10px; padding: 16px 18px;
+  display: flex; flex-direction: column; gap: 12px; min-width: 0;
+}
+.fd-gst-panel-title { font-size: 15px; font-weight: 600; color: #2c3e50; }
+.fd-gst-panel-sub { margin: 4px 0 0; font-size: 12.5px; color: #7f8c8d; line-height: 1.55; }
+.fd-gst-checks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.fd-gst-checks li { display: flex; align-items: flex-start; gap: 10px; font-size: 13px; color: #2c3e50; line-height: 1.45; }
+.fd-gst-checks li svg { flex-shrink: 0; margin-top: 1px; }
+.fd-gst-checks li span { flex: 1; min-width: 0; }
+.fd-gst-checks li a { font-weight: 600; white-space: nowrap; color: #0f3460; }
+.fd-gst-kpis { margin-bottom: 0; }
+.fd-gst-pack-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.fd-gst-pack-head > div:first-child { flex: 1 1 320px; min-width: 0; }
+.fd-gst-files { display: flex; gap: 6px; flex-wrap: wrap; }
+.fd-gst-files code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11.5px;
+  padding: 3px 8px; border-radius: 4px; background: #f5f7fa; border: 1px solid #e1e5eb; color: #2c3e50;
+}
+.fd-gst-filing { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; border-top: 1px solid #f0f4f8; padding-top: 12px; }
+.fd-gst-ref-label { font-size: 11px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: #5a6c7d; margin-top: 6px; }
+.fd-gst-ref { flex-direction: row; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.fd-gst-ref > div { flex: 1 1 320px; min-width: 0; }
+.fd-gst-strip { display: flex; gap: 3px; min-height: 30px; }
+.fd-gst-strip-seg {
+  display: flex; align-items: center; padding: 0 10px; font-size: 12px; font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
+}
+.fd-gst-strip-seg:first-child { border-radius: 6px 0 0 6px; }
+.fd-gst-strip-seg:last-child { border-radius: 0 6px 6px 0; }
+.fd-gst-strip-seg:only-child { border-radius: 6px; }
+.fd-gst-strip-seg.is-on { background: #d4edda; color: #155724; }
+.fd-gst-strip-seg.is-off { background: #e8eaed; color: #5a6c7d; }
+.fd-gst-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.fd-gst-chips button {
+  font-size: 12px; font-weight: 500; padding: 4px 10px; border-radius: 999px;
+  border: 1px solid #e1e5eb; background: #fff; color: #5a6c7d; cursor: pointer; font-family: inherit;
+}
+.fd-gst-chips button.is-on { border-color: #0f3460; background: #f3f7fc; color: #0f3460; font-weight: 600; }
+@media (max-width: 640px) {
+  .fd-gst-controls label, .fd-gst-controls select { width: 100%; }
+  .fd-gst-pack-head .fd-btn, .fd-gst-ref .fd-btn, .fd-gst-filing .fd-btn { width: 100%; min-height: 48px; }
+  .fd-gst-strip { flex-direction: column; }
+  .fd-gst-strip-seg, .fd-gst-strip-seg:first-child, .fd-gst-strip-seg:last-child { border-radius: 6px; min-height: 30px; }
 }

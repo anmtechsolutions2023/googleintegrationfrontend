@@ -4,8 +4,15 @@ import posService from '../../services/posService'
 import Receipt from '../../components/frontdesk/receipt/Receipt'
 import usePrintReceipt from '../../components/frontdesk/receipt/usePrintReceipt'
 import { buildKotPrintData } from '../../utils/kotPrint'
+import useMenuFilters from '../../hooks/useMenuFilters'
+import MenuFilterBar from '../../components/frontdesk/MenuFilterBar'
+import LineOptions, { NoteIcon } from '../../components/frontdesk/LineOptions'
+import KitchenNoteEditor from '../../components/frontdesk/KitchenNoteEditor'
 import {
-  ALL, filterMenu, categoryChips, dietChips, isVegName,
+  parsePresets, NOTE_PRESETS_KEY, ORDER_NOTE_MAX, DEFAULT_NOTE_PRESETS,
+} from '../../utils/lineOptions'
+import {
+  effectiveTags, isAvailable, isOnSale, openLabel, categoryNameOf,
 } from '../../utils/menuFilters'
 import { APP_CONFIG, SCOPES } from '../../constants'
 import { useCan } from '../../hooks/useCan'
@@ -68,11 +75,22 @@ const Billing = () => {
   const [floors, setFloors]     = useState([])
   const [menu, setMenu]         = useState([])
   const [variants, setVariants] = useState([])
+  // Add-on masters, loaded once and joined locally. Two lists rather than one
+  // nested read because a group's options are needed on every card open and
+  // re-fetching them per dish would put a network round trip in the middle of
+  // taking an order.
+  const [addonGroups, setAddonGroups] = useState([])
+  const [addons, setAddons] = useState([])
   const [itemDetails, setItemDetails] = useState({})
 
-  // Variant picker — opened when a menu item offers options. Opting in is
-  // optional; skipping adds the plain item.
-  const [variantPick, setVariantPick] = useState(null) // { meta, selected: [] }
+  // ONE sheet for both kinds of choice — see the "Add-ons in the order" canvas.
+  // A dish can offer variants, add-on groups, or both, and opening a second
+  // modal after the first would mean two dialogs in a row for one dish.
+  //
+  // Variants stay optional (Skip still adds the plain item); an add-on group
+  // with MinSelection > 0 does not, because the kitchen cannot cook "pizza,
+  // crust unspecified".
+  const [customise, setCustomise] = useState(null) // { meta, variantIds: [], addonIds: [], note: '' }
   const [loading, setLoading]   = useState(true)
 
   // active order state
@@ -89,7 +107,6 @@ const Billing = () => {
   // is a walk-in and behaves exactly as before.
   const [customer, setCustomer] = useState(null)
   const [cartItems, setCartItems] = useState([])
-  const [menuSearch, setMenuSearch] = useState('')
   const [activeOrders, setActiveOrders] = useState([])
   const [selectedOrderId, setSelectedOrderId] = useState(null)
   // True while the selected table's live rounds are being fetched.
@@ -119,11 +136,8 @@ const Billing = () => {
   // The moment the customer is standing at the counter with their money out.
   // Until now this screen minted an invoice number and offered only "Done".
   const [printBranchId, setPrintBranchId] = useState(null)
-  // Two independent filters over the menu. Kept apart from the search box
-  // because they narrow different things: search spans the whole menu,
-  // these two cut it down.
-  const [menuCategory, setMenuCategory] = useState(ALL)
-  const [menuDiet, setMenuDiet] = useState(ALL)
+  // The menu's search, category, diet and tag filters live in useMenuFilters
+  // below — the same hook Menu Master uses.
   const [printing, setPrinting] = useState(false)
   // ── Campaign offers ────────────────────────────────────────────────────
   // A PREVIEW. The settle path re-runs the same rules server-side and writes
@@ -145,6 +159,14 @@ const Billing = () => {
   // ON, because a kitchen that expected a ticket and got none is the worse of
   // the two failures.
   const [kotAutoPrint, setKotAutoPrint] = useState(true)
+  // Kitchen notes. The quick picks are the branch's own (POS Settings); the
+  // whole-order note and the cutlery flag belong to the cart being built, and
+  // go with it when the round is placed.
+  const [notePresets, setNotePresets] = useState(DEFAULT_NOTE_PRESETS)
+  const [orderNote, setOrderNote] = useState('')
+  const [noCutlery, setNoCutlery] = useState(false)
+  // The cart line whose note is open for editing, or null.
+  const [noteLine, setNoteLine] = useState(null)
   const { job, format, shop, taxMode, print, failed: printFailed, clearFailed } = usePrintReceipt(printBranchId)
   const [settling, setSettling] = useState(false)
   // Live discounted preview from the server (discount applied BEFORE tax), so the
@@ -171,7 +193,7 @@ const Billing = () => {
       // came back. Variants and payment modes are gated on scopes a given role
       // may not hold, and losing the whole till because the tender list was
       // refused is a worse answer than a till without that one dropdown.
-      const [t, f, m, orders, v, k, modes] = (await Promise.allSettled([
+      const [t, f, m, orders, v, k, modes, ag, ao] = (await Promise.allSettled([
         posService.getTables({ limit: MAX_LIMIT }),
         posService.getFloors({ limit: MAX_LIMIT }),
         posService.getItemMeta({ limit: MAX_LIMIT }),
@@ -179,6 +201,8 @@ const Billing = () => {
         posService.getVariants(),
         posService.getKots({ limit: MAX_LIMIT }),
         posService.getPaymentModes(),
+        posService.getAddonGroups(),
+        posService.getAddons(),
       ])).map((r) => (r.status === 'fulfilled' ? r.value : null))
 
       // The menu is what the screen is FOR, so its absence is reported rather
@@ -189,6 +213,8 @@ const Billing = () => {
       setFloors(f || [])
       setMenu(m || [])
       setVariants(v || [])
+      setAddonGroups(ag || [])
+      setAddons(ao || [])
       setPaymentModes(modes || [])
       setKots(Array.isArray(k) ? k : [])
       const open = (orders || []).filter((o) => (o.Status || '').toLowerCase() !== 'closed')
@@ -248,14 +274,21 @@ const Billing = () => {
     [itemDetails],
   )
 
-  const menuFilterState = { category: menuCategory, diet: menuDiet, query: menuSearch }
-  const filteredMenu = filterMenu(menu, menuFilterState, nameOf)
-  // Each chip counts what it would ACTUALLY show — under every filter except
-  // its own. Counting the whole menu would promise twelve pizzas and deliver
-  // ten the moment Veg is also on.
-  const catChips = categoryChips(menu, menuFilterState, nameOf)
-  const dtChips = dietChips(menu, menuFilterState, nameOf)
-  const menuFiltered = menuCategory !== ALL || menuDiet !== ALL || !!menuSearch
+  // Search, category, diet and tags: one hook, shared with Menu Master, so a
+  // manager narrows the menu exactly the way a cashier does.
+  const menuFilters = useMenuFilters(menu, nameOf)
+  const filteredMenu = menuFilters.filtered
+  const menuFiltered = menuFilters.isFiltered
+
+  // The till's clock, ticking. Half a minute is enough for a label that only
+  // has to explain a greyed card; a per-second timer would re-render the whole
+  // grid sixty times a minute for a digit nobody is watching.
+  const [tillNow, setTillNow] = useState(() => new Date())
+  useEffect(() => {
+    const t = setInterval(() => setTillNow(new Date()), 30000)
+    return () => clearInterval(t)
+  }, [])
+  const clockLabel = tillNow.toTimeString().slice(0, 5)
 
   // Variants offered by a menu row, resolved against the master for name+price.
   const variantsFor = (meta) => {
@@ -264,6 +297,74 @@ const Billing = () => {
     return ids
       .map((id) => variants.find((v) => (v.id || v.Id) === id))
       .filter(Boolean)
+  }
+
+  // Add-on groups offered by a menu row, each with its options already attached.
+  //
+  // Order matters and is the master's, not the dish's: a cashier working the
+  // same three dishes all evening must find the same control in the same place,
+  // so groups sort by SortOrder and options within a group do too. A group that
+  // has lost all its active options is dropped — a heading with nothing under
+  // it reads as a loading bug, not as "nothing to choose".
+  const addonGroupsFor = (meta) => {
+    const ids = Array.isArray(meta?.AddonGroupIds) ? meta.AddonGroupIds : []
+    if (ids.length === 0) return []
+    return ids
+      .map((id) => addonGroups.find((g) => (g.id || g.Id) === id))
+      .filter(Boolean)
+      .map((g) => {
+        const gid = g.id || g.Id
+        return {
+          id: gid,
+          name: g.Name || g.name,
+          minSelection: Number(g.MinSelection ?? g.minSelection) || 0,
+          maxSelection: Number(g.MaxSelection ?? g.maxSelection) || 0,
+          sortOrder: Number(g.SortOrder ?? g.sortOrder) || 0,
+          options: addons
+            .filter((a) => (a.AddonGroupId || a.addonGroupId) === gid)
+            .map((a) => ({
+              id: a.id || a.Id,
+              name: a.Name || a.name,
+              price: Number(a.Price ?? a.price) || 0,
+              sortOrder: Number(a.SortOrder ?? a.sortOrder) || 0,
+            }))
+            .sort((x, y) => x.sortOrder - y.sortOrder),
+        }
+      })
+      .filter((g) => g.options.length > 0)
+      .sort((x, y) => x.sortOrder - y.sortOrder)
+  }
+
+  // Add-on ids resolved to name + price, for the cart and the order payload.
+  const addonsByIds = (ids) => {
+    const wanted = new Set(ids || [])
+    if (wanted.size === 0) return []
+    return addons
+      .filter((a) => wanted.has(a.id || a.Id))
+      .map((a) => ({
+        id: a.id || a.Id,
+        name: a.Name || a.name,
+        price: Number(a.Price ?? a.price) || 0,
+        groupId: a.AddonGroupId || a.addonGroupId || null,
+      }))
+  }
+
+  // Which required group, if any, is still unanswered — and which is over its
+  // cap. The FIRST unmet rule is what the Add button names, so the cashier is
+  // told what to do rather than left to hunt for a red outline.
+  //
+  // Mirrors posorder.assertAddonSelectionsAreValid on the server. That one is
+  // the enforcement; this is the courtesy of saying so before the round is sent.
+  const customiseBlocker = (meta, pickedAddonIds) => {
+    const picked = new Set(pickedAddonIds || [])
+    for (const g of addonGroupsFor(meta)) {
+      const count = g.options.filter((o) => picked.has(o.id)).length
+      if (count < g.minSelection) return `Choose ${g.name.toLowerCase()} first`
+      if (g.maxSelection > 0 && count > g.maxSelection) {
+        return `Choose at most ${g.maxSelection} from ${g.name}`
+      }
+    }
+    return null
   }
 
   // The menu is inert until a table is chosen. Enforced here as well as in the
@@ -279,31 +380,58 @@ const Billing = () => {
     ? (selectedTableRow.Name || selectedTableRow.name)
     : 'Table'
 
-  // Clicking a menu card adds it straight away unless it offers options, in
-  // which case the picker opens first. Opting in is optional — Skip adds the
-  // plain item.
+  // Clicking a menu card adds it straight away unless it offers something to
+  // choose, in which case the sheet opens first. A dish with neither variants
+  // nor groups must never cost the cashier an extra tap.
   const handleMenuClick = (meta) => {
     if (menuLocked) { toast.warn('Pick a table or the counter before adding items'); return }
-    const available = variantsFor(meta)
-    if (available.length === 0) { addToCart(meta, []); return }
-    setVariantPick({ meta, selected: [] })
+    const hasVariants = variantsFor(meta).length > 0
+    const hasGroups = addonGroupsFor(meta).length > 0
+    if (!hasVariants && !hasGroups) { addToCart(meta, [], []); return }
+    setCustomise({ meta, variantIds: [], addonIds: [], note: '' })
   }
 
-  const addToCart = (meta, selectedVariants = []) => {
+  const addToCart = (meta, selectedVariants = [], selectedAddons = [], note = '') => {
     const metaId = meta.id || meta.Id
     // The same dish with different options is a different line, so the cart key
-    // is the item PLUS its (order-independent) variant selection.
+    // is the item PLUS its (order-independent) variant AND add-on selection.
+    // Sorted so "cheese then olives" and "olives then cheese" are one line.
     const variantIds = selectedVariants.map((v) => v.id || v.Id).sort()
-    const lineKey = [metaId, ...variantIds].join('|')
+    const addonIds = selectedAddons.map((a) => a.id || a.Id).sort()
+    const baseKey = [metaId, ...variantIds, ...addonIds].join('|')
+    const kitchenNote = String(note || '').trim()
+    // The group is what prints beside an add-on ("Extra dip · Raita"). The
+    // server's priced line carries it too; this is for the cart before then.
+    const groupNameOf = (groupId) => {
+      const group = addonGroups.find((g) => (g.id || g.Id) === groupId)
+      return group ? (group.Name || group.name || null) : null
+    }
 
     setCartItems((prev) => {
-      const existing = prev.find((c) => c.lineKey === lineKey)
+      // One plate "less spicy" and one "extra spicy" are two instructions, so
+      // the same dish with a different note is its own line. Same dish, same
+      // options, same note: one more of that line.
+      const existing = prev.find(
+        (c) => (c.baseKey || c.lineKey) === baseKey && (c.note || '') === kitchenNote,
+      )
       if (existing) {
-        return prev.map((c) => c.lineKey === lineKey ? { ...c, qty: c.qty + 1 } : c)
+        return prev.map((c) => (c === existing ? { ...c, qty: c.qty + 1 } : c))
       }
-      const addOn = selectedVariants.reduce((s, v) => s + (Number(v.Price ?? v.price) || 0), 0)
+      // The key stays unique — the quote, offers and hand-typed discounts are
+      // all matched on it. The suffix is short, and the server's cap on the
+      // key reserves room for it.
+      const taken = new Set(prev.map((c) => c.lineKey))
+      let lineKey = baseKey
+      for (let n = 2; taken.has(lineKey); n += 1) lineKey = `${baseKey}|n${n}`
+      const variantAmount = selectedVariants
+        .reduce((s, v) => s + (Number(v.Price ?? v.price) || 0), 0)
+      const addonAmount = selectedAddons
+        .reduce((s, a) => s + (Number(a.Price ?? a.price) || 0), 0)
+      const addOn = variantAmount + addonAmount
       return [...prev, {
         lineKey,
+        baseKey,
+        note: kitchenNote,
         id: metaId,
         // What an OFFER triggers on. The cart is keyed by the menu entry, but a
         // campaign names the catalogue item and its category — carrying both
@@ -314,16 +442,25 @@ const Billing = () => {
         // category-triggered campaign seeing a null category.
         categoryId: meta.CategoryId || itemDetails[meta.ItemDetailId]?.CategoryId || null,
         name: itemName(meta, itemDetails[meta.ItemDetailId]),
-        // Display only — the server recomputes from the variant master.
+        // Display only — the server recomputes from the masters.
         price: itemPrice(meta) + addOn,
         basePrice: itemPrice(meta),
-        variantAmount: addOn,
+        variantAmount,
+        addonAmount,
         variants: selectedVariants.map((v) => ({
           id: v.id || v.Id,
           name: v.Name || v.name,
           price: Number(v.Price ?? v.price) || 0,
         })),
         variantIds,
+        addons: selectedAddons.map((a) => ({
+          id: a.id || a.Id,
+          name: a.Name || a.name,
+          price: Number(a.Price ?? a.price) || 0,
+          groupId: a.groupId || a.AddonGroupId || null,
+          groupName: a.groupName || a.GroupName || groupNameOf(a.groupId || a.AddonGroupId) || null,
+        })),
+        addonIds,
         taxPct: itemTaxRate(meta),
         isTaxIncluded: !!meta?.TaxBreakdown?.isTaxIncluded,
         costInfoId: meta.CostInfoId || null,
@@ -331,6 +468,21 @@ const Billing = () => {
         meta,
       }]
     })
+  }
+
+  // A cart line's kitchen note, edited in place. The key does not change, so a
+  // discount or an offer already matched to this line stays matched.
+  const setLineNote = (lineKey, note) => {
+    setCartItems((prev) => prev.map((c) => (
+      c.lineKey === lineKey ? { ...c, note: String(note || '').trim() } : c
+    )))
+  }
+
+  // The notes belong to the cart, so they leave with it.
+  const resetKitchenNotes = () => {
+    setOrderNote('')
+    setNoCutlery(false)
+    setNoteLine(null)
   }
 
   const changeQty = (lineKey, delta) => {
@@ -418,8 +570,11 @@ const Billing = () => {
       .map((c) => ({
         costInfoId: c.costInfoId,
         quantity: c.qty,
-        // The server prices variants from the master; we only name them.
+        // The server prices variants and add-ons from their masters; we only
+        // name them. Sending prices instead would let a tampered tab decide
+        // what extra cheese costs.
         variantIds: c.variantIds || [],
+        addonIds: c.addonIds || [],
         ref: c.lineKey,
         // Priced WITH the discount, so Tax and Total are the discounted ones.
         // Without this the cart named the offer on its own row and then totalled
@@ -452,6 +607,10 @@ const Billing = () => {
   const taxAmount  = quote ? Number(quote.totals.taxAmount) : 0
   const grandTotal = quote ? Number(quote.totals.grossAmount) : subTotal
   const taxByComponent = quote?.totals?.taxByComponent || []
+  // GST switched off for this tenant. The cart then shows one Total — no
+  // Subtotal, no CGST/SGST, no Tax row. Explicitly false only: a quote from
+  // before the switch existed carries no flag and keeps today's rows.
+  const gstOff = quote?.totals?.taxCharged === false
 
   // Items carry the priced snapshot so the order records what was charged.
   const buildOrderItems = () => {
@@ -463,12 +622,18 @@ const Billing = () => {
         name: c.name,
         price: priced ? priced.unitAmount : c.price,
         basePrice: priced ? priced.baseAmount : c.basePrice,
-        variantAmount: priced ? priced.addOnAmount : c.variantAmount,
+        variantAmount: priced ? priced.variantAmount : c.variantAmount,
+        addonAmount: priced ? priced.addonAmount : c.addonAmount,
         // Sent so the server can re-resolve; the resolved objects come back on
         // the priced line and are what a reprint/repeat order reads.
         variantIds: c.variantIds || [],
         variants: priced ? priced.variants : c.variants,
+        addonIds: c.addonIds || [],
+        addons: priced ? priced.addons : c.addons,
         qty: c.qty,
+        // What the kitchen is told about this plate. Omitted, not blank, when
+        // there is none.
+        note: c.note || undefined,
         taxPct: c.taxPct,
         isTaxIncluded: priced ? priced.isTaxIncluded : c.isTaxIncluded,
         costInfoId: c.costInfoId,
@@ -518,8 +683,16 @@ const Billing = () => {
     let cancelled = false
     if (!activeBranchId) return undefined
     posService.getPosSettings(activeBranchId)
-      .then((cfg) => { if (!cancelled) setKotAutoPrint(cfg?.['kot.auto_print'] !== 'off') })
-      .catch(() => { if (!cancelled) setKotAutoPrint(true) })
+      .then((cfg) => {
+        if (cancelled) return
+        setKotAutoPrint(cfg?.['kot.auto_print'] !== 'off')
+        setNotePresets(parsePresets(cfg?.[NOTE_PRESETS_KEY]))
+      })
+      .catch(() => {
+        if (cancelled) return
+        setKotAutoPrint(true)
+        setNotePresets(DEFAULT_NOTE_PRESETS)
+      })
     return () => { cancelled = true }
   }, [activeBranchId])
 
@@ -571,6 +744,12 @@ const Billing = () => {
         variantIds:
           it.variantIds ||
           (Array.isArray(it.variants) ? it.variants.map((v) => v.id || v.Id).filter(Boolean) : []),
+        // Same fallback for add-ons: a round stored before this shipped carries
+        // resolved objects and no id list, and dropping them here would preview
+        // a total lower than the one the bill actually raises.
+        addonIds:
+          it.addonIds ||
+          (Array.isArray(it.addons) ? it.addons.map((a) => a.id || a.Id).filter(Boolean) : []),
         ref: `${r.orderId}#${i}`,
         // The per-item discount, keyed by the same ref the bill will store it
         // under. The engine applies it to this line before tax, then spreads any
@@ -950,6 +1129,8 @@ const Billing = () => {
         // the ledger contact and the CRM projection.
         CustomerId: customer?.Id || null,
         BranchDetailId: tableObj?.BranchDetailId || null,
+        // Kept on the round until it is sent, then printed on its ticket.
+        CookingInstructions: orderNote.trim() || null,
       })
       const orderId = order.id || order.Id
       if (isFirst) {
@@ -963,6 +1144,7 @@ const Billing = () => {
       toast.success(`Round ${roundNo} added — press Send KOT when it is ready to cook`)
       setCartItems([])
       setCustomer(null)
+      resetKitchenNotes()
       setSelectedOrderId(orderId)
       await load()
     } catch (e) {
@@ -994,6 +1176,8 @@ const Billing = () => {
         Items: buildOrderItems(),
         CustomerId: customer?.Id || null,
         BranchDetailId: branchId,
+        CookingInstructions: orderNote.trim() || null,
+        NoCutlery: noCutlery,
       })
       const orderId = order.id || order.Id
       // Counter food is being made now — there is no later moment to decide to
@@ -1008,6 +1192,8 @@ const Billing = () => {
             kot,
             items: buildOrderItems(),
             tableName: 'COUNTER',
+            orderInstructions: orderNote.trim() || null,
+            noCutlery,
           }))
         }
       } catch {
@@ -1015,6 +1201,7 @@ const Billing = () => {
       }
       setCartItems([])
       setCustomer(null)
+      resetKitchenNotes()
       setCounterOrderId(orderId)
       await load()
       setSettleOpen(true)
@@ -1084,6 +1271,8 @@ const Billing = () => {
             kot,
             round,
             tableName: selectedTableName,
+            orderInstructions: round?.order?.CookingInstructions || null,
+            noCutlery: round?.order?.NoCutlery,
           }))
         }
       }
@@ -1273,7 +1462,9 @@ const Billing = () => {
       const doc = await posService.getLedgerDocument(settledInvoice.logId)
       print('bill', {
         ...doc,
-        taxMode,
+        // The invoice's own mode: a tax invoice issued before GST was switched
+        // off still prints as a tax invoice.
+        taxMode: doc.TaxMode || taxMode,
         tokenLabel: doc.Source?.kind === 'token' ? doc.Source.label : settledInvoice.tokenLabel,
         tableName: doc.Source?.kind === 'table' ? doc.Source.label : null,
         balanceDue: settledInvoice.balanceDue,
@@ -1357,57 +1548,16 @@ const Billing = () => {
         <div className="fd-menu-panel">
           <div className="fd-menu-panel-head">
             <span className="fd-menu-panel-title">Menu Items</span>
+            {/* The till's clock. Here because the menu now depends on the time:
+                without it a greyed card is a mystery, and "Opens 07:00" has
+                nothing to be read against. Local to this device — a till
+                standing in the outlet reads the outlet's time. */}
+            <span className="fd-menu-clock" title="Used by the kitchen schedule">
+              {clockLabel}
+            </span>
           </div>
-          <input
-            className="fd-menu-search"
-            placeholder="Search menu..."
-            value={menuSearch}
-            onChange={(e) => setMenuSearch(e.target.value)}
-          />
-          {/* CATEGORY. A horizontal rail rather than a wrapping block: twenty
-              categories must not push the grid off the screen. Counts are live,
-              so a category that would come back empty says so before it is
-              tapped. */}
-          {catChips.length > 2 && (
-            <div className="fd-menu-cats" role="group" aria-label="Filter by category">
-              {catChips.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  className={`fd-chip${menuCategory === c.id ? ' is-on' : ''}${c.count === 0 ? ' is-empty' : ''}`}
-                  aria-pressed={menuCategory === c.id}
-                  onClick={() => setMenuCategory(c.id)}
-                >
-                  {c.name}
-                  <span className="fd-chip-count">{c.count}</span>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* DIET. Derived from the food types this tenant actually uses, so a
-              master with 'Jain' in it gets a chip without a code change. */}
-          {dtChips.length > 2 && (
-            <div className="fd-menu-diets" role="group" aria-label="Filter by food type">
-              <span className="fd-menu-filter-label">Diet</span>
-              {dtChips.map((d) => (
-                <button
-                  key={d.id}
-                  type="button"
-                  className={`fd-chip fd-chip-diet${menuDiet === d.id ? ' is-on' : ''}${d.count === 0 ? ' is-empty' : ''}`}
-                  aria-pressed={menuDiet === d.id}
-                  onClick={() => setMenuDiet(d.id)}
-                >
-                  <span
-                    className={`fd-diet-dot${d.id === ALL ? ' is-any' : ''}${
-                      d.id !== ALL && isVegName(menu, d.id) ? ' is-veg' : ''}`}
-                  />
-                  {d.name}
-                  <span className="fd-chip-count">{d.count}</span>
-                </button>
-              ))}
-            </div>
-          )}
+          {/* Search, category, diet and tags — the same panel Menu Master uses. */}
+          <MenuFilterBar filters={menuFilters} menu={menu} />
 
           {filteredMenu.length === 0 ? (
             <div className="fd-empty">
@@ -1419,7 +1569,7 @@ const Billing = () => {
                   <button
                     type="button"
                     className="fd-link-btn"
-                    onClick={() => { setMenuCategory(ALL); setMenuDiet(ALL); setMenuSearch('') }}
+                    onClick={menuFilters.clear}
                   >
                     Clear filters
                   </button>
@@ -1433,15 +1583,37 @@ const Billing = () => {
                 const name = itemName(meta, itemDetails[meta.ItemDetailId])
                 const price = itemPrice(meta)
                 const isVeg = meta.FoodTypeIsVeg === 1 || meta.FoodTypeIsVeg === true
+                // Outside its section's trading hours: still ON the grid and
+                // still findable, but not orderable. Hiding it would leave the
+                // cashier hunting for a dish that is simply not shown, unable
+                // to tell "we do not sell it" from "not right now".
+                const onMenu = isAvailable(meta)
+                // Turned off in Menu Master — which beats the section's hours,
+                // so it reads differently from a dish whose section is shut.
+                const onSale = isOnSale(meta)
+                const backAt = openLabel(meta)
+                const tags = effectiveTags(meta)
+                const refuse = () => toast.info(onSale
+                  ? `${name} is off the menu right now${backAt ? ` — ${backAt.toLowerCase()}` : ''}.`
+                  : `${name} is not on sale. Turn it on in Menu Master.`)
                 return (
                   <div
                     key={id}
-                    className="fd-menu-item-card"
+                    className={`fd-menu-item-card${onMenu ? '' : ' is-unavailable'}${onSale ? '' : ' is-off'}`}
                     role="button"
                     tabIndex={0}
-                    onClick={() => handleMenuClick(meta)}
+                    aria-disabled={!onMenu}
+                    // A real name, rather than whatever the card's text nodes
+                    // concatenate to — which is now the veg badge, the tags and
+                    // the tax flag run together. Availability belongs in it:
+                    // aria-disabled says a control is inert, not why.
+                    aria-label={`${name || 'Unnamed item'}, ₹${money(price)}${onMenu ? '' : `, ${backAt}`}`}
+                    onClick={() => (onMenu ? handleMenuClick(meta) : refuse())}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleMenuClick(meta) }
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        if (onMenu) handleMenuClick(meta); else refuse()
+                      }
                     }}
                   >
                     {meta.FoodTypeName && (
@@ -1465,9 +1637,38 @@ const Billing = () => {
                         )}
                       </div>
                     )}
-                    {variantsFor(meta).length > 0 && (
-                      <div className="item-has-options">Options available</div>
+                    {tags.length > 0 && (
+                      <div className="fd-item-tags">
+                        {tags.map((t) => (
+                          <span
+                            key={t.id}
+                            className={`fd-item-tag${t.from === 'category' ? ' is-inherited' : ''}`}
+                            title={t.from === 'category'
+                              ? `From ${categoryNameOf(meta)}`
+                              : 'Set on this dish'}
+                          >
+                            {t.name}
+                          </span>
+                        ))}
+                      </div>
                     )}
+                    {!onMenu && backAt && (
+                      <div className={`fd-item-window${onSale ? '' : ' is-off'}`}>{backAt}</div>
+                    )}
+                    {/* Says whether the next tap opens a sheet, and whether it
+                        can be dismissed. A required group changes the wording:
+                        "Choices required" warns before the tap, which is
+                        cheaper than a disabled button after it. */}
+                    {onMenu && (() => {
+                      const groups = addonGroupsFor(meta)
+                      if (variantsFor(meta).length === 0 && groups.length === 0) return null
+                      const required = groups.some((g) => g.minSelection > 0)
+                      return (
+                        <div className={`item-has-options${required ? ' is-required' : ''}`}>
+                          {required ? 'Choices required' : 'Options available'}
+                        </div>
+                      )
+                    })()}
                   </div>
                 )
               })}
@@ -1554,21 +1755,15 @@ const Billing = () => {
             {cartItems.length === 0 ? (
               <div className="fd-cart-empty">Tap menu items to add</div>
             ) : cartItems.map((c) => (
-              <div key={c.lineKey} className="fd-cart-row">
+              <React.Fragment key={c.lineKey}>
+              <div className="fd-cart-row">
                 <span className="ci-name">
                   {c.name || '(item)'}
                   {/* Chosen options and what each added, so the line price is
-                      explainable rather than a mystery total. */}
-                  {c.variants?.length > 0 && (
-                    <span className="ci-variants">
-                      {c.variants.map((v) => (
-                        <span className="ci-variant-chip" key={v.id}>
-                          {v.name}{v.price > 0 ? ` +₹${money(v.price)}` : ''}
-                        </span>
-                      ))}
-                    </span>
-                  )}
-                  {c.isTaxIncluded && <span className="tax-flag incl">incl. tax</span>}
+                      explainable rather than a mystery total — and the note the
+                      kitchen will get. Same display as every other screen. */}
+                  <LineOptions line={c} />
+                  {c.isTaxIncluded && Number(c.taxPct) > 0 && <span className="tax-flag incl">incl. tax</span>}
                   {/* The free line is DISCOUNTED, never removed — the kitchen
                       still made it and the stock still moved. */}
                   {offerByLine[c.lineKey] && (
@@ -1576,6 +1771,19 @@ const Billing = () => {
                       🎁 {offerByLine[c.lineKey].offerName}
                     </span>
                   )}
+                  {/* A plain dish never opens the customise sheet, so its note is
+                      added here — and any dish's note can be changed here. Inside
+                      the line, so it cannot be read as the next dish's. */}
+                  <button
+                    type="button"
+                    className="ci-note-btn"
+                    onClick={() => setNoteLine(noteLine === c.lineKey ? null : c.lineKey)}
+                    aria-expanded={noteLine === c.lineKey}
+                  >
+                    <NoteIcon size={11} />
+                    {c.note ? 'Edit kitchen note' : 'Add kitchen note'}
+                    <span className="fd-sr-only"> for {c.name || 'this dish'}</span>
+                  </button>
                 </span>
                 <div className="ci-qty-btns">
                   <button onClick={() => changeQty(c.lineKey, -1)}>−</button>
@@ -1593,14 +1801,82 @@ const Billing = () => {
                   ) : `₹${money(c.price * c.qty)}`}
                 </span>
               </div>
+              {noteLine === c.lineKey && (
+                <div className="fd-cart-row-editor">
+                  <div className="fd-cart-row-editor-head">
+                    <span><NoteIcon size={13} />Note for {c.name || 'this dish'}</span>
+                    <span className="fd-cart-row-editor-actions">
+                      {c.note && (
+                        <button
+                          type="button"
+                          className="fd-link-btn"
+                          onClick={() => { setLineNote(c.lineKey, ''); setNoteLine(null) }}
+                        >
+                          Remove
+                        </button>
+                      )}
+                      <button type="button" className="fd-link-btn" onClick={() => setNoteLine(null)}>
+                        Done
+                      </button>
+                    </span>
+                  </div>
+                  <KitchenNoteEditor
+                    value={c.note || ''}
+                    presets={notePresets}
+                    onChange={(note) => setLineNote(c.lineKey, note)}
+                    label={`Note for ${c.name || 'this dish'}`}
+                    compact
+                  />
+                </div>
+              )}
+              </React.Fragment>
             ))}
           </div>
+
+          {/* The note for the whole round — "serve starters first", "pack sauces
+              separately" — and, for a takeaway, whether to pack cutlery. Shown
+              once there is something to send it with. */}
+          {cartItems.length > 0 && (
+            <div className="fd-order-note">
+              <div className="fd-order-note-head">
+                <label htmlFor="fd-order-note">
+                  Note for the kitchen · {counterMode ? 'whole order' : 'this round'}
+                </label>
+                <span>{orderNote.length}/{ORDER_NOTE_MAX}</span>
+              </div>
+              <textarea
+                id="fd-order-note"
+                rows={2}
+                value={orderNote}
+                maxLength={ORDER_NOTE_MAX}
+                placeholder="e.g. Serve starters first, pack sauces separately"
+                onChange={(e) => setOrderNote(e.target.value)}
+              />
+              {counterMode && (
+                <label className="fd-toggle-row">
+                  <span>
+                    No cutlery
+                    <small>Prints boxed on the kitchen ticket for whoever packs the bag.</small>
+                  </span>
+                  <input
+                    type="checkbox"
+                    role="switch"
+                    className="fd-switch"
+                    checked={noCutlery}
+                    onChange={(e) => setNoCutlery(e.target.checked)}
+                  />
+                </label>
+              )}
+            </div>
+          )}
 
           {/* Totals — tax and grand total come from the server quote, so the
               till always agrees with the bill that gets raised. */}
           {cartItems.length > 0 && (
             <div className="fd-cart-totals">
-              <div className="total-row"><span>Subtotal</span><span>₹{money(subTotal)}</span></div>
+              {!gstOff && (
+                <div className="total-row"><span>Subtotal</span><span>₹{money(subTotal)}</span></div>
+              )}
 
               {/* Named, not just netted: "−₹25" tells a cashier nothing when a
                   customer asks why the total moved. */}
@@ -1613,17 +1889,19 @@ const Billing = () => {
 
               {/* One row per tax component (CGST / SGST / …) — this is the
                   invoice footer, and it sums exactly to the Tax row. */}
-              {taxByComponent.map((c) => (
+              {!gstOff && taxByComponent.map((c) => (
                 <div className="total-row tax-component" key={c.name || c.id}>
                   <span>{c.name}{c.rate ? ` @ ${c.rate}%` : ''}</span>
                   <span>₹{money(c.amount)}</span>
                 </div>
               ))}
 
-              <div className="total-row">
-                <span>Tax{quoting ? ' …' : ''}</span>
-                <span>₹{money(taxAmount)}</span>
-              </div>
+              {!gstOff && (
+                <div className="total-row">
+                  <span>Tax{quoting ? ' …' : ''}</span>
+                  <span>₹{money(taxAmount)}</span>
+                </div>
+              )}
               <div className="total-row grand"><span>Total</span><span>₹{money(grandTotal)}</span></div>
 
               {/* The saved order still gets correct server-computed tax, so this
@@ -1749,7 +2027,7 @@ const Billing = () => {
                 </button>
               )}
               {cartItems.length > 0 && (
-                <button type="button" className="fd-link-btn" onClick={() => setCartItems([])}>
+                <button type="button" className="fd-link-btn" onClick={() => { setCartItems([]); resetKitchenNotes() }}>
                   Clear cart
                 </button>
               )}
@@ -1759,75 +2037,227 @@ const Billing = () => {
       </div>
       )}
 
-      {/* Variant picker — opens when a menu item offers options. Entirely
-          optional: Skip adds the plain item, so it never blocks fast service. */}
-      {variantPick && (
-        <div className="fd-modal-backdrop" role="dialog" aria-label="Choose options">
-          <div className="fd-variant-modal">
-            <h3>
-              {itemName(variantPick.meta, itemDetails[variantPick.meta.ItemDetailId])}
-            </h3>
-            <p className="fd-variant-hint">
-              Choose any options to add. Each adds to the item price before tax.
-            </p>
+      {/* Customise sheet — the one place a dish's choices are made.
+          Opens when the item offers variants, add-on groups, or both. Sections
+          are drawn in a fixed order (Options, then groups in their configured
+          order) so the same control is always in the same place, and a section
+          with nothing in it is not drawn at all. */}
+      {customise && (() => {
+        const meta = customise.meta
+        const offeredVariants = variantsFor(meta)
+        const groups = addonGroupsFor(meta)
+        const pickedVariants = offeredVariants.filter(
+          (v) => customise.variantIds.includes(v.id || v.Id),
+        )
+        const pickedAddons = addonsByIds(customise.addonIds)
+        const base = itemPrice(meta)
+        const variantSum = pickedVariants
+          .reduce((s, v) => s + (Number(v.Price ?? v.price) || 0), 0)
+        const addonSum = pickedAddons.reduce((s, a) => s + a.price, 0)
+        const total = base + variantSum + addonSum
+        const blocker = customiseBlocker(meta, customise.addonIds)
+        // Skip is only honest while nothing is compulsory. With a required
+        // group on the dish it would produce a line the server refuses, so it
+        // is not offered rather than offered and then rejected.
+        const skippable = !groups.some((g) => g.minSelection > 0)
 
-            <div className="fd-variant-list">
-              {variantsFor(variantPick.meta).map((v) => {
-                const vid = v.id || v.Id
-                const price = Number(v.Price ?? v.price) || 0
-                const checked = variantPick.selected.some((x) => (x.id || x.Id) === vid)
-                return (
-                  <label key={vid} className={`fd-variant-option ${checked ? 'is-selected' : ''}`}>
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => setVariantPick((prev) => ({
-                        ...prev,
-                        selected: checked
-                          ? prev.selected.filter((x) => (x.id || x.Id) !== vid)
-                          : [...prev.selected, v],
-                      }))}
-                    />
-                    <span className="fd-variant-name">{v.Name || v.name}</span>
-                    <span className="fd-variant-price">
-                      {price > 0 ? `+₹${money(price)}` : 'No extra charge'}
-                    </span>
-                  </label>
-                )
-              })}
-            </div>
+        const toggleVariant = (vid) => setCustomise((prev) => ({
+          ...prev,
+          variantIds: prev.variantIds.includes(vid)
+            ? prev.variantIds.filter((x) => x !== vid)
+            : [...prev.variantIds, vid],
+        }))
 
-            {/* Running total so the effect of each option is obvious. */}
-            <div className="fd-variant-total">
-              <span>Item total</span>
-              <span>
-                ₹{money(
-                  itemPrice(variantPick.meta) +
-                  variantPick.selected.reduce((s, v) => s + (Number(v.Price ?? v.price) || 0), 0),
+        // A group capped at one behaves as a radio: choosing swaps rather than
+        // adds. Anything wider is a checkbox that stops accepting at the cap —
+        // silently dropping the earliest pick there would lose a choice the
+        // cashier had already confirmed with the guest.
+        const toggleAddon = (group, oid) => setCustomise((prev) => {
+          const has = prev.addonIds.includes(oid)
+          if (has) {
+            return { ...prev, addonIds: prev.addonIds.filter((x) => x !== oid) }
+          }
+          const groupOptionIds = group.options.map((o) => o.id)
+          if (group.maxSelection === 1) {
+            return {
+              ...prev,
+              addonIds: [
+                ...prev.addonIds.filter((x) => !groupOptionIds.includes(x)),
+                oid,
+              ],
+            }
+          }
+          const inGroup = prev.addonIds.filter((x) => groupOptionIds.includes(x)).length
+          if (group.maxSelection > 0 && inGroup >= group.maxSelection) {
+            toast.info(`${group.name}: pick at most ${group.maxSelection}`)
+            return prev
+          }
+          return { ...prev, addonIds: [...prev.addonIds, oid] }
+        })
+
+        const commit = (variantsToAdd, addonsToAdd) => {
+          // The note goes with the plate whichever button added it — skipping
+          // the options is not skipping the instruction.
+          addToCart(meta, variantsToAdd, addonsToAdd, customise.note)
+          setCustomise(null)
+        }
+
+        return (
+          <div className="fd-modal-backdrop" role="dialog" aria-label="Customise item">
+            <div className="fd-customise-sheet">
+              <div className="fd-cust-head">
+                <h3>{itemName(meta, itemDetails[meta.ItemDetailId])}</h3>
+                <p className="fd-cust-sub">
+                  Base ₹{money(base)} · everything added here is taxed with the dish.
+                </p>
+              </div>
+
+              <div className="fd-cust-body">
+                {offeredVariants.length > 0 && (
+                  <section className="fd-cust-group has-divider">
+                    <header className="fd-cust-group-head">
+                      <span className="fd-cust-group-name">Options</span>
+                      <span className="fd-cust-rule">Optional</span>
+                    </header>
+                    {offeredVariants.map((v) => {
+                      const vid = v.id || v.Id
+                      const price = Number(v.Price ?? v.price) || 0
+                      const checked = customise.variantIds.includes(vid)
+                      return (
+                        <label
+                          key={vid}
+                          className={`fd-cust-option ${checked ? 'is-selected' : ''}`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleVariant(vid)}
+                          />
+                          <span className="fd-cust-option-name">{v.Name || v.name}</span>
+                          <span className="fd-cust-option-price">
+                            {price > 0 ? `+₹${money(price)}` : 'No extra charge'}
+                          </span>
+                        </label>
+                      )
+                    })}
+                  </section>
                 )}
-              </span>
-            </div>
 
-            <div className="fd-variant-actions">
-              <button
-                className="fd-btn fd-btn-success"
-                onClick={() => { addToCart(variantPick.meta, variantPick.selected); setVariantPick(null) }}
-              >
-                Add to Order
-              </button>
-              <button
-                className="fd-btn fd-btn-outline"
-                onClick={() => { addToCart(variantPick.meta, []); setVariantPick(null) }}
-              >
-                Skip Options
-              </button>
-              <button className="fd-btn fd-btn-outline" onClick={() => setVariantPick(null)}>
-                Cancel
-              </button>
+                {groups.map((g) => {
+                  const count = g.options.filter(
+                    (o) => customise.addonIds.includes(o.id),
+                  ).length
+                  const required = g.minSelection > 0
+                  return (
+                    <section className="fd-cust-group" key={g.id}>
+                      <header className="fd-cust-group-head">
+                        <span className="fd-cust-group-name">{g.name}</span>
+                        {/* The rule is SPOKEN, not discovered by tapping a
+                            checkbox that refuses. */}
+                        {required ? (
+                          <span className="fd-cust-rule is-required">
+                            Required · pick {g.minSelection === g.maxSelection
+                              ? g.minSelection
+                              : `${g.minSelection}+`}
+                          </span>
+                        ) : (
+                          <span className="fd-cust-rule">
+                            {g.maxSelection > 0
+                              ? `${count} of ${g.maxSelection} chosen`
+                              : 'Optional'}
+                          </span>
+                        )}
+                      </header>
+                      {g.options.map((o) => {
+                        const checked = customise.addonIds.includes(o.id)
+                        return (
+                          <label
+                            key={o.id}
+                            className={`fd-cust-option ${checked ? 'is-selected' : ''}`}
+                          >
+                            <input
+                              type={g.maxSelection === 1 ? 'radio' : 'checkbox'}
+                              name={`addon-group-${g.id}`}
+                              checked={checked}
+                              onChange={() => toggleAddon(g, o.id)}
+                            />
+                            <span className="fd-cust-option-name">{o.name}</span>
+                            <span className="fd-cust-option-price">
+                              {o.price > 0 ? `+₹${money(o.price)}` : 'No extra charge'}
+                            </span>
+                          </label>
+                        )
+                      })}
+                    </section>
+                  )
+                })}
+
+                {/* Last: HOW, once the sheet has settled WHAT. Never charged
+                    and never blocks Add. */}
+                <section className="fd-cust-group is-note">
+                  <header className="fd-cust-group-head">
+                    <span className="fd-cust-group-name">
+                      <NoteIcon size={14} />
+                      Note for the kitchen
+                    </span>
+                    <span className="fd-cust-rule">No charge · goes on the KOT</span>
+                  </header>
+                  <KitchenNoteEditor
+                    value={customise.note || ''}
+                    presets={notePresets}
+                    onChange={(note) => setCustomise((prev) => (prev ? { ...prev, note } : prev))}
+                    label={`Note for ${itemName(meta, itemDetails[meta.ItemDetailId])}`}
+                  />
+                </section>
+              </div>
+
+              <div className="fd-cust-foot">
+                {/* The breakdown, not just the total: a guest querying the bill
+                    asks about the extras, and the cashier has to be able to
+                    read them apart from the portion. */}
+                <div className="fd-cust-total">
+                  {/* Only drawn once there is something to break down. With
+                      nothing ticked it would just restate the total beside
+                      itself. */}
+                  {(variantSum > 0 || addonSum > 0) && (
+                    <span className="fd-cust-total-parts">
+                      ₹{money(base)}
+                      {variantSum > 0 ? ` + options ₹${money(variantSum)}` : ''}
+                      {addonSum > 0 ? ` + extras ₹${money(addonSum)}` : ''}
+                    </span>
+                  )}
+                  <span className="fd-cust-total-value">₹{money(total)}</span>
+                </div>
+
+                <div className="fd-cust-actions">
+                  <button
+                    className="fd-btn fd-btn-success fd-cust-add"
+                    disabled={!!blocker}
+                    title={blocker || undefined}
+                    onClick={() => commit(pickedVariants, pickedAddons)}
+                  >
+                    {blocker || `Add to Order · ₹${money(total)}`}
+                  </button>
+                  {skippable && (
+                    <button
+                      className="fd-btn fd-btn-outline"
+                      onClick={() => commit([], [])}
+                    >
+                      Skip Options
+                    </button>
+                  )}
+                  <button
+                    className="fd-btn fd-btn-outline"
+                    onClick={() => setCustomise(null)}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* Transfer sheet — move items or whole rounds to another table. */}
       <TransferSheet
@@ -2380,14 +2810,18 @@ const Billing = () => {
                   <span>Discount</span><span>−₹{money(settleTotals.discount)}</span>
                 </div>
               )}
-              {settleTotals.taxByComponent.map((c) => (
-                <div className="fd-settle-payable-row fd-settle-payable-sub" key={c.name}>
-                  <span>{c.name}{c.rate ? ` @ ${c.rate}%` : ''}</span><span>₹{money(c.amount)}</span>
-                </div>
-              ))}
-              <div className="fd-settle-payable-row">
-                <span>Tax</span><span>₹{money(settleTotals.tax)}</span>
-              </div>
+              {settleQuote?.totals?.taxCharged !== false && (
+                <>
+                  {settleTotals.taxByComponent.map((c) => (
+                    <div className="fd-settle-payable-row fd-settle-payable-sub" key={c.name}>
+                      <span>{c.name}{c.rate ? ` @ ${c.rate}%` : ''}</span><span>₹{money(c.amount)}</span>
+                    </div>
+                  ))}
+                  <div className="fd-settle-payable-row">
+                    <span>Tax</span><span>₹{money(settleTotals.tax)}</span>
+                  </div>
+                </>
+              )}
               {/* The paise the till cannot hand over. Shown here because the
                   invoice books it as RoundOff, and a cashier who is asked for
                   ₹639.00 on a ₹638.88 bill needs to see where the 12p came

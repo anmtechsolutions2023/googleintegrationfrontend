@@ -352,6 +352,25 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
+  /* Deliberately NOT overflow-y: auto. Scrolling the panel looks like a fix and
+     is not: the grid keeps its floor but slides below the panel's own fold, so
+     the menu is still invisible and now needs two scrolls to reach. The height
+     has to come out of the FILTERS instead. */
+  overflow: hidden;
+}
+
+.fd-menu-filters {
+  display: flex;
+  flex-direction: column;
+  /* Shrinkable, and scrolls itself when it cannot fit. Pairs with the grid's
+     `flex: 1 0 200px`: the grid takes its floor first and this absorbs the
+     remainder, so an expanded tag sheet costs a scroll here rather than the
+     whole menu. */
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  /* Keeps the filter chips clear of the scrollbar gutter. */
+  scrollbar-width: thin;
 }
 
 .fd-menu-panel-head {
@@ -400,6 +419,10 @@
    to four lines would push the grid itself off a laptop screen, which is the
    thing the cashier came here to use. */
 .fd-menu-cats {
+  /* Pinned. In a flex column these rows would otherwise absorb the shrink and
+     clip their own chips, which reads as a rendering fault rather than a full
+     screen. Let the grid scroll instead — that is the part with more to show. */
+  flex-shrink: 0;
   display: flex;
   gap: 8px;
   /* This row is DESIGNED to scroll sideways. Without min-width it instead
@@ -415,6 +438,7 @@
 .fd-menu-cats::-webkit-scrollbar-thumb { background: #d0d4da; border-radius: 3px; }
 
 .fd-menu-diets {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -492,12 +516,21 @@
   /* The grid must be allowed to be narrower than one card, or it widens its
      ancestors instead of reflowing to fewer columns. */
   min-width: 0;
+  /* …but NOT shorter than this. The grid is `flex: 1; min-height: 0`, which
+     lets it shrink to nothing when the filters above it grow — and they did,
+     once search, the active-filter summary, categories, diets and an expanded
+     tag sheet all stacked above. The result was a single clipped card row, so
+     the panel looked broken rather than scrollable.
+     200px is two rows of cards plus a sliver of the third, which is what makes
+     it read as a scrolling list. */
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   grid-auto-rows: min-content;
   gap: 10px;
-  flex: 1;
-  min-height: 0;
+  /* grow 1, shrink 0, basis 200px — the grid may take surplus but may never be
+     squeezed below two rows. Everything above it is allowed to shrink instead,
+     which is what .fd-menu-filters is for. */
+  flex: 1 0 200px;
   overflow-y: auto;
   align-content: start;
   padding-right: 4px;
@@ -544,6 +577,174 @@
   color: #95a5a6;
 }
 
+/* The till's clock, beside the panel title. The menu depends on the time now,
+   so a greyed card without a clock to read it against is a mystery. */
+.fd-menu-clock {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #7f8c8d;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A section outside its hours, on the rail. */
+.fd-chip-clock { color: #e67e22; flex: 0 0 auto; }
+.fd-chip.is-on .fd-chip-clock { color: #fff; }
+
+/* What the typing matched BESIDES a dish name. Dashed, because it is an offer
+   rather than a state: nothing is filtered until it is tapped. */
+.fd-menu-suggests {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.fd-chip-suggest {
+  border-style: dashed;
+  border-color: #2980b9;
+  background: #eef6fd;
+  color: #1c5a85;
+}
+.fd-chip-suggest:hover { background: #e2effa; }
+.fd-chip-kind { font-size: 11px; color: #5a8fb5; }
+
+/* Everything narrowing the grid, in one row. On its own ground so it reads as
+   a summary of state rather than one more rail of things to tap. */
+.fd-menu-facets {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  margin-bottom: 10px;
+  background: #f5f7fa;
+  border-radius: 6px;
+}
+.fd-chip-facet { gap: 8px; }
+.fd-chip-facet:hover { background: #16457c; border-color: #16457c; }
+
+/* ── Menu tags ──────────────────────────────────────────────────────────────
+   A third filter axis, behind one button. The vocabulary is a dozen strong and
+   grows with the tenant's own master, so putting it on the category rail would
+   turn a row that is read at a glance into one that is scrolled past. */
+.fd-menu-tags {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.fd-tag-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  /* Bounded, because this is the one filter that grows without limit: a tenancy
+     with many tag types gets a row each. Past this it scrolls itself rather
+     than pushing the menu off the bottom of the panel — the dishes are what the
+     screen is for, the filters only help you reach them. */
+  max-height: 26vh;
+  overflow-y: auto;
+  flex-shrink: 0;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  border: 1px solid #e1e5eb;
+  border-radius: 8px;
+  background: #fcfdfe;
+}
+
+/* One row per TagType. The label sits at a fixed width so the chips line up
+   down the sheet instead of stepping in and out with the word beside them. */
+.fd-tag-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.fd-tag-group .fd-menu-filter-label {
+  min-width: 74px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: #95a5a6;
+}
+
+.fd-tag-legend {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding-top: 8px;
+  border-top: 1px solid #f0f4f8;
+}
+.fd-tag-legend-note { font-size: 11px; color: #95a5a6; }
+
+/* Tags ON a menu card. Solid is set on the dish; dashed is inherited from its
+   category. The distinction is on the card because otherwise "why does this say
+   Chinese, I never set that?" has no answer on the screen where it is asked. */
+.fd-item-tags {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+.fd-item-tag {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 9px;
+  background: #eef6fd;
+  color: #1c5a85;
+  border: 1px solid transparent;
+}
+.fd-item-tag.is-inherited {
+  background: #fff;
+  border: 1px dashed #cbd5e1;
+  color: #7f8c8d;
+}
+
+/* ── Outside trading hours ──────────────────────────────────────────────────
+   Visible and findable, not orderable. The border goes DASHED rather than only
+   paler: colour alone is not an answer for everyone, and the card still has to
+   read as closed in greyscale. */
+.fd-menu-item-card.is-unavailable {
+  border-style: dashed;
+  background: #fbfcfd;
+  cursor: not-allowed;
+}
+.fd-menu-item-card.is-unavailable:hover {
+  border-color: #e1e5eb;
+  box-shadow: none;
+}
+.fd-menu-item-card.is-unavailable:active { transform: none; }
+.fd-menu-item-card.is-unavailable .item-name { color: #95a5a6; }
+.fd-menu-item-card.is-unavailable .item-price { color: #b2bec3; }
+/* A green dot on a dead card promises availability. */
+.fd-menu-item-card.is-unavailable .food-type-badge { opacity: 0.45; }
+.fd-menu-item-card.is-unavailable .fd-item-tag {
+  background: #f5f7fa;
+  color: #b2bec3;
+  border-color: #eef1f4;
+}
+
+/* When it comes back. Never a bare "unavailable": the cashier's next words to
+   the customer are the time, so the card carries it. */
+.fd-item-window {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 6px;
+  padding: 3px 7px;
+  border-radius: 10px;
+  background: #fdf3e7;
+  color: #8a5216;
+  font-size: 11px;
+  font-weight: 600;
+}
+
 /* ── Tax-inclusive / exclusive flag ────────────────────────────────────────
    Green "incl." means the printed price is what the customer pays; amber "+"
    warns that tax will be added at the till. Used on the menu, in the cart and
@@ -568,6 +769,10 @@
   font-weight: 600;
   color: #2980b9;
 }
+/* A dish with a required group cannot be added in one tap. Saying so on the
+   card is cheaper than letting the cashier tap through and meet a disabled
+   button. */
+.fd-menu-item-card .item-has-options.is-required { color: #b03a1a; }
 
 /* ── Variant chips ────────────────────────────────────────────────────────
    Selected options, shown under the item everywhere it appears: cart, past
@@ -590,8 +795,12 @@
   font-weight: 500;
   white-space: nowrap;
 }
+/* Add-ons are tinted apart from variants. On a line reading "Large, Olives"
+   the portion and the extra have to be tellable apart at a glance — they come
+   from different masters and only one of them changes what the dish IS. */
+.ci-variant-chip.is-addon { background: #e8f6ee; color: #1e7e4f; }
 
-/* ── Variant picker modal ─────────────────────────────────────────────────── */
+/* ── Dialog backdrop (shared by every sheet on this screen) ──────────────── */
 .fd-modal-backdrop {
   position: fixed;
   inset: 0;
@@ -604,23 +813,78 @@
   box-sizing: border-box;
 }
 
-.fd-variant-modal {
+/* ── Customise sheet ──────────────────────────────────────────────────────
+   One dialog for variants AND add-on groups. Replaces the variant-only picker:
+   a dish can offer both, and two modals in a row for one dish is not a flow
+   anyone can work at service speed.
+
+   The three-row structure (fixed head, scrolling body, fixed foot) is the
+   whole point on a phone. With the whole sheet scrolling, the running total
+   and the Add button leave the screen exactly when a long toppings list makes
+   them matter most. */
+.fd-customise-sheet {
   background: #fff;
   border-radius: 10px;
-  padding: 20px;
   width: 100%;
-  max-width: 400px;
+  max-width: 460px;
+  /* min-height: 0 lets the body actually scroll — without it the flex child
+     sizes to its content and pushes the footer off the bottom. */
+  min-height: 0;
   max-height: calc(100vh - 32px);
   max-height: calc(100dvh - 32px);
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
   box-sizing: border-box;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.18);
 }
-.fd-variant-modal h3 { margin: 0 0 4px; font-size: 16px; color: #2c3e50; }
-.fd-variant-hint { margin: 0 0 14px; font-size: 12px; color: #7f8c8d; }
 
-.fd-variant-list { display: flex; flex-direction: column; gap: 6px; }
-.fd-variant-option {
+.fd-cust-head {
+  flex: 0 0 auto;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid #f0f4f8;
+}
+.fd-cust-head h3 { margin: 0 0 3px; font-size: 16px; color: #2c3e50; }
+.fd-cust-sub { margin: 0; font-size: 12px; color: #7f8c8d; }
+
+.fd-cust-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.fd-cust-group { display: flex; flex-direction: column; gap: 6px; }
+/* Options (variants) sits first and is fenced off from the groups below it.
+   Nothing stops a manager naming a variant set and an add-on group both
+   "Size", and this divider plus the Options label is what keeps the two
+   readable as different questions. */
+.fd-cust-group.has-divider {
+  padding-bottom: 16px;
+  border-bottom: 1px dashed #e1e5eb;
+}
+
+.fd-cust-group-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.fd-cust-group-name { font-size: 13px; font-weight: 600; color: #2c3e50; }
+.fd-cust-rule { font-size: 11px; color: #7f8c8d; white-space: nowrap; }
+.fd-cust-rule.is-required {
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #fdecea;
+  color: #b03a1a;
+}
+
+.fd-cust-option {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -631,29 +895,62 @@
   font-size: 13px;
   transition: border-color 0.15s, background 0.15s;
 }
-.fd-variant-option:hover { background: #f8f9fa; }
-.fd-variant-option.is-selected { border-color: #4f46e5; background: #eef2ff; }
-.fd-variant-name { flex: 1; color: #2c3e50; }
-.fd-variant-price { font-size: 12px; font-weight: 600; color: #27ae60; }
+.fd-cust-option:hover { background: #f8f9fa; }
+.fd-cust-option.is-selected { border-color: #4f46e5; background: #eef2ff; }
+.fd-cust-option-name { flex: 1; min-width: 0; color: #2c3e50; }
+.fd-cust-option-price {
+  font-size: 12px;
+  font-weight: 600;
+  color: #27ae60;
+  white-space: nowrap;
+}
 
-.fd-variant-total {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 14px;
-  padding-top: 10px;
+.fd-cust-foot {
+  flex: 0 0 auto;
+  padding: 12px 18px 16px;
   border-top: 1px solid #e1e5eb;
-  font-weight: 700;
-  font-size: 14px;
-  color: #2c3e50;
+}
+.fd-cust-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.fd-cust-total-parts { font-size: 12px; color: #7f8c8d; min-width: 0; }
+/* margin-left keeps the total hard right even when the breakdown beside it
+   is not drawn, which is the common case — nothing ticked yet. */
+.fd-cust-total-value { margin-left: auto; font-size: 16px; font-weight: 700; color: #2c3e50; }
+
+.fd-cust-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.fd-cust-actions .fd-btn { flex: 1; min-width: 110px; }
+/* The Add button carries the reason it is unavailable ("Choose your spice
+   first") instead of greying out silently, so nobody scrolls a long sheet
+   hunting for what is missing. */
+.fd-cust-add { flex-basis: 100%; }
+.fd-cust-add:disabled {
+  background: #e8eaed;
+  border-color: #e8eaed;
+  color: #8a95a1;
+  cursor: not-allowed;
 }
 
-.fd-variant-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 16px;
-  flex-wrap: wrap;
+/* Phone: a bottom sheet, not a centred card. Thumbs reach the bottom of the
+   screen; the middle of a 700px-tall dialog is the hardest place to tap. */
+@media (max-width: 640px) {
+  .fd-modal-backdrop { padding: 0; align-items: flex-end; }
+  .fd-customise-sheet {
+    max-width: none;
+    border-radius: 16px 16px 0 0;
+    max-height: 88vh;
+    max-height: 88dvh;
+  }
+  /* 44px is the smallest thing worth aiming at on a phone, and a cashier is
+     doing this one-handed while holding a terminal. */
+  .fd-cust-option { min-height: 48px; padding: 10px 12px; font-size: 14px; }
+  .fd-cust-actions .fd-btn { min-height: 48px; }
+  .fd-cust-foot { padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
 }
-.fd-variant-actions .fd-btn { flex: 1; min-width: 110px; }
 
 .fd-menu-item-card .food-type-badge {
   font-size: 10px;
@@ -990,7 +1287,10 @@
 .fd-token-items {
   display: block; font-size: 11px; color: #7f8c8d; margin-top: 2px;
 }
-.fd-token-items span + span::before { content: ' · '; }
+/* One plate per line. The old " · " joiner matched every nested span, which put
+   dots inside the option chips once they were drawn here. */
+.fd-token-item { display: block; }
+.fd-token-item + .fd-token-item { margin-top: 3px; }
 .fd-token-noorder { font-size: 12px; color: #b2bec3; font-style: italic; }
 .fd-token-actions { display: flex; gap: 6px; }
 
@@ -3009,4 +3309,369 @@
 }
 @media (pointer: coarse) {
   .fd-kpt input { min-height: 44px; }
+}
+
+/* ── Options, add-ons & kitchen notes ─────────────────────────────────────────
+   Shared by the cart, the rounds timeline, the kitchen board, the order detail
+   and the invoice (LineOptions.js). Three colours, each meaning one thing:
+   indigo an option, green an add-on, amber a kitchen note. Amber is used for
+   nothing else on these screens, so a note is findable at a glance. */
+.fd-sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+.ci-chip-group { opacity: 0.72; }
+.ci-variant-chip.is-note {
+  display: inline-flex; align-items: center; gap: 3px;
+  background: #fef3e2; color: #a85b06; white-space: normal;
+}
+.ci-note-icon { flex: 0 0 auto; }
+/* On the pass a note is an instruction, not a tag: bold text, not a chip. */
+.ci-note-strong {
+  display: flex; align-items: center; gap: 5px; margin-top: 3px;
+  font-size: 12.5px; font-weight: 700; line-height: 1.35; color: #a85b06;
+}
+/* "₹239.00 + options ₹170.00 + extras ₹70.00" — why the rate is what it is. */
+.ci-breakdown {
+  display: block; margin-top: 3px; font-size: 11px; color: #7f8c8d;
+  font-variant-numeric: tabular-nums;
+}
+/* A long add-on name must wrap on a phone rather than push the row sideways. */
+@media (max-width: 640px) {
+  .ci-variant-chip { white-space: normal; }
+}
+
+/* Kitchen note editor — quick picks and a free-text box (KitchenNoteEditor.js). */
+.fd-knote { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.fd-knote-picks { display: flex; flex-wrap: wrap; gap: 8px; }
+.fd-knote-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 36px; padding: 8px 14px; box-sizing: border-box;
+  border-radius: 18px; border: 1px solid #d0d4da; background: #fff; color: #5a6c7d;
+  font-family: inherit; font-size: 13px; font-weight: 600; white-space: nowrap; cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.fd-knote-chip:hover:not(.is-on) { border-color: #e67e22; color: #2c3e50; }
+.fd-knote-chip:focus-visible { outline: 2px solid #2980b9; outline-offset: 2px; }
+.fd-knote-chip.is-on { background: #fef3e2; border-color: #e67e22; color: #a85b06; }
+.fd-knote-input {
+  width: 100%; box-sizing: border-box; padding: 9px 10px;
+  border: 1px solid #d0d4da; border-radius: 6px;
+  font-family: inherit; font-size: 13px; color: #2c3e50; background: #fff;
+}
+.fd-knote-input:focus { outline: 2px solid #2980b9; outline-offset: 0; border-color: #2980b9; }
+.fd-knote-meta { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; color: #95a5a6; }
+.fd-knote-meta .is-full { color: #b03a1a; }
+.fd-knote-count { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fd-knote.is-compact .fd-knote-picks { gap: 6px; }
+.fd-knote.is-compact .fd-knote-chip { min-height: 30px; padding: 4px 10px; border-radius: 15px; font-size: 12px; }
+/* A finger on a till tablet, not a mouse. */
+@media (pointer: coarse) {
+  .fd-knote-chip { min-height: 44px; }
+  .fd-knote.is-compact .fd-knote-chip { min-height: 40px; }
+  .fd-knote-input { min-height: 44px; font-size: 16px; }
+}
+@media (prefers-reduced-motion: reduce) { .fd-knote-chip { transition: none; } }
+
+/* The note section at the foot of the customise sheet. */
+.fd-cust-group.is-note { padding-top: 16px; border-top: 1px dashed #e1e5eb; }
+.fd-cust-group.is-note .fd-cust-group-name { display: inline-flex; align-items: center; gap: 6px; }
+.fd-cust-group.is-note .ci-note-icon { color: #a85b06; }
+
+/* A cart line's "Add note" and its inline editor. */
+/* Its own line under the chips, inside the cart line it belongs to. */
+.fd-cart-row .ci-note-btn { display: flex; width: fit-content; }
+.ci-note-btn {
+  display: inline-flex; align-items: center; gap: 4px; align-self: flex-start;
+  margin-top: 2px; padding: 2px 0; border: none; background: none;
+  font-family: inherit; font-size: 11px; font-weight: 600; color: #2980b9; cursor: pointer;
+}
+.ci-note-btn:hover { text-decoration: underline; }
+.ci-note-btn:focus-visible { outline: 2px solid #2980b9; outline-offset: 2px; }
+@media (pointer: coarse) { .ci-note-btn { min-height: 32px; font-size: 12px; } }
+.fd-cart-row-editor {
+  display: flex; flex-direction: column; gap: 8px; margin: 0 0 6px; padding: 10px;
+  border: 1px solid #f3d7b0; border-radius: 8px; background: #fffaf2;
+}
+.fd-cart-row-editor-head {
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  font-size: 12px; font-weight: 600; color: #a85b06;
+}
+.fd-cart-row-editor-head > span { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.fd-cart-row-editor-actions { display: flex; gap: 12px; }
+
+/* The whole-order note and the no-cutlery switch, under the cart lines. */
+.fd-order-note { display: flex; flex-direction: column; gap: 8px; padding: 12px 0; border-bottom: 1px solid #f0f4f8; }
+.fd-order-note-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.fd-order-note-head label { font-size: 13px; font-weight: 600; color: #2c3e50; }
+.fd-order-note-head span { font-size: 11px; color: #95a5a6; font-variant-numeric: tabular-nums; }
+.fd-order-note textarea {
+  width: 100%; box-sizing: border-box; min-height: 52px; resize: vertical;
+  padding: 8px 10px; border: 1px solid #d0d4da; border-radius: 6px;
+  font-family: inherit; font-size: 13px; color: #2c3e50;
+}
+.fd-order-note textarea:focus { outline: 2px solid #2980b9; outline-offset: 0; border-color: #2980b9; }
+@media (pointer: coarse) { .fd-order-note textarea { font-size: 16px; } }
+.fd-toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13px; color: #2c3e50; cursor: pointer; }
+.fd-toggle-row small { display: block; font-size: 11px; color: #95a5a6; }
+.fd-switch {
+  appearance: none; -webkit-appearance: none; position: relative; flex: 0 0 38px;
+  width: 38px; height: 22px; margin: 0; border-radius: 11px; background: #cbd5e1; cursor: pointer;
+  transition: background 0.15s ease;
+}
+.fd-switch::after {
+  content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px;
+  border-radius: 50%; background: #fff; transition: transform 0.15s ease;
+}
+.fd-switch:checked { background: #0f3460; }
+.fd-switch:checked::after { transform: translateX(16px); }
+.fd-switch:focus-visible { outline: 2px solid #2980b9; outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .fd-switch, .fd-switch::after { transition: none; } }
+
+/* The whole-order panel on the order detail and the kitchen board. */
+.fd-order-instr {
+  display: flex; align-items: flex-start; gap: 10px; margin: 0 0 12px; padding: 10px 12px;
+  border-radius: 8px; background: #fef3e2; color: #7a4406; font-size: 13px; line-height: 1.45;
+}
+.fd-order-instr .ci-note-icon { color: #a85b06; margin-top: 2px; }
+.fd-order-instr-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+.fd-order-instr-label { font-size: 10px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: #a85b06; }
+.fd-cutlery-flag {
+  align-self: flex-start; margin-top: 2px; padding: 1px 8px; border: 1.5px solid #7a4406; border-radius: 4px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
+}
+.fd-kds-card .fd-order-instr { margin: 0 0 10px; padding: 8px 10px; }
+
+/* POS Settings → Kitchen notes (KitchenNotePresets.js). */
+.fd-preset-list { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.fd-preset-item {
+  display: flex; align-items: center; gap: 10px; min-height: 44px; box-sizing: border-box;
+  padding: 6px 8px 6px 12px; border: 1px solid #e1e5eb; border-radius: 8px; background: #fff;
+}
+.fd-preset-name {
+  flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px;
+  font-size: 13px; font-weight: 600; color: #2c3e50; overflow-wrap: anywhere;
+}
+.fd-preset-name em { font-style: normal; font-weight: 400; font-size: 11.5px; color: #7f8c8d; }
+.fd-preset-actions { display: flex; gap: 2px; flex-shrink: 0; }
+.fd-icon-btn {
+  width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid transparent; border-radius: 6px; background: none; color: #5a6c7d; cursor: pointer;
+}
+.fd-icon-btn:hover:not(:disabled) { background: #f5f7fa; border-color: #e1e5eb; }
+.fd-icon-btn.is-danger:hover:not(:disabled) { color: #c0392b; }
+.fd-icon-btn:disabled { color: #cbd5e1; cursor: not-allowed; }
+.fd-icon-btn:focus-visible { outline: 2px solid #2980b9; outline-offset: 1px; }
+@media (pointer: coarse) { .fd-icon-btn { width: 44px; height: 44px; } }
+.fd-preset-add { display: flex; gap: 8px; margin-top: 12px; }
+.fd-preset-add input {
+  flex: 1; min-width: 0; padding: 8px 10px; border: 1px solid #d0d4da; border-radius: 6px;
+  font-family: inherit; font-size: 13px; color: #2c3e50;
+}
+.fd-preset-add input:focus { outline: 2px solid #2980b9; outline-offset: 0; border-color: #2980b9; }
+@media (pointer: coarse) { .fd-preset-add input { min-height: 44px; font-size: 16px; } .fd-preset-add .fd-btn { min-height: 44px; } }
+.fd-preset-error { margin: 6px 0 0; font-size: 12px; color: #b03a1a; }
+.fd-preset-foot { margin: 12px 0 0; }
+@media (max-width: 420px) {
+  .fd-preset-add { flex-direction: column; }
+}
+
+/* Menu Master's filters — the till's panel, on its own card above the list.
+   Outside Billing's flex column it simply grows with its content, so only the
+   tag sheet keeps a bound. */
+.fd-menu-master-filters {
+  margin-bottom: 16px;
+  padding: 16px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  min-width: 0;
+}
+.fd-menu-master-filters .fd-menu-filters { overflow: visible; }
+.fd-menu-master-filters .fd-menu-diets { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+.fd-menu-master-filters .fd-menu-sale { margin-top: 10px; }
+.fd-menu-master-filters .fd-menu-tags { margin: 12px 0 0; }
+.fd-menu-master-filters .fd-tag-sheet { margin: 10px 0 0; max-height: 40vh; }
+.fd-crud-page td .fd-item-tags { margin-top: 0; }
+@media (max-width: 600px) {
+  .fd-menu-master-filters { padding: 12px; }
+  .fd-menu-master-filters .fd-menu-search { font-size: 16px; }
+}
+
+
+/* ── Menu Master: turning dishes off, and changing many at once ───────────── */
+.data-table th.col-select,
+.data-table td.col-select { width: 44px; padding-right: 0; }
+.dt-select { width: 18px; height: 18px; margin: 0; accent-color: #3498db; cursor: pointer; vertical-align: middle; }
+@media (pointer: coarse) { .dt-select { width: 22px; height: 22px; } }
+.data-table tr.is-selected,
+.data-table tr.is-selected td:last-child { background: #f4f9fe; }
+
+.fd-sale-cell { display: flex; flex-direction: column; gap: 2px; }
+.fd-sale-toggle { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; white-space: nowrap; }
+.fd-sale-toggle > span { font-size: 13px; font-weight: 600; }
+.fd-sale-toggle .is-on { color: #1e7e4f; }
+.fd-sale-toggle .is-off { color: #95a5a6; }
+.fd-sale-note { font-size: 11px; color: #b03a1a; white-space: nowrap; }
+.fd-switch.is-sale:checked { background: #27ae60; }
+.fd-switch:disabled { opacity: 0.6; cursor: progress; }
+
+.fd-bulk-hint {
+  margin: 0 0 12px; padding: 10px 14px; font-size: 13px; color: #7f8c8d;
+  background: #fff; border: 1px dashed #d6dde4; border-radius: 10px;
+}
+.fd-bulk-bar {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; align-items: center; flex-wrap: wrap; gap: 10px 12px;
+  margin-bottom: 12px; padding: 10px 14px;
+  background: #0f3460; color: #fff; border-radius: 10px;
+  box-shadow: 0 4px 14px rgba(15, 52, 96, 0.25);
+}
+.fd-bulk-count { font-size: 14px; font-weight: 700; }
+.fd-bulk-link {
+  padding: 0; border: none; background: none; color: #a9d2f3;
+  font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.fd-bulk-link:hover { text-decoration: underline; }
+.fd-bulk-sep { width: 1px; height: 22px; background: rgba(255, 255, 255, 0.25); }
+.fd-bulk-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.fd-bulk-btn {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 8px 14px;
+  border-radius: 8px; border: 1px solid transparent; background: #fff;
+  font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.fd-bulk-btn:disabled { opacity: 0.6; cursor: progress; }
+.fd-bulk-btn.is-off { color: #c0392b; }
+.fd-bulk-btn.is-on { color: #1e7e4f; }
+.fd-bulk-btn.is-more { background: transparent; color: #fff; border-color: rgba(255, 255, 255, 0.45); }
+.fd-bulk-link:focus-visible,
+.fd-bulk-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.fd-bulk-clear { margin-left: auto; color: #fff; opacity: 0.85; }
+/* Phone: pinned to the bottom where a thumb reaches, three equal buttons. */
+@media (max-width: 767px) {
+  .fd-bulk-bar {
+    position: fixed; left: 0; right: 0; top: auto; bottom: 0; z-index: 300; margin: 0;
+    border-radius: 16px 16px 0 0;
+    padding: 12px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+  }
+  .fd-bulk-sep { display: none; }
+  .fd-bulk-actions { order: 3; width: 100%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .fd-bulk-btn { min-height: 44px; justify-content: center; padding: 8px 6px; }
+  .fd-crud-page:has(.fd-bulk-bar) { padding-bottom: 150px; }
+}
+
+.fd-bulk-confirm { width: 460px; display: flex; flex-direction: column; gap: 12px; }
+.fd-bulk-confirm h3 { margin: 0; font-size: 16px; color: #2c3e50; }
+.fd-bulk-confirm p { margin: 0; font-size: 13.5px; line-height: 1.55; color: #5a6c7d; }
+.fd-bulk-names {
+  margin: 0; padding: 10px 14px; list-style: none; display: flex; flex-direction: column; gap: 4px;
+  background: #f8f9fa; border-radius: 8px; font-size: 13px; color: #2c3e50;
+}
+.fd-bulk-already { font-size: 12.5px !important; color: #7f8c8d !important; }
+.fd-bulk-modal-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 10px; }
+@media (max-width: 480px) { .fd-bulk-modal-actions .fd-btn { flex: 1; min-height: 44px; } }
+
+.fd-bulk-modal { width: 540px; display: flex; flex-direction: column; gap: 16px; }
+.fd-bulk-modal .fd-modal-header { align-items: flex-start; margin-bottom: 0; }
+.fd-bulk-modal-title { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.fd-bulk-modal-title > span { font-size: 12px; color: #7f8c8d; }
+.fd-bulk-row { display: flex; flex-direction: column; gap: 6px; }
+.fd-bulk-label { font-size: 13px; font-weight: 600; color: #2c3e50; }
+.fd-bulk-row select,
+.fd-bulk-number input[type="number"] {
+  padding: 9px 12px; border: 1px solid #d0d4da; border-radius: 8px;
+  font-family: inherit; font-size: 14px; color: #2c3e50; background: #fff;
+}
+.fd-bulk-number { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.fd-bulk-number input[type="number"] { width: 120px; }
+.fd-bulk-check { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: #5a6c7d; }
+.fd-bulk-seg { display: flex; border: 1px solid #d0d4da; border-radius: 8px; overflow: hidden; }
+.fd-bulk-seg button {
+  flex: 1; min-height: 38px; padding: 8px 10px; border: none; border-left: 1px solid #d0d4da;
+  background: #fff; color: #5a6c7d; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.fd-bulk-seg button:first-child { border-left: none; }
+.fd-bulk-seg button.is-on { background: #0f3460; color: #fff; }
+.fd-bulk-seg button:focus-visible { outline: 2px solid #2980b9; outline-offset: -2px; }
+.fd-bulk-options { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.fd-bulk-options .fd-menu-filter-label { min-width: 64px; font-size: 11px; letter-spacing: 0.06em; color: #95a5a6; }
+.fd-bulk-empty { font-size: 13px; color: #95a5a6; }
+.fd-bulk-preview {
+  display: flex; flex-direction: column; gap: 4px; padding: 10px 12px;
+  background: #f8f9fa; border-radius: 8px; font-size: 13px; line-height: 1.5; color: #2c3e50;
+}
+.fd-bulk-preview .fd-bulk-label { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #7f8c8d; }
+@media (pointer: coarse) {
+  .fd-bulk-seg button { min-height: 44px; }
+  .fd-bulk-row select, .fd-bulk-number input[type="number"] { min-height: 44px; font-size: 16px; }
+}
+
+/* Billing: a dish turned off in Menu Master. Beats the section's hours, so it
+   reads differently from a section that is shut for the day. */
+.fd-menu-item-card.is-off { background: #f7f8fa; }
+.fd-menu-item-card.is-off .item-name { text-decoration: line-through; text-decoration-color: #c9d0d8; }
+.fd-item-window.is-off { background: #eceff3; color: #5a6c7d; }
+
+/* ── GST switch (POS Settings) ────────────────────────────────────────────
+   One tenant-wide card above the per-branch settings. Dialogs reuse the shared
+   backdrop; the switch and option rows reuse .fd-switch and .fd-setting-option. */
+.fd-gst-card { display: flex; flex-direction: column; gap: 14px; }
+.fd-gst-card .fd-setting-desc { margin: 0; }
+.fd-gst-toggle { padding: 12px 14px; border: 1px solid #e1e5eb; border-radius: 8px; }
+.fd-gst-toggle strong { display: block; font-size: 14px; font-weight: 600; color: #2c3e50; }
+.fd-gst-block { display: flex; flex-direction: column; gap: 8px; }
+.fd-gst-label {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.5px;
+  text-transform: uppercase; color: #5a6c7d;
+}
+.fd-gst-open-note {
+  margin: 0; padding: 8px 12px; border-radius: 6px;
+  background: #fdf3e7; color: #7a4a00; font-size: 12.5px;
+}
+.fd-gst-dialog {
+  background: #fff; border-radius: 10px; width: 100%; max-width: 520px;
+  max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); overflow-y: auto;
+  padding: 18px 20px; box-sizing: border-box; box-shadow: 0 4px 24px rgba(0, 0, 0, 0.18);
+  display: flex; flex-direction: column; gap: 10px;
+}
+.fd-gst-dialog h3 { margin: 0; font-size: 16px; color: #2c3e50; }
+.fd-gst-dialog-sub { margin: 0 0 4px; font-size: 12.5px; color: #7f8c8d; line-height: 1.5; }
+.fd-gst-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: #2c3e50; line-height: 1.5; }
+.fd-gst-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+@media (max-width: 640px) {
+  .fd-gst-dialog-actions .fd-btn { flex: 1 1 100%; min-height: 48px; }
+}
+
+/* ── Branch GSTIN (POS Settings → GST, and the GST report) ──────────────────
+   Name beside the field on a wide card; stacked on a phone, where the input
+   goes to 16px so iOS does not zoom the page when it takes focus. */
+.fd-gstin-list { display: flex; flex-direction: column; border: 1px solid #e1e5eb; border-radius: 8px; overflow: hidden; background: #fff; }
+.fd-gstin-row {
+  display: grid; grid-template-columns: minmax(110px, 1fr) minmax(0, 1.7fr);
+  gap: 4px 14px; align-items: center; padding: 10px 12px;
+}
+.fd-gstin-row + .fd-gstin-row { border-top: 1px solid #eef1f4; }
+.fd-gstin-name { font-size: 13.5px; font-weight: 600; color: #2c3e50; min-width: 0; overflow-wrap: anywhere; }
+.fd-gstin-edit { display: flex; gap: 8px; align-items: center; min-width: 0; }
+.fd-gstin-input {
+  flex: 1; min-width: 0; box-sizing: border-box;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; letter-spacing: 0.04em;
+  padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; color: #2c3e50;
+}
+.fd-gstin-input::placeholder { color: #b6bec6; }
+.fd-gstin-input:focus-visible { outline: 2px solid #74b9ff; outline-offset: 1px; border-color: #74b9ff; }
+.fd-gstin-input[aria-invalid="true"] { border-color: #e74c3c; }
+.fd-gstin-value { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13.5px; color: #2c3e50; }
+.fd-gstin-foot { grid-column: 2; min-width: 0; }
+.fd-gstin-note { font-size: 12px; color: #7f8c8d; line-height: 1.45; }
+.fd-gstin-note.is-ok { color: #1e8449; }
+.fd-gstin-note.is-bad { color: #c0392b; }
+.fd-gst-fix { margin-top: 12px; }
+/* One branch inside a wide report panel: sized to the field, not the panel. */
+.fd-gst-fix .fd-gstin-list { max-width: 620px; }
+@media (max-width: 600px) {
+  .fd-gstin-row { grid-template-columns: minmax(0, 1fr); }
+  .fd-gstin-foot { grid-column: 1; }
+  .fd-gstin-input { font-size: 16px; }
+  .fd-gstin-edit .fd-btn { min-height: 40px; }
 }

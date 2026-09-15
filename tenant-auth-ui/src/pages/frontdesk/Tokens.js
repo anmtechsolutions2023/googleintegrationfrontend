@@ -5,6 +5,7 @@ import posService from '../../services/posService'
 import { OrderNoLink } from '../../components/frontdesk/OrderLinkProvider'
 import { statusLabel, normalizeStatus } from '../../utils/posStatus'
 import { parseOrderItems, itemLabel, itemQty } from '../../utils/posRounds'
+import LineOptions from '../../components/frontdesk/LineOptions'
 import { APP_CONFIG, SCOPES } from '../../constants'
 import { useCan } from '../../hooks/useCan'
 import { businessDate as today } from '../../utils/businessDate'
@@ -132,7 +133,12 @@ const Tokens = () => {
               {items.length > 0 && (
                 <span className="fd-token-items">
                   {items.map((it, i) => (
-                    <span key={i}>{itemQty(it)}× {itemLabel(it)}</span>
+                    // One line per plate: two pizzas that differ only by crust
+                    // are two different bags to hand over.
+                    <span className="fd-token-item" key={i}>
+                      {itemQty(it)}× {itemLabel(it)}
+                      <LineOptions line={it} showNote={false} />
+                    </span>
                   ))}
                 </span>
               )}

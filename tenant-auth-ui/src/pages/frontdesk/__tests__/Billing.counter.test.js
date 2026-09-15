@@ -13,6 +13,7 @@ jest.mock('../../../services/posService', () => ({
   default: {
     getTables: jest.fn(), getFloors: jest.fn(), getItemMeta: jest.fn(),
     getOrders: jest.fn(), getItemDetail: jest.fn(), getVariants: jest.fn(),
+    getAddonGroups: jest.fn(), getAddons: jest.fn(),
     getPaymentModes: jest.fn(), getKots: jest.fn(), quotePricing: jest.fn(),
     createOrder: jest.fn(), updateOrder: jest.fn(), updateTable: jest.fn(),
     transferOrder: jest.fn(), deleteOrder: jest.fn(),
@@ -68,6 +69,8 @@ beforeEach(() => {
   posService.getOrders.mockResolvedValue([]);
   posService.getItemMeta.mockResolvedValue(MENU);
   posService.getVariants.mockResolvedValue([]);
+  posService.getAddonGroups.mockResolvedValue([]);
+  posService.getAddons.mockResolvedValue([]);
   posService.getKots.mockResolvedValue([]);
   posService.getPaymentModes.mockResolvedValue([{ Id: MODE_CASH, Type: 'Cash' }]);
   posService.getItemDetail.mockResolvedValue({ Id: 'item-m1', Name: 'Masala Dosa' });

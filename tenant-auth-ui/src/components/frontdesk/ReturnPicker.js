@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react'
+import LineOptions from './LineOptions'
 
 // Choosing what actually comes back.
 //
@@ -109,7 +110,14 @@ const ReturnPicker = ({ document: doc, reasons = [], busy, onCancel, onConfirm }
                     const refund = sold > 0 ? (Number(l.GrossAmount || 0) * qty) / sold : 0
                     return (
                       <tr key={l.Id} className={left === 0 ? 'is-exhausted' : undefined}>
-                        <td>{l.ItemName || l.Comment || l.ItemId}</td>
+                        <td>
+                          {l.ItemName || l.Comment || l.ItemId}
+                          {/* Which Dosa: two lines of one dish differ only by
+                              their options, and the wrong one comes back. Prices
+                              shown because the Refund column includes what each
+                              option added, and should be explainable. */}
+                          <LineOptions line={l} showNote={false} />
+                        </td>
                         <td className="num">{sold}</td>
                         <td className="num">
                           {Number(l.ReturnedQty) > 0

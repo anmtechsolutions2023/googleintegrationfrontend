@@ -1,8 +1,10 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useMemo, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import posService from '../../services/posService'
+import narrowOptions from '../../utils/optionsReport'
 import TimeframePicker from '../../components/frontdesk/TimeframePicker'
+import GstFilingTab from './GstFilingTab'
 import { APP_CONFIG } from '../../constants'
 import './finance.css'
 
@@ -29,32 +31,58 @@ const qty = (n) => {
   return Number.isInteger(v) ? String(v) : v.toFixed(3).replace(/\.?0+$/, '')
 }
 
+// Every report in view at once, grouped by the question it answers. In one
+// scrolling row, GST — the tab an accountant opens every month — sat past the
+// right edge on most screens.
+const TAB_GROUPS = [
+  { key: 'sales',  label: 'Sales' },
+  { key: 'money',  label: 'Money & tax' },
+  { key: 'guests', label: 'Guests & venue' },
+]
+
 const TABS = [
-  { key: 'overview', label: 'Overview',  icon: '💰' },
-  { key: 'sales',    label: 'Sales',     icon: '🧾' },
-  { key: 'products', label: 'Products',  icon: '🍽️' },
-  { key: 'pending',  label: 'Pending',   icon: '⏳' },
-  { key: 'tenders',  label: 'Tenders',   icon: '💳' },
-  { key: 'venue',    label: 'Floors & Tables', icon: '🪑' },
-  { key: 'channels', label: 'Channels',  icon: '🎫' },
-  { key: 'discounts', label: 'Discounts', icon: '🏷️' },
-  { key: 'cashflow', label: 'Cash Flow', icon: '🏦' },
-  { key: 'expenses', label: 'Expenses',  icon: '💸' },
-  // Ten tabs answer WHAT was sold. These two answer WHO bought it.
-  { key: 'customers', label: 'Customers', icon: '👥' },
-  { key: 'visits',    label: 'Visit Pattern', icon: '🕒' },
+  { key: 'overview', label: 'Overview',  icon: '💰', group: 'sales' },
+  { key: 'sales',    label: 'Sales',     icon: '🧾', group: 'sales' },
+  { key: 'products', label: 'Products',  icon: '🍽️', group: 'sales' },
+  // Which options and add-ons sell, and how often each is taken.
+  { key: 'options',  label: 'Options & Add-ons', icon: '🧩', group: 'sales' },
+  { key: 'channels', label: 'Channels',  icon: '🎫', group: 'sales' },
+  { key: 'pending',  label: 'Pending',   icon: '⏳', group: 'money' },
+  { key: 'tenders',  label: 'Tenders',   icon: '💳', group: 'money' },
+  { key: 'cashflow', label: 'Cash Flow', icon: '🏦', group: 'money' },
+  { key: 'expenses', label: 'Expenses',  icon: '💸', group: 'money' },
+  // Money given away, so it sits with money.
+  { key: 'discounts', label: 'Discounts', icon: '🏷️', group: 'money' },
+  // GST returns: the CA pack for a month, and sales with / without GST.
+  { key: 'gst',       label: 'GST', icon: '🧾', group: 'money' },
+  // The rest answer WHAT was sold. These answer WHO bought it, and where.
+  { key: 'customers', label: 'Customers', icon: '👥', group: 'guests' },
+  { key: 'visits',    label: 'Visit Pattern', icon: '🕒', group: 'guests' },
+  { key: 'venue',    label: 'Floors & Tables', icon: '🪑', group: 'guests' },
 ]
 
 const LOADERS = {
   overview: posService.getFinanceOverview,
   sales:    posService.getSalesReport,
-  products: posService.getProductReport,
+  // Two requests, one tab. The option breakdown decorates the product table;
+  // losing it must not blank the table, so a failed or refused breakdown just
+  // leaves the rows unexpandable.
+  products: async (range) => {
+    const [report, options] = await Promise.allSettled([
+      posService.getProductReport(range),
+      Promise.resolve().then(() => posService.getOptionsReport(range)),
+    ])
+    if (report.status === 'rejected') throw report.reason
+    return { ...report.value, options: options.status === 'fulfilled' ? options.value : null }
+  },
+  options: posService.getOptionsReport,
   pending:  posService.getPendingReport,
   tenders:  posService.getTenderReport,
   venue:     posService.getVenueReport,
   channels:  posService.getChannelReport,
   discounts: posService.getDiscountReport,
   cashflow: posService.getCashFlowReport,
+  gst:      posService.getGstSplit,
   expenses: posService.getExpenseReport,
   // Two requests, one tab. allSettled rather than all: the lapsed list decorates
   // this tab, and losing it must not blank the credibility table the tab exists
@@ -179,17 +207,25 @@ const Finance = () => {
         showBucket={tab === 'overview' || tab === 'sales' || tab === 'expenses'}
       />
 
-      <div className="fd-tabs" role="tablist">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            role="tab"
-            aria-selected={tab === t.key}
-            className={`fd-tab ${tab === t.key ? 'is-active' : ''}`}
-            onClick={() => setTab(t.key)}
-          >
-            <span aria-hidden="true">{t.icon}</span> {t.label}
-          </button>
+      <div className="fd-tabs" role="tablist" aria-label="Finance reports">
+        {TAB_GROUPS.map((g) => (
+          <div className="fd-tab-group" key={g.key} role="presentation">
+            <span className="fd-tab-group-label" aria-hidden="true">{g.label}</span>
+            <div className="fd-tab-group-items" role="presentation">
+              {TABS.filter((t) => t.group === g.key).map((t) => (
+                <button
+                  key={t.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === t.key}
+                  className={`fd-tab ${tab === t.key ? 'is-active' : ''}`}
+                  onClick={() => setTab(t.key)}
+                >
+                  <span aria-hidden="true">{t.icon}</span> {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
         ))}
       </div>
 
@@ -211,6 +247,7 @@ const Finance = () => {
           {tab === 'overview' && <OverviewTab data={data} range={range} />}
           {tab === 'sales'    && <SalesTab data={data} range={range} />}
           {tab === 'products' && <ProductsTab data={data} />}
+          {tab === 'options'  && <OptionsTab data={data} />}
           {tab === 'pending'  && <PendingTab data={data} />}
           {tab === 'tenders'  && <TendersTab data={data} />}
           {tab === 'venue'    && <VenueTab data={data} />}
@@ -220,6 +257,7 @@ const Finance = () => {
           {tab === 'expenses' && <ExpensesTab data={data} range={range} />}
           {tab === 'customers' && <CustomersTab data={data} />}
           {tab === 'visits'    && <VisitPatternTab data={data} />}
+          {tab === 'gst'       && <GstFilingTab data={data} branches={branches} />}
         </div>
       )}
     </div>
@@ -330,15 +368,99 @@ const SalesTab = ({ data, range }) => {
 /* ── Products ─────────────────────────────────────────────────────────────── */
 // Quantity, revenue and discount per product, straight off the invoice lines —
 // so a renamed or repriced item cannot rewrite what history says was sold.
+
+// A share as "54%" or "53.8%" — whole numbers stay whole.
+const rate = (v) => (v == null ? '—' : `${Number.isInteger(v) ? v : Number(v).toFixed(1)}%`)
+
+const Bar = ({ value, tone }) => (
+  <span className={`fd-mix-bar ${tone || ''}`} aria-hidden="true">
+    <span style={{ width: `${Math.max(0, Math.min(100, Number(value) || 0))}%` }} />
+  </span>
+)
+
+/**
+ * One dish opened up: which options sold on it, and how often each add-on was
+ * taken. Rates are over the dish's own plates.
+ */
+const ProductOptionsPanel = ({ detail, id }) => {
+  const plates = Number(detail.Plates) || 0
+  const showOptions = detail.variants.length > 0 || detail.PlatesWithoutOption != null
+  return (
+    <div className="fd-product-options" id={id}>
+      {showOptions && (
+        <section aria-label={`Options sold on ${detail.ItemName}`}>
+          <div className="fd-mix-head"><span>Options sold</span><span>of {qty(plates)} plates</span></div>
+          <div className="fd-mix">
+            {detail.variants.map((v) => (
+              <div className="fd-mix-row" key={v.VariantId || v.Name}>
+                <span className="fd-mix-name">{v.Name}</span>
+                <Bar value={v.TakeRate} tone="is-option" />
+                <span className="num">{qty(v.Plates)} of {qty(plates)}</span>
+                <span className="num opt">+{money(v.Revenue)}</span>
+              </div>
+            ))}
+            {Number(detail.PlatesWithoutOption) > 0 && (
+              <div className="fd-mix-row is-muted">
+                <span className="fd-mix-name">No option</span>
+                <Bar value={(detail.PlatesWithoutOption / (plates || 1)) * 100} />
+                <span className="num">{qty(detail.PlatesWithoutOption)} of {qty(plates)}</span>
+                <span className="num">—</span>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+      {detail.addonGroups.length > 0 && (
+        <section aria-label={`Add-ons taken on ${detail.ItemName}`}>
+          <div className="fd-mix-head"><span>Add-ons taken</span><span>share of {qty(plates)} plates</span></div>
+          <div className="fd-mix">
+            {detail.addonGroups.map((g) => (
+              <React.Fragment key={g.GroupId || g.GroupName}>
+                <div className="fd-mix-group">
+                  <span>{g.GroupName}{Number(g.MaxSelection) > 0 && <em> · pick up to {g.MaxSelection}</em>}</span>
+                  <span>{qty(g.Plates)} of {qty(plates)} · {rate(g.TakeRate)} · {money(g.Revenue)}</span>
+                </div>
+                {g.addons.map((a) => (
+                  <div className="fd-mix-row" key={a.AddonId || a.Name}>
+                    <span className="fd-mix-name">{a.Name}</span>
+                    <Bar value={a.TakeRate} tone="is-addon" />
+                    <span className="num">{qty(a.Plates)} · {rate(a.TakeRate)}</span>
+                    <span className="num addon">+{money(a.Revenue)}</span>
+                  </div>
+                ))}
+              </React.Fragment>
+            ))}
+          </div>
+        </section>
+      )}
+      {!showOptions && detail.addonGroups.length === 0 && (
+        <p className="fd-footnote">This dish offers choices, but none were taken in this period.</p>
+      )}
+    </div>
+  )
+}
+
 const ProductsTab = ({ data }) => {
   const rows = data.products || []
+  const detail = data.options?.products || {}
+  const [open, setOpen] = useState(() => new Set())
   const totals = rows.reduce((t, p) => ({
     qty: t.qty + (Number(p.QuantitySold) || 0),
     discount: t.discount + (Number(p.DiscountAmount) || 0),
     gross: t.gross + (Number(p.GrossAmount) || 0),
-  }), { qty: 0, discount: 0, gross: 0 })
+    options: t.options + (Number(p.OptionsAmount) || 0),
+    addons: t.addons + (Number(p.AddonsAmount) || 0),
+  }), { qty: 0, discount: 0, gross: 0, options: 0, addons: 0 })
 
   if (!rows.length) return <Empty>No products sold in this period.</Empty>
+
+  const extras = totals.options + totals.addons
+  const toggle = (itemId) => setOpen((prev) => {
+    const next = new Set(prev)
+    if (next.has(itemId)) next.delete(itemId)
+    else next.add(itemId)
+    return next
+  })
 
   return (
     <>
@@ -346,39 +468,249 @@ const ProductsTab = ({ data }) => {
         <Kpi label="Products sold" value={rows.length} />
         <Kpi label="Units" value={qty(totals.qty)} />
         <Kpi label="Discount given" value={money(totals.discount)} accent="accent-orange" />
+        {extras > 0 && (
+          <Kpi
+            label="Options & extras"
+            value={money(extras)}
+            accent="accent-blue"
+            hint={`${rate(totals.gross > 0 ? Math.round((extras / totals.gross) * 1000) / 10 : null)} of revenue · options ${money(totals.options)}, extras ${money(totals.addons)}`}
+          />
+        )}
         <Kpi label="Revenue" value={money(totals.gross)} accent="accent-green" />
       </div>
 
       <div className="fd-section-title">Ranked by revenue</div>
-      <div className="fd-table-scroll">
+      <div className="fd-table-scroll fd-products-scroll">
         <table className="fd-table">
           <thead>
             <tr>
               <th>#</th><th>Product</th><th>Category</th>
               <th className="num">Qty sold</th><th className="num">Net</th>
+              <th className="num" title="What options added on top of the dish price, before discount">Options</th>
+              <th className="num" title="What add-ons added on top of the dish price, before discount">Extras</th>
               <th className="num">Discount</th><th className="num">Tax</th>
               <th className="num">Revenue</th><th className="num">Bills</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((p, i) => (
-              <tr key={p.ItemId || i}>
-                <td className="muted">{i + 1}</td>
-                <td className="strong">{p.ItemName || p.ItemId}</td>
-                <td>{p.CategoryName || <span className="muted">—</span>}</td>
-                <td className="num">{qty(p.QuantitySold)}</td>
-                <td className="num">{money(p.NetAmount)}</td>
-                <td className="num">{Number(p.DiscountAmount) > 0
-                  ? <span className="fd-discount">−{money(p.DiscountAmount)}</span>
-                  : <span className="muted">—</span>}</td>
-                <td className="num">{money(p.TaxAmount)}</td>
-                <td className="num strong">{money(p.GrossAmount)}</td>
-                <td className="num">{p.Documents}</td>
-              </tr>
-            ))}
+            {rows.map((p, i) => {
+              const d = detail[p.ItemId]
+              const isOpen = open.has(p.ItemId)
+              const panelId = `fd-product-options-${i}`
+              return (
+                <React.Fragment key={p.ItemId || i}>
+                  <tr className={isOpen ? 'is-open' : undefined}>
+                    <td className="muted">{i + 1}</td>
+                    <td className="strong">
+                      {d ? (
+                        <button
+                          type="button"
+                          className="fd-expand-btn"
+                          aria-expanded={isOpen}
+                          aria-controls={panelId}
+                          onClick={() => toggle(p.ItemId)}
+                        >
+                          <span className="fd-expand-caret" aria-hidden="true">
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4.5 3 7.5 6 4.5 9" /></svg>
+                          </span>
+                          {p.ItemName || p.ItemId}
+                        </button>
+                      ) : (p.ItemName || p.ItemId)}
+                    </td>
+                    <td>{p.CategoryName || <span className="muted">—</span>}</td>
+                    <td className="num">{qty(p.QuantitySold)}</td>
+                    <td className="num">{money(p.NetAmount)}</td>
+                    <td className="num">{Number(p.OptionsAmount) > 0
+                      ? <span className="opt">{money(p.OptionsAmount)}</span>
+                      : <span className="muted">—</span>}</td>
+                    <td className="num">{Number(p.AddonsAmount) > 0
+                      ? <span className="addon">{money(p.AddonsAmount)}</span>
+                      : <span className="muted">—</span>}</td>
+                    <td className="num">{Number(p.DiscountAmount) > 0
+                      ? <span className="fd-discount">−{money(p.DiscountAmount)}</span>
+                      : <span className="muted">—</span>}</td>
+                    <td className="num">{money(p.TaxAmount)}</td>
+                    <td className="num strong">{money(p.GrossAmount)}</td>
+                    <td className="num">{p.Documents}</td>
+                  </tr>
+                  {d && isOpen && (
+                    <tr className="fd-product-detail-row">
+                      <td colSpan={11}><ProductOptionsPanel detail={d} id={panelId} /></td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              )
+            })}
           </tbody>
         </table>
       </div>
+      <p className="fd-footnote">
+        Options and Extras are part of Revenue: what portion upgrades and add-ons
+        added on top of dish prices, before discount. Open a dish to see which
+        options sold and how often each add-on was taken.
+      </p>
+    </>
+  )
+}
+
+/* ── Options & add-ons ────────────────────────────────────────────────────── */
+// Across the menu: which options and add-ons sell, and how often each is taken
+// by the dishes that offer it. Narrowed to a category or a dish without another
+// request — see utils/optionsReport.
+const soldOn = (dishes) => {
+  const names = dishes.map((d) => d.ItemName)
+  if (names.length <= 2) return names.join(', ')
+  return `${names.slice(0, 2).join(', ')} +${names.length - 2} more`
+}
+
+const RateCell = ({ value, tone }) => (
+  <div className="fd-rate">
+    <Bar value={value} tone={tone} />
+    <b>{rate(value)}</b>
+  </div>
+)
+
+const OptionsTab = ({ data }) => {
+  const [category, setCategory] = useState('')
+  const [dish, setDish] = useState('')
+  const all = useMemo(() => Object.values(data.products || {}), [data])
+  const categories = useMemo(
+    () => [...new Set(all.map((p) => p.CategoryName).filter(Boolean))].sort(),
+    [all],
+  )
+  const dishes = useMemo(
+    () => all.filter((p) => !category || p.CategoryName === category)
+      .sort((a, b) => String(a.ItemName).localeCompare(String(b.ItemName))),
+    [all, category],
+  )
+  const view = useMemo(() => narrowOptions(data.products, { category, dish }), [data, category, dish])
+  const narrowed = Boolean(category || dish)
+  // The whole-menu share is over ALL revenue; a narrowed one over the chosen dishes'.
+  const totals = narrowed ? view.totals : (data.totals || view.totals)
+
+  if (!all.length) {
+    return <Empty>No dish sold with an option or add-on in this period.</Empty>
+  }
+
+  return (
+    <>
+      <div className="fd-options-filters">
+        <label>
+          Category
+          <select
+            value={category}
+            onChange={(e) => { setCategory(e.target.value); setDish('') }}
+          >
+            <option value="">All categories</option>
+            {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </label>
+        <label>
+          Dish
+          <select value={dish} onChange={(e) => setDish(e.target.value)}>
+            <option value="">All dishes</option>
+            {dishes.map((p) => <option key={p.ItemId} value={p.ItemId}>{p.ItemName}</option>)}
+          </select>
+        </label>
+      </div>
+
+      <div className="fd-kpi-grid">
+        <Kpi label="Option revenue" value={money(totals.OptionsAmount)} accent="accent-blue" />
+        <Kpi label="Extras revenue" value={money(totals.AddonsAmount)} accent="accent-green" />
+        <Kpi
+          label="Share of revenue"
+          value={rate(totals.ShareOfRevenue)}
+          hint={`${money((Number(totals.OptionsAmount) || 0) + (Number(totals.AddonsAmount) || 0))} of ${money(totals.GrossAmount)}${narrowed ? ' from these dishes' : ''}`}
+        />
+      </div>
+
+      <div className="fd-section-title">Options</div>
+      {view.variants.length === 0 ? (
+        <Empty>No options sold{narrowed ? ' on these dishes' : ''} in this period.</Empty>
+      ) : (
+        <div className="fd-table-scroll">
+          <table className="fd-table fd-options-table">
+            <thead>
+              <tr>
+                <th>Option</th><th className="num">Plates</th><th>Take rate</th>
+                <th>Sold on</th><th className="num">Price</th><th className="num">Revenue added</th>
+              </tr>
+            </thead>
+            <tbody>
+              {view.variants.map((v) => (
+                <tr key={v.VariantId || v.Name}>
+                  <td><span className="ci-variant-chip">{v.Name}</span></td>
+                  <td className="num">{qty(v.Plates)}</td>
+                  <td><RateCell value={v.TakeRate} tone="is-option" /></td>
+                  <td>{soldOn(v.Dishes)}</td>
+                  <td className="num">+{money(v.Price)}</td>
+                  <td className="num strong">{money(v.Revenue)}</td>
+                </tr>
+              ))}
+              {view.platesWithoutOption > 0 && (
+                <tr>
+                  <td className="muted">No option chosen</td>
+                  <td className="num muted">{qty(view.platesWithoutOption)}</td>
+                  <td /><td /><td className="num muted">—</td><td className="num muted">—</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <div className="fd-section-title">Add-on groups</div>
+      {view.addonGroups.length === 0 ? (
+        <Empty>No add-ons taken{narrowed ? ' on these dishes' : ''} in this period.</Empty>
+      ) : (
+        <div className="fd-table-scroll">
+          <table className="fd-table fd-options-table">
+            <thead>
+              <tr>
+                <th>Group / add-on</th><th className="num">Offered on</th><th className="num">Taken</th>
+                <th>Take rate</th><th>Top dish</th><th className="num">Price</th><th className="num">Revenue added</th>
+              </tr>
+            </thead>
+            <tbody>
+              {view.addonGroups.map((g) => (
+                <React.Fragment key={g.GroupId || g.GroupName}>
+                  <tr className="is-group">
+                    <td className="strong">
+                      {g.GroupName}
+                      {Number(g.MaxSelection) > 0 && <span className="muted"> · pick up to {g.MaxSelection}</span>}
+                    </td>
+                    <td className="num">{qty(g.OfferedPlates)} plates</td>
+                    <td className="num">{qty(g.Plates)}</td>
+                    <td><RateCell value={g.TakeRate} tone="is-addon" /></td>
+                    <td>{g.Addons[0]?.Dishes[0]?.ItemName || '—'}</td>
+                    <td className="num muted">—</td>
+                    <td className="num strong">{money(g.Revenue)}</td>
+                  </tr>
+                  {g.Addons.map((a) => (
+                    <tr className="is-child" key={a.AddonId || a.Name}>
+                      <td><span className="ci-variant-chip is-addon">{a.Name}</span></td>
+                      <td />
+                      <td className="num">{qty(a.Plates)}</td>
+                      <td><RateCell value={a.TakeRate} tone="is-addon" /></td>
+                      <td>
+                        {a.Dishes[0]?.ItemName || '—'}
+                        {a.Dishes.length > 1 && <span className="muted"> ({qty(a.Dishes[0].Plates)})</span>}
+                      </td>
+                      <td className="num">+{money(a.Price)}</td>
+                      <td className="num">{money(a.Revenue)}</td>
+                    </tr>
+                  ))}
+                </React.Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <p className="fd-footnote">
+        Take rate is plates that got it ÷ plates of the dishes that offer it. Read
+        from what each invoice recorded, so renaming or repricing an option does
+        not change past figures.
+      </p>
     </>
   )
 }

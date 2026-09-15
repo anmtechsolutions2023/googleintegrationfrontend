@@ -2,6 +2,7 @@ import React from 'react';
 import { render, screen, within } from '@testing-library/react';
 import Receipt from '../Receipt';
 import { shows, ALWAYS, IF_PRESENT, NEVER } from '../../../../utils/receiptFields';
+import { buildKotPrintData } from '../../../../utils/kotPrint';
 
 // What reaches the paper. The rules asserted here are the ones a checkbox gets
 // wrong and the ones that cost money when they are wrong.
@@ -286,5 +287,130 @@ describe('shows()', () => {
   test('an unknown field falls back to "print it if there is something"', () => {
     expect(shows({}, 'nope', 'x')).toBe(true);
     expect(shows({}, 'nope', '')).toBe(false);
+  });
+});
+
+// ── Options, add-ons and kitchen notes on paper ──────────────────────────────
+// The option and its add-ons used to be missing from every printout, and an
+// always-on field with nothing in it printed as "** NULL **", a bare "ROUND"
+// or an "FSSAI" with no number.
+describe('options, add-ons and kitchen notes', () => {
+  const inPaper = (doc) => within(screen.getByTestId(`receipt-${doc}`));
+
+  // ORD-0001 as it really sold.
+  const RICE = {
+    name: 'Veg Triple Fried Rice', qty: 1, price: 479, basePrice: 239,
+    variants: [{ id: 'v1', name: 'Half portion', price: 170 }],
+    addons: [
+      { id: 'a1', name: 'Raita', price: 20, groupName: 'Extra dip' },
+      { id: 'a2', name: 'Paneer', price: 50, groupName: 'Extra' },
+    ],
+    note: 'Less spicy, No onion',
+  }
+
+  // The branch format the till actually loads for a kitchen ticket.
+  const TICKET_FORMAT = {
+    documentNo: 'always', table: 'if_present', token: 'if_present', round: 'always', waiter: 'always',
+    prices: 'never', bigQty: 'always', itemOptions: 'always', itemNotes: 'always',
+    orderInstructions: 'always', noCutlery: 'always', dateTime: 'time',
+  }
+
+  describe('kitchen ticket', () => {
+    test('a counter order with no instructions prints no NULL and no bare ROUND', () => {
+      render(<Receipt inline doc="kot" format={TICKET_FORMAT} data={buildKotPrintData({
+        kot: { KotNo: 'KOT-0001' }, items: [{ name: 'Veg Triple Fried Rice', qty: 1 }], tableName: 'COUNTER',
+      })} />)
+      expect(inPaper('kot').queryByText(/NULL/)).toBeNull()
+      expect(inPaper('kot').queryByText(/^ROUND/)).toBeNull()
+      expect(inPaper('kot').getByText('COUNTER')).toBeInTheDocument()
+    })
+
+    test('the portion, each add-on with its group, then the dish note and the order note', () => {
+      render(<Receipt inline doc="kot" format={TICKET_FORMAT} data={buildKotPrintData({
+        kot: { KotNo: 'KOT-0002', CookingInstructions: 'Pack sauces separately', NoCutlery: 1 },
+        items: [RICE],
+        tableName: 'COUNTER',
+      })} />)
+      expect(inPaper('kot').getByText('> HALF PORTION')).toBeInTheDocument()
+      expect(inPaper('kot').getByText('+ RAITA')).toBeInTheDocument()
+      expect(inPaper('kot').getByText('EXTRA DIP')).toBeInTheDocument()
+      expect(inPaper('kot').getByText('** LESS SPICY, NO ONION **')).toBeInTheDocument()
+      expect(inPaper('kot').getByText('** PACK SAUCES SEPARATELY **')).toBeInTheDocument()
+      expect(inPaper('kot').getByText('** NO CUTLERY **')).toBeInTheDocument()
+      // Never priced on the kitchen copy.
+      expect(inPaper('kot').queryByText(/170/)).toBeNull()
+    })
+
+    test('a branch that turns options off gets the dish alone', () => {
+      render(<Receipt inline doc="kot" format={{ ...TICKET_FORMAT, itemOptions: 'never' }}
+        data={buildKotPrintData({ kot: { KotNo: 'K' }, items: [RICE] })} />)
+      expect(inPaper('kot').queryByText('> HALF PORTION')).toBeNull()
+    })
+  })
+
+  const INVOICE_LINE = {
+    Id: 'l1', ItemName: 'Veg Triple Fried Rice', Comment: 'Veg Triple Fried Rice', Quantity: '1.0000',
+    UnitPrice: '479.0000', BasePrice: '239.0000', VariantAmount: '170.0000', AddonAmount: '70.0000',
+    GrossAmount: '479.0000', Note: 'Less spicy',
+    Variants: [{ id: 'v1', name: 'Half portion', price: 170 }],
+    Addons: [{ id: 'a1', name: 'Raita', price: 20, groupName: 'Extra dip' }, { id: 'a2', name: 'Paneer', price: 50, groupName: 'Extra' }],
+  }
+  const OPTIONS_BILL = {
+    TransactionNo: 'INV-0001', TransactionDate: '2026-09-14', Lines: [INVOICE_LINE],
+    NetAmount: 456.19, TaxAmount: 22.81, GrossAmount: 479, Tenders: [],
+  }
+  const BALAGERE = { name: 'Balagere', address: 'Balagere Road', fssai: '' }
+
+  describe('bill', () => {
+    test('itemises the dish price and what each choice added, so the rate adds up', () => {
+      render(<Receipt inline doc="bill" format={{}} shop={BALAGERE} data={OPTIONS_BILL} />)
+      expect(inPaper('bill').getByText('1 x 479.00')).toBeInTheDocument()
+      expect(inPaper('bill').getByText('Dish')).toBeInTheDocument()
+      expect(inPaper('bill').getByText('239.00')).toBeInTheDocument()
+      expect(inPaper('bill').getByText('> Half portion')).toBeInTheDocument()
+      expect(inPaper('bill').getByText('+170.00')).toBeInTheDocument()
+      expect(inPaper('bill').getByText('+ Extra dip: Raita')).toBeInTheDocument()
+      expect(inPaper('bill').getByText('Note: Less spicy')).toBeInTheDocument()
+    })
+
+    test('names only, when the branch chooses a shorter bill', () => {
+      render(<Receipt inline doc="bill" format={{ itemOptions: 'names' }} shop={BALAGERE} data={OPTIONS_BILL} />)
+      expect(inPaper('bill').getByText('Half portion · Extra dip: Raita · Extra: Paneer')).toBeInTheDocument()
+      expect(inPaper('bill').queryByText('Dish')).toBeNull()
+    })
+
+    test('hidden', () => {
+      render(<Receipt inline doc="bill" format={{ itemOptions: 'hidden' }} shop={BALAGERE} data={OPTIONS_BILL} />)
+      expect(inPaper('bill').queryByText(/Half portion/)).toBeNull()
+    })
+
+    test('an always-on FSSAI line with no licence number prints nothing', () => {
+      render(<Receipt inline doc="bill" format={{ fssai: 'always' }} shop={BALAGERE} data={OPTIONS_BILL} />)
+      expect(inPaper('bill').queryByText(/FSSAI/)).toBeNull()
+    })
+  })
+});
+
+// ── The GSTIN an invoice was issued under ────────────────────────────────────
+describe('the GSTIN on an issued document', () => {
+  test('a document prints the GSTIN it was issued under, not the branch’s current one', () => {
+    const el = paper('bill', FORMAT(), SALE({ SellerGstin: '29ABCDE1234F1Z5' }));
+    expect(within(el).getByText('GSTIN 29ABCDE1234F1Z5')).toBeInTheDocument();
+    expect(within(el).queryByText(`GSTIN ${SHOP.gstin}`)).not.toBeInTheDocument();
+  });
+
+  test('issued with none, it reprints with none — even though the branch has one now', () => {
+    const el = paper('bill', FORMAT(), SALE({ SellerGstin: null }));
+    expect(within(el).queryByText(/^GSTIN /)).not.toBeInTheDocument();
+  });
+
+  test('a credit note carries it the same way', () => {
+    const el = paper('creditNote', FORMAT(), SALE({ SellerGstin: '29ABCDE1234F1Z5', OriginalNo: 'INV-0418' }));
+    expect(within(el).getByText('GSTIN 29ABCDE1234F1Z5')).toBeInTheDocument();
+  });
+
+  test('without the snapshot — the format preview — it takes the branch’s GSTIN', () => {
+    const el = paper('bill', FORMAT(), SALE());
+    expect(within(el).getByText(`GSTIN ${SHOP.gstin}`)).toBeInTheDocument();
   });
 });

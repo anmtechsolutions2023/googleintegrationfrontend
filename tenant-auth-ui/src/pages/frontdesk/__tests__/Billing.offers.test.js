@@ -14,6 +14,7 @@ jest.mock('../../../services/posService', () => ({
   default: {
     getTables: jest.fn(), getFloors: jest.fn(), getItemMeta: jest.fn(),
     getOrders: jest.fn(), getItemDetail: jest.fn(), getVariants: jest.fn(),
+    getAddonGroups: jest.fn(), getAddons: jest.fn(),
     getPaymentModes: jest.fn(), getKots: jest.fn(), quotePricing: jest.fn(),
     createOrder: jest.fn(), updateOrder: jest.fn(), updateTable: jest.fn(),
     transferOrder: jest.fn(), deleteOrder: jest.fn(),
@@ -60,6 +61,8 @@ beforeEach(() => {
   posService.getItemDetail.mockImplementation(async (id) => ITEM_DETAILS[id] || {});
   posService.getOrders.mockResolvedValue([]);
   posService.getVariants.mockResolvedValue([]);
+  posService.getAddonGroups.mockResolvedValue([]);
+  posService.getAddons.mockResolvedValue([]);
   posService.getPaymentModes.mockResolvedValue([]);
   posService.getKots.mockResolvedValue([]);
   // The real shape: totals live under `totals`.

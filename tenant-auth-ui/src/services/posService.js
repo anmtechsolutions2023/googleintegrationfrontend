@@ -422,6 +422,10 @@ export const genericPut = async (endpoint, data) => {
   const res = await api.put(endpoint, data)
   return res.data
 }
+export const genericPatch = async (endpoint, data) => {
+  const res = await api.patch(endpoint, data)
+  return res.data
+}
 export const genericDelete = async (endpoint) => {
   const res = await api.delete(endpoint)
   return res.data
@@ -441,6 +445,110 @@ export const getVariants = async (params = {}) => {
     params: { limit: MAX_LIMIT, ...params },
   })
   return toArray(res.data)
+}
+
+// ── Add-on groups and add-ons (choice blocks: Crust, Toppings, …) ───────────
+// Two lists, not one nested read, because the till loads them once at boot and
+// joins them locally — the same shape variants already use. The group carries
+// MinSelection/MaxSelection, which is the rule a variant has no way to express
+// and the reason the two cannot share a picker.
+export const getAddonGroups = async (params = {}) => {
+  const res = await api.get('/api/pos/addon-groups', {
+    params: { limit: MAX_LIMIT, ...params },
+  })
+  return toArray(res.data)
+}
+
+// An add-on's Price is a flat surcharge, resolved server-side at order time for
+// exactly the same reason a variant's is: the client never sets a price.
+export const getAddons = async (params = {}) => {
+  const res = await api.get('/api/pos/addons', {
+    params: { limit: MAX_LIMIT, ...params },
+  })
+  return toArray(res.data)
+}
+
+// ── GST switch ──────────────────────────────────────────────────────────────
+// One tenant-wide value. Pricing and the receipt both obey it; the response also
+// carries the switch history and any open orders that would block a change.
+export const getTaxSettings = async () => {
+  const res = await api.get('/api/pos/tax-settings')
+  return toObject(res.data)
+}
+export const updateTaxSettings = async (payload) => {
+  const res = await api.put('/api/pos/tax-settings', payload)
+  return toObject(res.data)
+}
+// A branch's GSTIN. Answers with the whole GST status, branches included, so a
+// screen showing the list can simply replace what it holds.
+export const updateBranchGstin = async (branchId, gstin) => {
+  const res = await api.put(`/api/pos/tax-settings/branches/${encodeURIComponent(branchId)}/gstin`, { gstin })
+  return toObject(res.data)
+}
+
+// ── GST returns ─────────────────────────────────────────────────────────────
+export const getGstSplit = async (params = {}) => {
+  const res = await api.get('/api/gst/split', { params })
+  return toObject(res.data)
+}
+export const getGstReadiness = async (period, branchId) => {
+  const res = await api.get('/api/gst/readiness', { params: { period, branchId } })
+  return toObject(res.data)
+}
+export const recordGstFiling = async (payload) => {
+  const res = await api.post('/api/gst/filings', payload)
+  return toObject(res.data)
+}
+
+// A file download through the authenticated client. The server names the file;
+// the fallback only applies if a proxy strips the header.
+const fileNameFrom = (res, fallback) => {
+  const header = res?.headers?.['content-disposition'] || ''
+  const match = header.match(/filename="?([^";]+)"?/i)
+  return match ? match[1] : fallback
+}
+const saveBlob = (blob, name) => {
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = name
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+/**
+ * The message from a failed download. With responseType 'blob' the server's
+ * JSON error arrives as a Blob too, so it has to be read before it can be shown.
+ */
+export const downloadErrorMessage = async (error, fallback) => {
+  const data = error?.response?.data
+  if (data instanceof Blob) {
+    try {
+      const parsed = JSON.parse(await data.text())
+      return parsed?.message || fallback
+    } catch {
+      return fallback
+    }
+  }
+  return data?.message || fallback
+}
+
+export const downloadGstPack = async (period, branchId) => {
+  const res = await api.get('/api/gst/pack', { params: { period, branchId }, responseType: 'blob' })
+  const name = fileNameFrom(res, `GST_${period}.zip`)
+  saveBlob(res.data, name)
+  return name
+}
+export const downloadSalesWithoutGst = async ({ fromDate, toDate, branchId }) => {
+  const res = await api.get('/api/gst/without-gst', {
+    params: { fromDate, toDate, ...(branchId ? { branchId } : {}) },
+    responseType: 'blob',
+  })
+  const name = fileNameFrom(res, `sales_without_gst_${fromDate}_to_${toDate}.csv`)
+  saveBlob(res.data, name)
+  return name
 }
 
 // ── Payment modes (tender types) ────────────────────────────────────────────
@@ -532,6 +640,8 @@ export const getFinanceOverview = ledgerReport('overview')
 export const getSalesReport = ledgerReport('sales')
 /** Quantity sold, revenue and discount PER PRODUCT. */
 export const getProductReport = ledgerReport('products')
+// Which options and add-ons sell, on which dishes, and how often each is taken.
+export const getOptionsReport = ledgerReport('options')
 /** Unbilled rounds (operational) and unpaid documents (financial). */
 export const getPendingReport = ledgerReport('pending')
 /** Tender mix — the Z-report. Refunds and expenses net out. */
@@ -801,6 +911,10 @@ const posService = {
   getExpenses, createExpense, updateExpense, deleteExpense,
   approveExpense, rejectExpense, settleExpense, getExpenseCategories,
   getVariants,
+  getAddonGroups, getAddons,
+  getTaxSettings, updateTaxSettings, updateBranchGstin,
+  getGstSplit, getGstReadiness, recordGstFiling, downloadGstPack, downloadSalesWithoutGst,
+  downloadErrorMessage,
   getPaymentModes,
   getLedgerDocuments, getLedgerDocument, refundLedgerDocument,
   createLedgerReturn, getLedgerReturns, getReturnsRegister,
@@ -811,7 +925,7 @@ const posService = {
   getCampaigns, getCampaign, createCampaign, updateCampaign, setCampaignStatus,
   deleteCampaign, getCampaignReport, getCampaignOffers,
   createOffer, updateOffer, deleteOffer, previewOffers,
-  getFinanceOverview, getSalesReport, getProductReport, getPendingReport,
+  getFinanceOverview, getSalesReport, getProductReport, getOptionsReport, getPendingReport,
   getTenderReport, getCashFlowReport, getExpenseReport,
   getVenueReport, getDiscountReport, getChannelReport, getTokenStats,
   getCashSessions, getCashSession, getCashSessionSummary,

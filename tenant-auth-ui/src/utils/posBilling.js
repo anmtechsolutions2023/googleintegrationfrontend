@@ -21,6 +21,21 @@ const mergeComponents = (map, comps) => {
   })
 }
 
+// The options and add-ons on a stored line, as one order-independent key.
+// Ids when the snapshot has them; names otherwise, for a round stored before ids
+// were kept. Empty for a plain line, so plain lines group exactly as before.
+const choiceKeyOf = (it) => {
+  const ids = (list) => (Array.isArray(list) ? list : [])
+    .map((c) => (typeof c === 'string' ? c : (c?.id ?? c?.Id ?? c?.name ?? c?.Name)))
+    .filter(Boolean)
+    .map(String)
+    .sort()
+  const variants = ids(it.variants ?? it.Variants)
+  const addons = ids(it.addons ?? it.Addons)
+  if (variants.length === 0 && addons.length === 0) return ''
+  return `v:${variants.join(',')};a:${addons.join(',')}`
+}
+
 // One priced line from an order's stored item snapshot. Prefers the recorded
 // net/tax/gross; derives sensible values when only a unit price is present.
 const lineSummary = (it) => {
@@ -39,6 +54,14 @@ const lineSummary = (it) => {
     rate,
     isTaxIncluded: !!(it.isTaxIncluded ?? it.IsTaxIncluded),
     components: it.taxComponents || it.components || [],
+    // The stored line itself, so a bill can say WHICH dosa: the options and
+    // add-ons chosen, and what each added. Dropping it here is what left the
+    // settle screen charging ₹239 for a ₹219 dish with nothing to explain the
+    // difference.
+    line: it,
+    // What makes two plates of one dish different. Part of the bill's grouping
+    // key, so "Pizza + Olives" and plain "Pizza" stay two rows.
+    choiceKey: choiceKeyOf(it),
   }
 }
 
@@ -96,7 +119,10 @@ export const summarizeSession = (rounds) => {
   const itemMap = new Map()
   roundSummaries.forEach((r) =>
     r.lines.forEach((l) => {
-      const key = `${l.name}|${l.rate}|${l.isTaxIncluded}`
+      // choiceKey keeps differently-customised plates of one dish apart: merged,
+      // their options could not be shown, and one row would claim a price no
+      // single plate was sold at.
+      const key = `${l.name}|${l.rate}|${l.isTaxIncluded}|${l.choiceKey}`
       // `rate` and `components` are copied from the first line of the group, not
       // accumulated — the group key already pins the rate, so every line in it
       // carries the same one. Components ride along so the bill can show what a
@@ -107,6 +133,9 @@ export const summarizeSession = (rounds) => {
         {
           name: l.name, rate: l.rate, isTaxIncluded: l.isTaxIncluded,
           components: (l.components || []).map((c) => ({ name: c.name, rate: num(c.rate) })),
+          // Every line in the group shares its choices (they are in the key),
+          // so the first one speaks for the row.
+          line: l.line,
           qty: 0, net: 0, tax: 0, gross: 0,
         }
       e.qty += l.qty

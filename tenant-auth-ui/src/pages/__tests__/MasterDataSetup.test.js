@@ -655,3 +655,40 @@ describe('"Create everything" — two passes, in order', () => {
     expect(importService.importItems).not.toHaveBeenCalled();
   });
 });
+
+test('GSTIN is optional, checked before moving on, and shown on the review', () => {
+  renderWizard();
+  typeInto('Organization Name', 'ANM Tech');
+  fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+  typeInto('Branch Name', 'Main');
+  typeInto('Address Line 1', '12 MG Road');
+  typeInto('First Name', 'Ravi');
+  typeInto('Last Name', 'K');
+
+  // Nothing is said while it is still being typed…
+  typeInto('GSTIN', '29abcde1234f1z');
+  expect(screen.getByLabelText(/GSTIN/)).toHaveValue('29ABCDE1234F1Z');
+  expect(screen.queryByText(/A GSTIN is 15 characters/)).not.toBeInTheDocument();
+
+  // …but a wrong one does not get past Next.
+  fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+  expect(screen.getByText(/A GSTIN is 15 characters/)).toBeInTheDocument();
+  expect(screen.getByLabelText(/Branch Name/i)).toBeInTheDocument();
+
+  typeInto('GSTIN', '29abcde1234f1z5');
+  expect(screen.getByText('Registered in Karnataka')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+
+  fireEvent.click(screen.getByRole('checkbox'));
+  fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+  expect(screen.getByRole('heading', { name: /Review/i })).toBeInTheDocument();
+  expect(screen.getByText('29ABCDE1234F1Z5')).toBeInTheDocument();
+});
+
+test('an unknown GSTIN state code is refused', () => {
+  renderWizard();
+  typeInto('Organization Name', 'ANM Tech');
+  fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+  typeInto('GSTIN', '99ABCDE1234F1Z5');
+  expect(screen.getByText(/99 is not a GST state code/)).toBeInTheDocument();
+});

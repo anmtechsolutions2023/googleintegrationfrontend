@@ -1,7 +1,8 @@
 import React, { useEffect, useRef } from 'react'
 import useOrderDetail from '../../hooks/useOrderDetail'
 import { statusLabel, normalizeStatus } from '../../utils/posStatus'
-import { itemLabel, itemQty, itemVariants } from '../../utils/posRounds'
+import { itemLabel, itemQty } from '../../utils/posRounds'
+import LineOptions, { OrderInstructions } from './LineOptions'
 
 const money = (n) => (Number(n) || 0).toFixed(2)
 const time = (v) => (v ? new Date(v).toLocaleString() : '—')
@@ -109,15 +110,9 @@ const OrderDetailModal = ({ orderId, onClose }) => {
                       <tr key={i}>
                         <td>
                           {itemLabel(it)}
-                          {itemVariants(it).length > 0 && (
-                            <span className="ci-variants">
-                              {itemVariants(it).map((v, vi) => (
-                                <span className="ci-variant-chip" key={v.id || vi}>
-                                  {v.name}{Number(v.price) > 0 ? ` +₹${money(v.price)}` : ''}
-                                </span>
-                              ))}
-                            </span>
-                          )}
+                          {/* Options, add-ons and the kitchen note as ordered, and how the
+                              rate was built from them. */}
+                          <LineOptions line={it} showBreakdown />
                         </td>
                         <td className="num">{itemQty(it)}</td>
                         <td className="num">₹{money(it.grossAmount ?? it.price)}</td>
@@ -127,6 +122,11 @@ const OrderDetailModal = ({ orderId, onClose }) => {
                 </table>
               </div>
             )}
+
+            <OrderInstructions
+              instructions={order.CookingInstructions}
+              noCutlery={order.NoCutlery}
+            />
 
             <div className="fd-order-totals">
               <span>Subtotal ₹{money(order.SubTotal)}</span>
