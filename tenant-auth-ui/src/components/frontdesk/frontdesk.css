@@ -3675,3 +3675,56 @@
   .fd-gstin-input { font-size: 16px; }
   .fd-gstin-edit .fd-btn { min-height: 40px; }
 }
+
+/* ── Printer on this device (Receipt format) and the till's printer button ── */
+.fd-printer-card { margin-bottom: 16px; display: flex; flex-direction: column; gap: 12px; }
+.fd-printer-card .fd-setting-desc { margin: 0; }
+.fd-printer-body { display: flex; flex-direction: column; gap: 10px; }
+.fd-printer-status {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 10px 12px; border: 1px solid #e1e5eb; border-radius: 8px;
+}
+.fd-printer-state { flex: 1 1 200px; min-width: 0; font-size: 13px; color: #2c3e50; overflow-wrap: anywhere; }
+.fd-printer-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.fd-printer-dot { width: 9px; height: 9px; border-radius: 50%; background: #b2bec3; flex: none; }
+.fd-printer-dot.is-on { background: #27ae60; box-shadow: 0 0 0 3px rgba(39, 174, 96, 0.18); }
+.fd-printer-note { margin: 0; padding: 8px 12px; border-radius: 6px; font-size: 12.5px; line-height: 1.5; }
+.fd-printer-note.is-warn { background: #fdf3e7; color: #7a4a00; }
+.fd-printer-note.is-bad { background: #fdecea; color: #b03a2e; }
+.fd-printer-help { font-size: 12.5px; color: #5a6c7d; line-height: 1.55; }
+.fd-printer-help summary { cursor: pointer; font-weight: 600; color: #2c3e50; padding: 4px 0; }
+.fd-printer-help ul { margin: 6px 0 10px; padding-left: 18px; }
+.fd-printer-help small { display: block; margin-top: 6px; font-size: 12px; color: #7f8c8d; }
+.fd-printer-help small.is-bad { color: #c0392b; }
+.fd-printer-uuid { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.fd-printer-uuid label { font-weight: 600; color: #2c3e50; }
+.fd-printer-uuid input {
+  flex: 1 1 260px; min-width: 0; box-sizing: border-box;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px;
+  padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 6px; color: #2c3e50; background: #fff;
+}
+.fd-printer-uuid input[aria-invalid="true"] { border-color: #e74c3c; }
+
+.fd-printer-btn {
+  display: inline-flex; align-items: center; gap: 7px; min-height: 34px; padding: 6px 12px;
+  border-radius: 17px; border: 1px solid #d0d4da; background: #fff; color: #5a6c7d;
+  font: inherit; font-size: 13px; font-weight: 600; white-space: nowrap; max-width: 100%;
+  overflow: hidden; text-overflow: ellipsis;
+}
+button.fd-printer-btn { cursor: pointer; }
+.fd-printer-btn.is-off { border-color: #e67e22; background: #fff8f0; color: #a65a10; }
+.fd-printer-btn.is-off .fd-printer-dot { background: #e67e22; }
+.fd-printer-btn:disabled { opacity: 0.6; cursor: progress; }
+.fd-printer-btn:focus-visible { outline: 2px solid #2980b9; outline-offset: 2px; }
+
+.fd-page-titlebar {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px 16px;
+  flex-wrap: wrap; margin-bottom: 20px;
+}
+.fd-page-titlebar h1 { margin-bottom: 0; }
+
+@media (max-width: 600px) {
+  .fd-printer-uuid input { font-size: 16px; }
+  .fd-printer-actions .fd-btn { min-height: 40px; }
+}
+@media (pointer: coarse) { .fd-printer-btn { min-height: 40px; } }

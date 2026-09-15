@@ -53,6 +53,51 @@ export const choice = (format, key, fallback) => {
 /** Free text, trimmed. Blank prints nothing. */
 export const line = (format, key) => String(format?.[key] || '').trim()
 
-const receiptFields = { ALWAYS, IF_PRESENT, NEVER, hasValue, shows, choice, line }
+// A field that prints its VALUE needs one. `shows` answers whether the format
+// wants the field; ALWAYS says yes even when the sale has nothing to put there,
+// which is how a counter ticket printed "** NULL **", a bare "ROUND" and an
+// "FSSAI" with no licence number. A labelled row can stand empty; a line made
+// of the value alone cannot.
+export const present = (format, key, value) => shows(format, key, value) && hasValue(value)
+
+// ── How values are written on paper ─────────────────────────────────────────
+// Shared by the screen receipt (Receipt.js) and the one sent to a Bluetooth
+// printer (escposReceipt.js), so the two can never print a sale differently.
+
+/** Two decimals and no symbol: a thermal printer has no rupee glyph. */
+export const money = (n) => (Number(n) || 0).toFixed(2)
+
+export const qty = (n) => {
+  const v = Number(n) || 0
+  return Number.isInteger(v) ? String(v) : v.toFixed(3).replace(/\.?0+$/, '')
+}
+
+/** A date as the format asks for it: 'datetime', 'date', 'time' or 'never'. */
+export const dt = (value, mode) => {
+  if (!value || mode === 'never') return ''
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return String(value).slice(0, 16).replace('T', ' ')
+  const date = d.toLocaleDateString('en-GB')
+  const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+  if (mode === 'date') return date
+  if (mode === 'time') return time
+  return `${date} ${time}`
+}
+
+/**
+ * The masthead a document prints. An issued document carries the GSTIN it was
+ * issued under, not whatever the branch holds today — a reprint must say what
+ * the paper said. Anything without the snapshot (a preview, a token slip) takes
+ * the branch's.
+ */
+export const printedShop = (shop = {}, data = {}) => (
+  data && Object.prototype.hasOwnProperty.call(data, 'SellerGstin')
+    ? { ...shop, gstin: data.SellerGstin || '' }
+    : shop
+)
+
+const receiptFields = {
+  ALWAYS, IF_PRESENT, NEVER, hasValue, shows, choice, line, present, money, qty, dt, printedShop,
+}
 
 export default receiptFields

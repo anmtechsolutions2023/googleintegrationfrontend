@@ -3,6 +3,7 @@ import { toast } from 'react-toastify'
 import posService from '../../services/posService'
 import Receipt from '../../components/frontdesk/receipt/Receipt'
 import usePrintReceipt from '../../components/frontdesk/receipt/usePrintReceipt'
+import PrinterButton from '../../components/frontdesk/PrinterButton'
 import { buildKotPrintData } from '../../utils/kotPrint'
 import useMenuFilters from '../../hooks/useMenuFilters'
 import MenuFilterBar from '../../components/frontdesk/MenuFilterBar'
@@ -167,7 +168,7 @@ const Billing = () => {
   const [noCutlery, setNoCutlery] = useState(false)
   // The cart line whose note is open for editing, or null.
   const [noteLine, setNoteLine] = useState(null)
-  const { job, format, shop, taxMode, print, failed: printFailed, clearFailed } = usePrintReceipt(printBranchId)
+  const { job, format, shop, taxMode, print, failed: printFailed, failedReason: printFailedReason, clearFailed } = usePrintReceipt(printBranchId)
   const [settling, setSettling] = useState(false)
   // Live discounted preview from the server (discount applied BEFORE tax), so the
   // payable the cashier sees matches the bill that will be raised.
@@ -262,9 +263,9 @@ const Billing = () => {
   // is switched off, and the cashier reprints instead of investigating. Say it.
   useEffect(() => {
     if (!printFailed) return
-    toast.error('The receipt did not render, so nothing was sent to the printer. Try again.')
+    toast.error(printFailedReason || 'The receipt did not render, so nothing was sent to the printer. Try again.')
     clearFailed()
-  }, [printFailed, clearFailed])
+  }, [printFailed, printFailedReason, clearFailed])
 
 
   // One name resolver for the filter, the chips and the cards, so a dish is
@@ -1492,6 +1493,7 @@ const Billing = () => {
           just the title — there is nothing to say yet. */}
       <div className="fd-billing-bar">
         <h1>🧾 Billing &amp; KOT</h1>
+        <PrinterButton />
         {selectedTable && (
           <div className="fd-billing-bar-table">
             <span className={`fd-table-chip ${selectedTableMeta.key}`}>

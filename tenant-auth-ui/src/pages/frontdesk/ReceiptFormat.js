@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'react-toastify'
 import posService from '../../services/posService'
 import Receipt from '../../components/frontdesk/receipt/Receipt'
+import PrinterCard from '../../components/frontdesk/PrinterCard'
 import { SCOPES } from '../../constants'
 import { useCan } from '../../hooks/useCan'
 import './receiptFormat.css'
@@ -243,6 +244,15 @@ const ReceiptFormat = () => {
           </p>
         </div>
       </div>
+
+      {/* This device's printer, above the per-branch settings it has nothing
+          to do with. "Print this preview" sends exactly what the preview draws. */}
+      <PrinterCard
+        testDoc={previewData ? doc : null}
+        testFormat={values}
+        testShop={schema?.shop}
+        testData={previewData}
+      />
 
       <div className="rf-bar">
         <span className="rf-tabs" role="tablist">

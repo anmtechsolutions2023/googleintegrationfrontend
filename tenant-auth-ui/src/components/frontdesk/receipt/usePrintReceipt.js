@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import posService from '../../../services/posService'
+import { buildReceiptBytes } from '../../../utils/escposReceipt'
+import {
+  getPrinterMode, isDirectPrinterMode, printerErrorMessage, sendToPrinter,
+} from '../../../utils/bluetoothPrinter'
 
 /* eslint-disable no-console */
 const logger = { warn: (...a) => console.warn(...a) }
@@ -53,6 +57,9 @@ export const usePrintReceipt = (branchId) => {
   // message: a print that quietly does nothing is indistinguishable from a
   // printer that is switched off, and the cashier reprints instead of checking.
   const [failed, setFailed] = useState(null)
+  // Why, when the reason is known — a Bluetooth printer out of range says so
+  // rather than "did not render".
+  const [failedReason, setFailedReason] = useState(null)
   // Print must happen AFTER the receipt is in the DOM, and the cleanup must not
   // fire against a component that has since unmounted.
   const timer = useRef(null)
@@ -68,7 +75,38 @@ export const usePrintReceipt = (branchId) => {
     return () => { cancelled = true }
   }, [branchId])
 
-  const print = useCallback((doc, data) => { setFailed(null); setJob({ doc, data }) }, [])
+  // Held in a ref as well, so a print fired from an old closure still uses the
+  // format that has arrived since.
+  const formatRef = useRef(null)
+  formatRef.current = format
+
+  const print = useCallback((doc, data) => {
+    setFailed(null)
+    setFailedReason(null)
+
+    // A receipt printer chosen on this device (Bluetooth LE or serial): no
+    // dialog, no page — the document goes to the printer as ESC/POS bytes and it
+    // cuts the paper. The browser print path below is untouched for every other device.
+    if (isDirectPrinterMode(getPrinterMode())) {
+      const current = formatRef.current
+      const bytes = buildReceiptBytes(doc, {
+        format: current?.documents?.[doc] || null,
+        shop: current?.shop || {},
+        data,
+      })
+      if (!bytes) { setFailed(doc); return Promise.resolve(false) }
+      return sendToPrinter(bytes)
+        .then(() => true)
+        .catch((error) => {
+          setFailedReason(printerErrorMessage(error))
+          setFailed(doc)
+          return false
+        })
+    }
+
+    setJob({ doc, data })
+    return Promise.resolve(true)
+  }, [])
 
   const docFormat = job ? (format?.documents?.[job.doc] || null) : null
 
@@ -141,7 +179,8 @@ export const usePrintReceipt = (branchId) => {
     print,
     ready,
     failed,
-    clearFailed: () => setFailed(null),
+    failedReason,
+    clearFailed: () => { setFailed(null); setFailedReason(null) },
   }
 }
 

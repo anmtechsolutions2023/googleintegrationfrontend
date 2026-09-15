@@ -89,7 +89,7 @@ const Ledger = () => {
 
   // The format follows the document's OWN branch — two outlets under one owner
   // legitimately print different bills, and the ledger lists both.
-  const { job, format, shop, taxMode, print, failed: printFailed, clearFailed } = usePrintReceipt(selected?.BranchId)
+  const { job, format, shop, taxMode, print, failed: printFailed, failedReason: printFailedReason, clearFailed } = usePrintReceipt(selected?.BranchId)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -115,9 +115,9 @@ const Ledger = () => {
   // is switched off, and the cashier reprints instead of investigating. Say it.
   useEffect(() => {
     if (!printFailed) return
-    toast.error('The receipt did not render, so nothing was sent to the printer. Try again.')
+    toast.error(printFailedReason || 'The receipt did not render, so nothing was sent to the printer. Try again.')
     clearFailed()
-  }, [printFailed, clearFailed])
+  }, [printFailed, printFailedReason, clearFailed])
 
 
   // The reason taxonomy, fetched once. A picker with no reasons cannot submit,

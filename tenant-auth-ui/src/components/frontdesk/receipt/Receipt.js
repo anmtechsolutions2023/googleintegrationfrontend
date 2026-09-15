@@ -1,6 +1,8 @@
 import React from 'react'
 import { createPortal } from 'react-dom'
-import { shows, choice, line, hasValue } from '../../../utils/receiptFields'
+import {
+  shows, choice, line, hasValue, present, money, qty, dt, printedShop,
+} from '../../../utils/receiptFields'
 import { lineOptions, lineAddons, lineNote, lineBreakdown } from '../../../utils/lineOptions'
 import './receipt.css'
 
@@ -25,29 +27,8 @@ import './receipt.css'
  * as long as something here knows how to draw it.
  */
 
-const money = (n) => (Number(n) || 0).toFixed(2)
-const qty = (n) => {
-  const v = Number(n) || 0
-  return Number.isInteger(v) ? String(v) : v.toFixed(3).replace(/\.?0+$/, '')
-}
-
-const dt = (value, mode) => {
-  if (!value || mode === 'never') return ''
-  const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return String(value).slice(0, 16).replace('T', ' ')
-  const date = d.toLocaleDateString('en-GB')
-  const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
-  if (mode === 'date') return date
-  if (mode === 'time') return time
-  return `${date} ${time}`
-}
-
-// A field that prints its VALUE needs one. `shows` answers whether the format
-// wants the field; ALWAYS says yes even when the sale has nothing to put there,
-// which is how a counter ticket printed "** NULL **", a bare "ROUND" and an
-// "FSSAI" with no licence number. A labelled row can stand empty; a line made
-// of the value alone cannot.
-const present = (format, key, value) => shows(format, key, value) && hasValue(value)
+// money, qty, dt and present live in utils/receiptFields, shared with the
+// Bluetooth receipt (utils/escposReceipt) so screen and paper agree.
 
 // ── Paper primitives ─────────────────────────────────────────────────────────
 const Row = ({ label, value, strong }) => (
@@ -446,16 +427,9 @@ const Receipt = ({ doc, format, shop = {}, data, inline = false }) => {
   const width = choice(format, 'paperWidth', '80')
   const copies = Number(choice(format, 'copies', '1')) || 1
 
-  // An issued document prints the GSTIN it was issued under, not whatever the
-  // branch holds today — a reprint must say what the paper said. Anything
-  // without the snapshot (the format preview, a token slip) takes the branch's.
-  const printedShop = Object.prototype.hasOwnProperty.call(data, 'SellerGstin')
-    ? { ...shop, gstin: data.SellerGstin || '' }
-    : shop
-
   const paper = (
     <div className={`rc-paper rc-w${width}`} data-testid={`receipt-${doc}`}>
-      <Body format={format} shop={printedShop} data={data} />
+      <Body format={format} shop={printedShop(shop, data)} data={data} />
     </div>
   )
 

@@ -10,6 +10,7 @@ import {
 import { normalizeStatus, statusLabel, isKotPending } from '../../utils/posStatus'
 import Receipt from '../../components/frontdesk/receipt/Receipt'
 import usePrintReceipt from '../../components/frontdesk/receipt/usePrintReceipt'
+import PrinterButton from '../../components/frontdesk/PrinterButton'
 import { buildKotPrintData } from '../../utils/kotPrint'
 import LineOptions, { OrderInstructions } from '../../components/frontdesk/LineOptions'
 
@@ -35,15 +36,15 @@ const Kitchen = () => {
   // Reprint. The pass shows tickets from every branch at once, so the format is
   // loaded for whichever ticket is being reprinted rather than for the page.
   const [printBranchId, setPrintBranchId] = useState(null)
-  const { job, format, shop, print, ready, failed: printFailed, clearFailed } = usePrintReceipt(printBranchId)
+  const { job, format, shop, print, ready, failed: printFailed, failedReason: printFailedReason, clearFailed } = usePrintReceipt(printBranchId)
 
   // A print that quietly does nothing is indistinguishable from a printer that
   // is switched off, and the cashier reprints instead of investigating. Say it.
   useEffect(() => {
     if (!printFailed) return
-    toast.error('The receipt did not render, so nothing was sent to the printer. Try again.')
+    toast.error(printFailedReason || 'The receipt did not render, so nothing was sent to the printer. Try again.')
     clearFailed()
-  }, [printFailed, clearFailed])
+  }, [printFailed, printFailedReason, clearFailed])
 
   // Held between choosing a ticket and its branch's format arriving. Printing
   // straight away would put the first reprint of a session on the fallback
@@ -174,7 +175,10 @@ const Kitchen = () => {
 
   return (
     <div className="fd-kitchen">
-      <h1>👨‍🍳 Kitchen Display (KDS)</h1>
+      <div className="fd-page-titlebar">
+        <h1>👨‍🍳 Kitchen Display (KDS)</h1>
+        <PrinterButton />
+      </div>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
         {['pending', 'ready', 'all'].map((f) => (
