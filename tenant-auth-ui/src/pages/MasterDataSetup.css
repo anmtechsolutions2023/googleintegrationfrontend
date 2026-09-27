@@ -560,3 +560,96 @@
 /* Rates may be empty now: the Exempt group carries none. Said, not left blank. */
 .mds-rates-empty { margin: 4px 0 8px; font-size: 13px; color: #5a6c7d; }
 .mds-rates-actions { display: flex; gap: 16px; flex-wrap: wrap; }
+
+/* ── Optional panels ────────────────────────────────────────────────────────
+   The wizard's required path is seven fields. Everything else lives behind one of
+   these, shut, so the step still reads as short. */
+.mds-panel {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  margin-top: 14px;
+  background: #fff;
+}
+.mds-panel.is-open { border-color: #d1d5db; }
+
+.mds-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  font-size: 14px;
+}
+.mds-panel-head:hover { background: #f9fafb; }
+.mds-panel-caret { color: #6b7280; font-size: 12px; width: 12px; }
+.mds-panel-title { font-weight: 600; color: #374151; }
+.mds-panel-tag {
+  margin-left: auto;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6b7280;
+  background: #f3f4f6;
+  border-radius: 10px;
+  padding: 2px 8px;
+}
+.mds-panel-body { padding: 0 14px 14px; border-top: 1px solid #f3f4f6; }
+.mds-panel-blurb { font-size: 13px; color: #6b7280; margin: 12px 0; }
+
+/* ── The "change it later" marker ───────────────────────────────────────────
+   A native title attribute: keyboard-reachable, screen-reader-readable, never
+   clipped by a parent's overflow, no library. It does not show on touch, which is
+   why no tooltip carries anything the user needs — see the Tip component. */
+.mds-tip {
+  display: inline-block;
+  margin-left: 6px;
+  color: #9ca3af;
+  cursor: help;
+  font-size: 12px;
+}
+.mds-tip:hover, .mds-tip:focus { color: #2563eb; outline: none; }
+
+/* Appears only as the column's limit approaches. */
+.mds-count { float: right; font-size: 11px; font-weight: 400; color: #9ca3af; }
+
+.mds-media-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 12px; }
+
+/* ── The GST question ───────────────────────────────────────────────────────
+   Same shape as the item-source radios above it, so the wizard has one way of
+   asking a multiple-choice question rather than two. */
+.mds-gst { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.mds-gst-opt {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 11px 13px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+}
+.mds-gst-opt:hover { border-color: #d1d5db; background: #f9fafb; }
+.mds-gst-opt.is-on { border-color: #2563eb; background: #eff6ff; }
+.mds-gst-opt strong { display: block; font-size: 14px; color: #111827; font-weight: 600; }
+.mds-gst-opt em { display: block; font-style: normal; font-size: 12px; color: #6b7280; margin-top: 2px; }
+.mds-gst-radio {
+  flex: 0 0 auto;
+  width: 16px; height: 16px;
+  margin-top: 2px;
+  border: 2px solid #9ca3af;
+  border-radius: 50%;
+}
+.mds-gst-opt.is-on .mds-gst-radio { border-color: #2563eb; background: radial-gradient(#2563eb 45%, transparent 50%); }
+
+/* The wizard is used on phones — a restaurant owner signing up on the device in
+   their hand. Every grid collapses. */
+@media (max-width: 720px) {
+  .mds-media-grid { grid-template-columns: 1fr; }
+  .mds-count { float: none; margin-left: 6px; }
+}

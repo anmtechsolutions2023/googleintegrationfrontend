@@ -17,6 +17,10 @@ jest.mock('../../../services/posService', () => ({
     getTaxSettings: jest.fn(() => Promise.resolve({ gstCharging: true })),
     getLedgerDocuments: jest.fn(),
     getLedgerDocument: jest.fn(),
+    // The preview hydrates the branch's images the same way the till does — the
+    // paths in `shop` are authenticated, cross-origin and answer JSON, so they
+    // cannot be used as an <img src>.
+    getBranchMedia: jest.fn(),
   },
 }));
 jest.mock('react-toastify', () => ({ toast: { success: jest.fn(), error: jest.fn() } }));
@@ -70,6 +74,7 @@ beforeEach(() => {
   posService.setReceiptTaxMode.mockResolvedValue({});
   posService.getLedgerDocuments.mockResolvedValue([]);
   posService.getLedgerDocument.mockResolvedValue({});
+  posService.getBranchMedia.mockResolvedValue({ dataUri: '' });
 });
 afterEach(() => jest.clearAllMocks());
 
@@ -231,5 +236,80 @@ describe('who may change it', () => {
     const tri = screen.getByRole('radiogroup', { name: 'FSSAI licence' });
     expect(within(tri).getByRole('radio', { name: 'Never' })).toBeDisabled();
     expect(screen.getByRole('button', { name: /Composition scheme/ })).toBeDisabled();
+  });
+});
+
+// ── The preview's images ─────────────────────────────────────────────────────
+//
+// THE BUG THIS COVERS: this screen used to hand `schema.shop` straight to
+// <Receipt>, and the image paths in it are not loadable — the endpoint wants a
+// bearer token an <img> does not send, it is a different origin from the app, and
+// it answers a JSON envelope rather than bytes. The QR rendered as a broken-image
+// icon HERE while printing perfectly from the till, because the till hydrates the
+// bytes and this screen did not.
+//
+// A preview that disagrees with the paper is worse than no preview: this is the
+// screen somebody uses to decide whether to switch the QR on at all.
+describe('the preview draws the real images, not the paths', () => {
+  const QR_DATA_URI = 'data:image/png;base64,iVBORw0KGgoAAAANS';
+
+  const withQr = () => SCHEMA({
+    shop: {
+      name: 'Sarjapura Foods',
+      address: '142 Sarjapura Road',
+      gstin: '29AABCS1429B1ZQ',
+      fssai: '11224333000123',
+      paymentQrUrl: '/api/pos/media/paymentQr?branchId=b-1&v=1727452800000',
+    },
+    sections: [
+      { key: 'footer', label: 'Footer', fields: [
+        { key: 'upiQr', label: 'Payment QR code', hint: null, type: 'visibility',
+          states: ['always', 'if_present', 'never'], options: null, maxLength: null,
+          default: 'never', value: 'always', locked: null, overridden: true },
+      ] },
+    ],
+  });
+
+  test('fetches the bytes through the API client and renders those', async () => {
+    posService.getReceiptFormatSchema.mockResolvedValue(withQr());
+    posService.getBranchMedia.mockResolvedValue({ dataUri: QR_DATA_URI });
+
+    render(<ReceiptFormat />);
+    // Footer is shut by default — only header and identity open — so the field has
+    // to be expanded before it is in the DOM at all.
+    fireEvent.click(await screen.findByRole('button', { name: /Footer/i }));
+    await screen.findByText('Payment QR code');
+
+    await waitFor(() => expect(posService.getBranchMedia)
+      .toHaveBeenCalledWith('b-1', 'paymentQr'));
+
+    const img = await waitFor(() => {
+      const found = document.querySelector('.rc-qr img');
+      expect(found).toBeTruthy();
+      return found;
+    });
+    // The bytes, not the path. A src pointing at the endpoint is the bug.
+    expect(img.getAttribute('src')).toBe(QR_DATA_URI);
+    expect(img.getAttribute('src')).not.toContain('/api/pos/media');
+  });
+
+  // A picture is decoration. A preview that threw, or drew a broken icon, because
+  // one image could not be fetched would be worse than one without it.
+  test('draws no image at all when the fetch fails', async () => {
+    posService.getReceiptFormatSchema.mockResolvedValue(withQr());
+    posService.getBranchMedia.mockRejectedValue(new Error('offline'));
+
+    render(<ReceiptFormat />);
+    fireEvent.click(await screen.findByRole('button', { name: /Footer/i }));
+    await screen.findByText('Payment QR code');
+
+    await waitFor(() => expect(posService.getBranchMedia).toHaveBeenCalled());
+    expect(document.querySelector('.rc-qr img')).toBeNull();
+  });
+
+  // Nothing uploaded means nothing to fetch — and no request worth making.
+  test('asks for nothing when the branch holds no images', async () => {
+    await renderPage();
+    expect(posService.getBranchMedia).not.toHaveBeenCalled();
   });
 });

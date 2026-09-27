@@ -42,15 +42,52 @@ const Centre = ({ children, className = '' }) => (
   <div className={`rc-c ${className}`}>{children}</div>
 )
 
-/** The masthead. Shared by every document that has one. */
+/**
+ * The masthead. Shared by every document that has one.
+ *
+ * ORDER IS THE ORDER ON THE PAPER, and it is not the catalogue's order: the mark
+ * first, then who you are, then how to reach you, then the registrations. A
+ * customer querying a bill reads top-down and stops as soon as they have what
+ * they came for.
+ *
+ * EVERY LINE USES `present`, NOT `shows`.
+ * `shows` answers "does the format want this field"; ALWAYS says yes even when the
+ * sale has nothing to put there. A line made of the value alone cannot stand
+ * empty — that is what printed a bare "FSSAI" with no number after it, and the
+ * same trap now exists nine more times over. See utils/receiptFields.
+ */
 const Head = ({ format, shop }) => (
   <>
+    {/* The logo is the one field whose value is a URL rather than text, so it
+        cannot use `present` — an empty src renders a broken-image icon. The
+        resolver only emits logoUrl when the branch actually holds an image, so
+        hasValue on the URL is the same test every other line makes. */}
+    {shows(format, 'logo', shop.logoUrl) && hasValue(shop.logoUrl) && (
+      <Centre className="rc-logo">
+        <img src={shop.logoUrl} alt="" />
+      </Centre>
+    )}
     {shows(format, 'shopName', shop.name) && (
       <Centre className="rc-shop">{String(shop.name || '').toUpperCase()}</Centre>
     )}
+    {/* The registered company, under the outlet it trades as. For years this was
+        the first thing onboarding asked for and the one thing no customer ever
+        saw. */}
+    {present(format, 'legalName', shop.legalName) && (
+      <Centre className="rc-sub">{shop.legalName}</Centre>
+    )}
     {present(format, 'address', shop.address) && <Centre className="rc-sub">{shop.address}</Centre>}
+    {present(format, 'phone', shop.phone) && <Centre className="rc-sub">Ph {shop.phone}</Centre>}
+    {present(format, 'email', shop.email) && <Centre className="rc-sub">{shop.email}</Centre>}
+    {/* Labelled. An unlabelled personal name on a bill reads ambiguously — the
+        customer cannot tell it from the cashier's, which is printed further down. */}
+    {present(format, 'contactName', shop.contactName) && (
+      <Centre className="rc-sub">Contact: {shop.contactName}</Centre>
+    )}
     {present(format, 'gstin', shop.gstin) && <Centre className="rc-sub">GSTIN {shop.gstin}</Centre>}
     {present(format, 'fssai', shop.fssai) && <Centre className="rc-sub">FSSAI {shop.fssai}</Centre>}
+    {present(format, 'pan', shop.pan) && <Centre className="rc-sub">PAN {shop.pan}</Centre>}
+    {present(format, 'tin', shop.tin) && <Centre className="rc-sub">TIN {shop.tin}</Centre>}
     {hasValue(line(format, 'headerLine')) && (
       <Centre className="rc-sub">{line(format, 'headerLine')}</Centre>
     )}
@@ -241,6 +278,21 @@ const Bill = ({ format, shop, data }) => {
           <Centre className="rc-sub">Composition taxable person,</Centre>
           <Centre className="rc-sub">not eligible to collect tax on supplies</Centre>
         </>
+      )}
+      {/* The payment QR, above the thank-you line so a customer settling at the
+          table finds it without reading past the footer.
+
+          A STATIC code. It is composed before the total is known, so it says "pay
+          this merchant" and the customer enters the amount — which is what a bank-
+          or PSP-issued restaurant QR is.
+
+          Gated on the value as well as the state, like the logo: an <img> with an
+          empty src draws a broken-image icon, which on a bill looks like a fault. */}
+      {shows(format, 'upiQr', shop.paymentQrUrl) && hasValue(shop.paymentQrUrl) && (
+        <Centre className="rc-qr">
+          <img src={shop.paymentQrUrl} alt="" />
+          <Centre className="rc-sub">Scan to pay</Centre>
+        </Centre>
       )}
       {hasValue(line(format, 'footerLine1')) && <Centre className="rc-sub">{line(format, 'footerLine1')}</Centre>}
       {hasValue(line(format, 'footerLine2')) && <Centre className="rc-sub">{line(format, 'footerLine2')}</Centre>}

@@ -2,6 +2,7 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import MasterDataSetup from '../MasterDataSetup';
 import * as masterSetupService from '../../services/masterSetupService';
+import * as posService from '../../services/posService';
 import { useAuth } from '../../context/AuthContext';
 
 jest.mock('../../services/masterSetupService', () => ({
@@ -16,6 +17,11 @@ jest.mock('react-toastify', () => ({
   toast: { success: jest.fn(), error: jest.fn(), warn: jest.fn() },
 }));
 jest.mock('../../context/AuthContext', () => ({ useAuth: jest.fn() }));
+// The wizard fetches the real column widths so each input's maxLength comes from
+// the same source as the server's Joi rules rather than from a second copy of the
+// numbers. Empty is a valid answer — the fields fall back to their own maxLength —
+// so this mock keeps the tests off the network without changing what they assert.
+jest.mock('../../services/posService', () => ({ getFieldLimits: jest.fn() }));
 
 // <Navigate> needs a Router; record where the page tried to send the user.
 const mockNavigate = jest.fn();
@@ -62,6 +68,14 @@ const renderWizard = () => {
 beforeEach(() => {
   navigatedTo = null;
   setUser();
+  // Armed HERE, not in the jest.mock factory: create-react-app sets
+  // `resetMocks: true`, which strips a factory's implementation before every test
+  // and leaves the mock returning undefined — so `getFieldLimits().then(...)` threw.
+  // Every other mock in this file is armed per test for the same reason.
+  //
+  // {} is a legitimate answer: each field falls back to its own maxLength, so the
+  // tests assert the wizard's behaviour rather than the served limits.
+  posService.getFieldLimits.mockResolvedValue({});
 });
 
 afterEach(() => jest.clearAllMocks());
@@ -71,13 +85,13 @@ test('shows the Setup Wizard welcome screen first, before any form fields', () =
   expect(screen.getByRole('heading', { name: /Setup Wizard/i })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: /Begin setup/i })).toBeInTheDocument();
   // No form field yet — the user lands on a focused intro, not the Organization step.
-  expect(screen.queryByLabelText(/Organization Name/i)).not.toBeInTheDocument();
+  expect(screen.queryByLabelText(/Legal \/ group name/i)).not.toBeInTheDocument();
 });
 
 test('renders the first (Organization) step after Begin setup', () => {
   renderWizard();
   expect(screen.getByRole('heading', { name: /Master Data Setup/i })).toBeInTheDocument();
-  expect(screen.getByLabelText(/Organization Name/i)).toBeInTheDocument();
+  expect(screen.getByLabelText(/Legal \/ group name/i)).toBeInTheDocument();
 });
 
 test('blocks Next and shows a Required error when a mandatory field is empty', () => {
@@ -85,26 +99,26 @@ test('blocks Next and shows a Required error when a mandatory field is empty', (
   fireEvent.click(screen.getByRole('button', { name: 'Next' }));
   // still on Organization step, and the required marker error is shown
   expect(screen.getByText('Required')).toBeInTheDocument();
-  expect(screen.getByLabelText(/Organization Name/i)).toBeInTheDocument();
+  expect(screen.getByLabelText(/Legal \/ group name/i)).toBeInTheDocument();
 });
 
 test('advances to the Branch step once the required field is filled', () => {
   renderWizard();
-  typeInto('Organization Name', 'ANM Tech');
+  typeInto('Legal / group name', 'ANM Tech');
   fireEvent.click(screen.getByRole('button', { name: 'Next' }));
   // Branch step shows the Branch Name field and the Address group
-  expect(screen.getByLabelText(/Branch Name/i)).toBeInTheDocument();
+  expect(screen.getByLabelText(/Outlet name/i)).toBeInTheDocument();
   expect(screen.getByText('Address', { selector: 'legend' })).toBeInTheDocument();
 });
 
 test('item step can be skipped via the toggle', () => {
   renderWizard();
   // Step 1 → 2
-  typeInto('Organization Name', 'ANM Tech');
+  typeInto('Legal / group name', 'ANM Tech');
   fireEvent.click(screen.getByRole('button', { name: 'Next' }));
   // Fill the minimum required branch fields (Address Tag / Config Tag are hidden
   // and auto-filled with 'Onboarding', so they aren't typed here).
-  typeInto('Branch Name', 'Main');
+  typeInto('Outlet name', 'Main');
   typeInto('Address Line 1', '12 MG Road');
   typeInto('First Name', 'Ravi');
   typeInto('Last Name', 'K');
@@ -123,7 +137,7 @@ test('does not collect location details and omits locationMapper from the payloa
     data: { data: { organization: 'org-1', branch: 'br-1' } },
   });
   renderWizard();
-  typeInto('Organization Name', 'ANM Tech');
+  typeInto('Legal / group name', 'ANM Tech');
   fireEvent.click(screen.getByRole('button', { name: 'Next' }));
 
   // The Branch step no longer renders any location fields or a location toggle.
@@ -139,7 +153,7 @@ test('does not collect location details and omits locationMapper from the payloa
   expect(screen.queryByLabelText(/Address Type/i)).not.toBeInTheDocument();
 
   // Fill the (now shorter) set of required branch fields
-  typeInto('Branch Name', 'Main');
+  typeInto('Outlet name', 'Main');
   typeInto('Address Line 1', '12 MG Road');
   typeInto('First Name', 'Ravi');
   typeInto('Last Name', 'K');
@@ -170,9 +184,9 @@ test('submitting from Review calls the bootstrap API and shows the id map', asyn
     data: { data: { organization: 'org-1', branch: 'br-1' } },
   });
   renderWizard();
-  typeInto('Organization Name', 'ANM Tech');
+  typeInto('Legal / group name', 'ANM Tech');
   fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-  typeInto('Branch Name', 'Main');
+  typeInto('Outlet name', 'Main');
   typeInto('Address Line 1', '12 MG Road');
   typeInto('First Name', 'Ravi');
   typeInto('Last Name', 'K');
@@ -199,9 +213,9 @@ test('item step hides the Unit of Measure section and sends UnitName as hardcode
     data: { data: { organization: 'org-1', branch: 'br-1', item: 'it-1' } },
   });
   renderWizard();
-  typeInto('Organization Name', 'ANM Tech');
+  typeInto('Legal / group name', 'ANM Tech');
   fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-  typeInto('Branch Name', 'Main');
+  typeInto('Outlet name', 'Main');
   typeInto('Address Line 1', '12 MG Road');
   typeInto('First Name', 'Ravi');
   typeInto('Last Name', 'K');
@@ -228,9 +242,9 @@ describe('setup gate behaviour', () => {
   // Fills every required field and submits, so gate assertions stay readable.
   const completeWizard = () => {
     beginSetup();
-    typeInto('Organization Name', 'ANM Tech');
+    typeInto('Legal / group name', 'ANM Tech');
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-    typeInto('Branch Name', 'Main');
+    typeInto('Outlet name', 'Main');
     typeInto('Address Line 1', '12 MG Road');
     typeInto('First Name', 'Ravi');
     typeInto('Last Name', 'K');
@@ -250,7 +264,7 @@ describe('setup gate behaviour', () => {
     render(<MasterDataSetup />);
     // Never offered twice — the wizard is not rendered at all.
     expect(navigatedTo).toBe('/dashboard');
-    expect(screen.queryByLabelText(/Organization Name/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Legal \/ group name/i)).not.toBeInTheDocument();
   });
 
   test('redirects when the token carries no setupCompleted claim at all', () => {
@@ -305,9 +319,9 @@ const importService = require('../../services/importService').default;
 const { toast } = require('react-toastify');
 
 const fillOrgAndBranch = () => {
-  typeInto('Organization Name', 'Sarjapura Foods');
+  typeInto('Legal / group name', 'Sarjapura Foods');
   fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-  typeInto('Branch Name', 'Sarjapura Road');
+  typeInto('Outlet name', 'Sarjapura Road');
   typeInto('Address Line 1', '142 Sarjapura Road');
   typeInto('First Name', 'Priya');
   typeInto('Last Name', 'Raman');
@@ -574,9 +588,9 @@ describe('step 3 — uploading a list', () => {
 describe('Enter moves the step on', () => {
   test('on a step whose fields are filled', () => {
     renderWizard();
-    typeInto('Organization Name', 'Sarjapura Foods');
-    fireEvent.keyDown(screen.getByLabelText(/Organization Name/i), { key: 'Enter' });
-    expect(screen.getByLabelText(/Branch Name/i)).toBeInTheDocument();
+    typeInto('Legal / group name', 'Sarjapura Foods');
+    fireEvent.keyDown(screen.getByLabelText(/Legal \/ group name/i), { key: 'Enter' });
+    expect(screen.getByLabelText(/Outlet name/i)).toBeInTheDocument();
   });
 
   // The step with nothing to fill in is exactly the one where somebody presses
@@ -742,9 +756,9 @@ describe('"Create everything" — two passes, in order', () => {
 
 test('GSTIN is optional, checked before moving on, and shown on the review', () => {
   renderWizard();
-  typeInto('Organization Name', 'ANM Tech');
+  typeInto('Legal / group name', 'ANM Tech');
   fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-  typeInto('Branch Name', 'Main');
+  typeInto('Outlet name', 'Main');
   typeInto('Address Line 1', '12 MG Road');
   typeInto('First Name', 'Ravi');
   typeInto('Last Name', 'K');
@@ -757,7 +771,7 @@ test('GSTIN is optional, checked before moving on, and shown on the review', () 
   // …but a wrong one does not get past Next.
   fireEvent.click(screen.getByRole('button', { name: 'Next' }));
   expect(screen.getByText(/A GSTIN is 15 characters/)).toBeInTheDocument();
-  expect(screen.getByLabelText(/Branch Name/i)).toBeInTheDocument();
+  expect(screen.getByLabelText(/Outlet name/i)).toBeInTheDocument();
 
   typeInto('GSTIN', '29abcde1234f1z5');
   expect(screen.getByText('Registered in Karnataka')).toBeInTheDocument();
@@ -771,8 +785,161 @@ test('GSTIN is optional, checked before moving on, and shown on the review', () 
 
 test('an unknown GSTIN state code is refused', () => {
   renderWizard();
-  typeInto('Organization Name', 'ANM Tech');
+  typeInto('Legal / group name', 'ANM Tech');
   fireEvent.click(screen.getByRole('button', { name: 'Next' }));
   typeInto('GSTIN', '99ABCDE1234F1Z5');
   expect(screen.getByText(/99 is not a GST state code/)).toBeInTheDocument();
+});
+
+// ── The optional fields ──────────────────────────────────────────────────────
+//
+// Eleven fields were added to a wizard whose required path is seven, and the whole
+// design rests on them not getting in the way. These tests hold that line: the step
+// still asks for what it always asked for, the extras are shut, and skipping them
+// changes nothing about what is sent.
+
+const toBranchStep = () => {
+  renderWizard();
+  typeInto('Legal / group name', 'ANM Tech');
+  fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+};
+
+const fillRequiredBranch = () => {
+  typeInto('Outlet name', 'Main');
+  typeInto('Address Line 1', '12 MG Road');
+  typeInto('First Name', 'Ravi');
+  typeInto('Last Name', 'K');
+};
+
+describe('the optional panels', () => {
+  it('keeps every new field shut until asked for', () => {
+    toBranchStep();
+    // The required path, untouched.
+    expect(screen.getByLabelText(/Outlet name/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Address Line 1/i)).toBeInTheDocument();
+    // And nothing from the panels.
+    expect(screen.queryByLabelText(/FSSAI/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/^PAN$/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Landmark/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Email/i)).not.toBeInTheDocument();
+  });
+
+  it('opens on request and closes again', () => {
+    toBranchStep();
+    const panel = screen.getByRole('button', { name: /More business details/i });
+    expect(panel).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.click(panel);
+    expect(panel).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByLabelText(/FSSAI/i)).toBeInTheDocument();
+
+    fireEvent.click(panel);
+    expect(screen.queryByLabelText(/FSSAI/i)).not.toBeInTheDocument();
+  });
+
+  it('still moves on with every optional field left blank', () => {
+    toBranchStep();
+    fillRequiredBranch();
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    // Reached the item step, so nothing optional was treated as required.
+    expect(screen.getByRole('checkbox')).toBeInTheDocument();
+  });
+
+  it('sends the optional fields on their own records, and omits the blanks', async () => {
+    masterSetupService.bootstrapMasterData.mockResolvedValue({ data: { data: { branch: 'b1' } } });
+
+    toBranchStep();
+    fillRequiredBranch();
+    fireEvent.click(screen.getByRole('button', { name: /More business details/i }));
+    typeInto('FSSAI licence', '11223344556677');
+    typeInto('Mobile', '9876543210');
+    typeInto('Landmark', 'Opp. the park');
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    fireEvent.click(screen.getByRole('checkbox'));
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    fireEvent.click(screen.getByRole('button', { name: /Create everything/i }));
+
+    await waitFor(() => expect(masterSetupService.bootstrapMasterData).toHaveBeenCalled());
+    const [payload] = masterSetupService.bootstrapMasterData.mock.calls[0];
+
+    // Each one on the record that owns it, not flattened onto the branch.
+    expect(payload.branch.FSSAI).toBe('11223344556677');
+    expect(payload.branch.contact.MobileNo).toBe('9876543210');
+    expect(payload.branch.address.Landmark).toBe('Opp. the park');
+    // An untouched optional field is not sent as '' — a blank would be stored as a
+    // value, and `clean()` drops it before it reaches the wire.
+    expect(payload.branch.PAN).toBeUndefined();
+    expect(payload.branch.contact.Email).toBeUndefined();
+    expect(payload.branch.address.AddressLine2).toBeUndefined();
+  });
+
+  it('refuses an email that is not one, without blocking a blank', () => {
+    toBranchStep();
+    fillRequiredBranch();
+    fireEvent.click(screen.getByRole('button', { name: /More business details/i }));
+
+    typeInto('Email', 'not-an-email');
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    expect(screen.getByText(/does not look like an email address/i)).toBeInTheDocument();
+
+    // Cleared, and the step moves on — optional means optional.
+    typeInto('Email', '');
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    expect(screen.getByRole('checkbox')).toBeInTheDocument();
+  });
+});
+
+describe('the GST question', () => {
+  // "Decide later" is not a cop-out: pos_tax_setting treats the ABSENCE of a row as
+  // charging, chosen so a tenant with an empty GSTIN field did not silently stop
+  // charging GST. Answering on the tenant's behalf would write a row that says the
+  // same thing today and a different thing the moment that default is reconsidered.
+  it('sends no taxSetting at all when nobody answered', async () => {
+    masterSetupService.bootstrapMasterData.mockResolvedValue({ data: { data: { branch: 'b1' } } });
+
+    toBranchStep();
+    fillRequiredBranch();
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    fireEvent.click(screen.getByRole('checkbox'));
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    fireEvent.click(screen.getByRole('button', { name: /Create everything/i }));
+
+    await waitFor(() => expect(masterSetupService.bootstrapMasterData).toHaveBeenCalled());
+    const [payload] = masterSetupService.bootstrapMasterData.mock.calls[0];
+    expect(payload.taxSetting).toBeUndefined();
+  });
+
+  it('sends the off-reason with the switch when the answer is no', async () => {
+    masterSetupService.bootstrapMasterData.mockResolvedValue({ data: { data: { branch: 'b1' } } });
+
+    toBranchStep();
+    fillRequiredBranch();
+    fireEvent.click(screen.getByRole('button', { name: /^Tax/i }));
+    fireEvent.click(screen.getByRole('radio', { name: /composition scheme/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    fireEvent.click(screen.getByRole('checkbox'));
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    fireEvent.click(screen.getByRole('button', { name: /Create everything/i }));
+
+    await waitFor(() => expect(masterSetupService.bootstrapMasterData).toHaveBeenCalled());
+    const [payload] = masterSetupService.bootstrapMasterData.mock.calls[0];
+    expect(payload.taxSetting).toEqual({ gstCharging: false, offReason: 'composition' });
+  });
+
+  it('sends charging with no reason when the answer is yes', async () => {
+    masterSetupService.bootstrapMasterData.mockResolvedValue({ data: { data: { branch: 'b1' } } });
+
+    toBranchStep();
+    fillRequiredBranch();
+    fireEvent.click(screen.getByRole('button', { name: /^Tax/i }));
+    fireEvent.click(screen.getByRole('radio', { name: /we are registered for GST/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    fireEvent.click(screen.getByRole('checkbox'));
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    fireEvent.click(screen.getByRole('button', { name: /Create everything/i }));
+
+    await waitFor(() => expect(masterSetupService.bootstrapMasterData).toHaveBeenCalled());
+    const [payload] = masterSetupService.bootstrapMasterData.mock.calls[0];
+    expect(payload.taxSetting).toEqual({ gstCharging: true });
+  });
 });

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { formatForDisplay } from '../utils/phone';
+import { formatForDisplay, personLabel, hasRealName } from '../utils/phone';
 import { useAuth } from '../context/AuthContext';
 import { STRINGS } from '../constants';
 import { getMyCapabilities } from '../services/authService';
@@ -42,8 +42,18 @@ const Dashboard = () => {
       <div className="dash-head">
         <h1>{STRINGS.pages.dashboard.title}</h1>
         <p>
-          {STRINGS.pages.dashboard.welcome} {user?.name || STRINGS.pages.dashboard.defaultUserName}
-          {user?.phone ? ` · ${formatForDisplay(user.phone)}` : ''}
+          {/* Name first, then the number — but only when they are DIFFERENT things.
+              Somebody who signed in with an OTP was never asked for a name, so
+              user_tenants.full_name holds their number, and printing `name` then
+              `phone` put the same number on the line twice:
+              "Welcome, +919876543210 · +91 98765 43210". personLabel now sees
+              through that; hasRealName decides whether the second half is worth
+              printing at all. */}
+          {STRINGS.pages.dashboard.welcome}{' '}
+          {user ? personLabel(user) : STRINGS.pages.dashboard.defaultUserName}
+          {user && hasRealName(user) && user.phone
+            ? ` · ${formatForDisplay(user.phone)}`
+            : ''}
         </p>
       </div>
 

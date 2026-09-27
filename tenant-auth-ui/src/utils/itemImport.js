@@ -15,8 +15,12 @@
 
 import { parseCsvToObjects } from './csv'
 
+// `hsn` and `sac` are new and OPTIONAL — a file saved from the old template has
+// neither and still imports. They are here because the GST pack needs them: its
+// HSN sheets are built from these codes, so a menu imported without them produces
+// a CA pack with empty HSN columns.
 export const COLUMNS = ['name', 'category', 'unit', 'price', 'tax_group', 'tax_components',
-  'food_type', 'code', 'description', 'tax_included']
+  'food_type', 'code', 'description', 'tax_included', 'hsn', 'sac']
 
 // What a tax group is worth when the file does not say. Mirrors
 // IMPORT.DEFAULT_TAX_COMPONENTS on the server — shown in the preview so the
@@ -35,15 +39,20 @@ export const isExemptGroup = (name) => {
 // tax_group is not here: blank means Exempt (0%).
 export const REQUIRED = ['name', 'category', 'unit', 'price']
 
+// The last two columns are hsn and sac. Restaurant supply is a SERVICE under SAC
+// 9963, and a sealed retail item sold beside it is GOODS under an HSN — the
+// template carries one of each, because that is where people learn the columns
+// exist and learn that a dish and a bottle are not classified the same way.
 export const TEMPLATE_ROWS = [
-  ['Plain Tea', 'Tea', 'Glass', '15', 'GST 5%', DEFAULT_TAX, 'Veg', 'TEA-01', '', 'true'],
-  ['Mango Lassi', 'Lassi', 'Glass', '80', 'GST 5%', DEFAULT_TAX, 'Veg', 'LAS-02', '', 'true'],
+  ['Plain Tea', 'Tea', 'Glass', '15', 'GST 5%', DEFAULT_TAX, 'Veg', 'TEA-01', '', 'true', '', '996331'],
+  ['Mango Lassi', 'Lassi', 'Glass', '80', 'GST 5%', DEFAULT_TAX, 'Veg', 'LAS-02', '', 'true', '', '996331'],
   // A non-veg row in the template, because that is the value that used to be
   // silently published as Veg.
-  ['Chicken Roll', 'Snacks', 'Plate', '120', 'GST 5%', DEFAULT_TAX, 'Non-Veg', 'SNK-01', '', 'true'],
+  ['Chicken Roll', 'Snacks', 'Plate', '120', 'GST 5%', DEFAULT_TAX, 'Non-Veg', 'SNK-01', '', 'true', '', '996331'],
   // An 18% row, because a menu that sells packaged goods beside food needs a
-  // second slab and the template is where people learn the column exists.
-  ['Cold Brew Kit', 'Retail', 'Box', '1200', 'GST 18%', 'CGST:9|SGST:9', 'Veg', 'RET-01', '', 'true'],
+  // second slab and the template is where people learn the column exists. Goods,
+  // so it carries an HSN and no SAC.
+  ['Cold Brew Kit', 'Retail', 'Box', '1200', 'GST 18%', 'CGST:9|SGST:9', 'Veg', 'RET-01', '', 'true', '21011200', ''],
 ]
 
 /**
@@ -110,6 +119,11 @@ export const validateRow = (r) => {
       code: r.code || null,
       description: r.description || null,
       foodType: r.foodtype || null,
+      // The GST classification. Optional both ways: a file from the old template
+      // has neither column, and the server leaves the item's existing codes alone
+      // when a row omits them.
+      hsn: r.hsn || null,
+      sac: r.sac || null,
     },
   }
 }

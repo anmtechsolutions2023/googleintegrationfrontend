@@ -1,7 +1,8 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { bootstrapMasterData } from '../services/masterSetupService';
+import { getFieldLimits } from '../services/posService';
 import importService from '../services/importService';
 import { toCsv } from '../utils/csv';
 import { COLUMNS, TEMPLATE_ROWS, DEFAULT_TAX, checkFile, download, EXEMPT_TAX_GROUP, isExemptGroup } from '../utils/itemImport';
@@ -11,6 +12,22 @@ import { ROUTES } from '../constants/routes';
 import './MasterDataSetup.css';
 
 import { gstinProblem, stateOfGstin } from '../utils/gstin';
+import MediaUploadCard from '../components/frontdesk/MediaUploadCard';
+
+/**
+ * Enough to catch a typo, not enough to argue about.
+ *
+ * The server applies Joi's own email rule with the TLD list off; this is the same
+ * shape, checked while typing so a mistake is caught before the transaction. Blank
+ * is never a problem — the field is optional and `missing` is what handles required.
+ */
+const emailProblem = (v) => {
+  const value = String(v || '').trim();
+  if (!value) return null;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+    ? null
+    : 'That does not look like an email address';
+};
 
 // ── Declarative step / group / field definitions ─────────────────────────────
 // Each field's `path` addresses a node in the nested payload; the orchestrator
@@ -23,7 +40,19 @@ const STEPS = [
     title: 'Organization',
     groups: [
       { title: 'Organization', path: 'organization', fields: [
-        { name: 'Name', label: 'Organization Name', required: true },
+        // RELABELLED, not renamed. This is organizationdetail.Name, and for years
+        // it was the first thing the wizard asked for and the one thing no customer
+        // ever saw: it labelled the tenancy in the admin directory and reached no
+        // bill. It can now print — Receipt Format → Bill → Header → Legal name —
+        // but a tenant who types their trading name here and a branch code below
+        // would still find the branch code on every bill. So the labels say which
+        // is which.
+        {
+          name: 'Name', label: 'Legal / group name', required: true,
+          limitKey: 'organizationdetail.Name',
+          hint: 'Your registered company or group name.',
+          tip: 'Not printed on bills unless you switch it on. Change later at Front Desk → Business Profile → Business.',
+        },
       ] },
     ],
   },
@@ -32,30 +61,94 @@ const STEPS = [
     title: 'Branch',
     groups: [
       { title: 'Branch', path: 'branch', fields: [
-        { name: 'Name', label: 'Branch Name', required: true },
-        // Optional: a new restaurant may not be registered yet. When given, it
-        // is printed on tax invoices and used for the GST report.
+        {
+          name: 'Name', label: 'Outlet name', required: true,
+          limitKey: 'branchdetail.BranchName',
+          hint: 'This is what prints at the top of every bill.',
+          tip: 'Change later at Front Desk → Business Profile → Business.',
+        },
+        // Optional, but kept in the main group rather than behind the panel: it is
+        // short, it decides whether bills are tax invoices at all, and a restaurant
+        // that has one knows it.
         {
           name: 'GSTIN', label: 'GSTIN (optional)', maxLength: 15, upper: true,
-          hint: 'Printed on tax invoices and used for GST returns. You can add or change it later in POS Settings → GST.',
+          hint: 'Printed on tax invoices and used for GST returns.',
+          tip: 'Change later at Front Desk → Business Profile → Tax & Compliance. Each invoice keeps the GSTIN it was issued under.',
           validate: gstinProblem,
           describe: (v) => (stateOfGstin(v) ? `Registered in ${stateOfGstin(v)}` : null),
         },
       ] },
       { title: 'Address', path: 'branch.address', fields: [
-        { name: 'AddressLine1', label: 'Address Line 1', required: true },
+        { name: 'AddressLine1', label: 'Address Line 1', required: true, limitKey: 'addressdetail.AddressLine1' },
         // Address tag is fixed for onboarding — hidden from the UI, sent to the API.
         { name: 'TagName', label: 'Address Tag', required: true, hidden: true, value: 'Onboarding' },
-        { name: 'City' }, { name: 'State' }, { name: 'Pincode' },
+        { name: 'City', limitKey: 'addressdetail.City' },
+        { name: 'State', limitKey: 'addressdetail.State' },
+        { name: 'Pincode', limitKey: 'addressdetail.Pincode' },
         // Address Type is fixed to 'Onboarding' for onboarding — hidden from the UI,
         // sent to the API (backend reuses the existing type or creates it).
         { name: 'Name', label: 'Address Type', required: true, hidden: true, value: 'Onboarding', path: 'branch.address.contactAddressType' },
       ] },
       { title: 'Contact', path: 'branch.contact', fields: [
-        { name: 'FirstName', label: 'First Name', required: true },
-        { name: 'LastName', label: 'Last Name', required: true },
-        { name: 'Email' },
+        { name: 'FirstName', label: 'First Name', required: true, limitKey: 'contactdetail.FirstName' },
+        { name: 'LastName', label: 'Last Name', required: true, limitKey: 'contactdetail.LastName' },
       ] },
+
+      // ── Everything below here is behind a collapsed panel ──────────────────
+      //
+      // Eleven more boxes on this step would undo the thing the wizard was cut
+      // down for: the required path is seven fields and a new tenant gets a
+      // working branch out of it. These are offered, not asked — closed by
+      // default, every one optional, and every one naming where it can be set
+      // later so skipping it costs nothing.
+      //
+      // Fields carry their own `path` because the panel spans three records: the
+      // branch, its address and its contact.
+      {
+        title: 'More business details',
+        optional: true,
+        path: 'branch',
+        blurb: 'All optional. Everything here can also be set later at Front Desk → Business Profile.',
+        fields: [
+          {
+            name: 'PAN', label: 'PAN', limitKey: 'branchdetail.PAN', upper: true,
+            tip: 'Change later at Business Profile → Tax & Compliance. Not printed unless you switch it on at Receipt Format.',
+          },
+          {
+            name: 'TINNo', label: 'TIN', limitKey: 'branchdetail.TINNo', upper: true,
+            tip: 'Pre-GST registration number. Change later at Business Profile → Tax & Compliance.',
+          },
+          {
+            name: 'FSSAI', label: 'FSSAI licence', limitKey: 'branchdetail.FSSAI',
+            hint: 'Displaying it is a licence condition for most food businesses.',
+            tip: 'Change later at Business Profile → Tax & Compliance. Switch printing on at Receipt Format → Bill → Header.',
+          },
+          {
+            name: 'MobileNo', label: 'Mobile', path: 'branch.contact', maxLength: 20,
+            tip: 'Can print on bills as the number to call. Change later at Business Profile → Address & Contact.',
+          },
+          {
+            name: 'Landline1', label: 'Landline', path: 'branch.contact', maxLength: 20,
+            tip: 'Used on bills only when no mobile is set. Change later at Business Profile → Address & Contact.',
+          },
+          {
+            name: 'Email', label: 'Email', path: 'branch.contact',
+            limitKey: 'contactdetail.Email',
+            validate: emailProblem,
+            tip: 'Change later at Business Profile → Address & Contact.',
+          },
+          {
+            name: 'AddressLine2', label: 'Address line 2', path: 'branch.address',
+            limitKey: 'addressdetail.AddressLine2',
+            tip: 'Included in the printed address when set. Change later at Business Profile → Address & Contact.',
+          },
+          {
+            name: 'Landmark', label: 'Landmark', path: 'branch.address',
+            limitKey: 'addressdetail.Landmark',
+            tip: 'Included in the printed address when set. Change later at Business Profile → Address & Contact.',
+          },
+        ],
+      },
       // Transaction Type Config is deliberately absent. A numbering series is
       // still created for every branch — branchdetail.TransactionTypeConfigId is
       // a NOT NULL foreign key, so one has to exist — but the API decides it
@@ -71,11 +164,11 @@ const STEPS = [
     optional: true,
     groups: [
       { title: 'Item', path: 'item', fields: [
-        { name: 'Name', label: 'Item Name', required: true },
-        { name: 'Code' },
+        { name: 'Name', label: 'Item Name', required: true, limitKey: 'itemdetail.Name' },
+        { name: 'Code', limitKey: 'itemdetail.Code' },
       ] },
       { title: 'Category', path: 'item.category', fields: [
-        { name: 'Name', label: 'Category Name', required: true, hint: 'e.g. Starter, Main course' },
+        { name: 'Name', label: 'Category Name', required: true, limitKey: 'categorydetail.Name', hint: 'e.g. Starter, Main course' },
       ] },
       // Unit of Measure is fixed to 'Primary' for onboarding — hidden from the UI,
       // sent to the API. The whole section is skipped since its only field is hidden.
@@ -88,7 +181,7 @@ const STEPS = [
       { title: 'Tax Group', path: 'item.costInfo.taxGroup', fields: [
         // Optional, and starts as the tenant's Exempt (0%) group: a starter item
         // is sold tax-free unless somebody names a group and gives it rates.
-        { name: 'Name', label: 'Tax Group Name', hint: `Optional — ${EXEMPT_TAX_GROUP} sells it tax-free. Name a group and add its rates to charge tax.` },
+        { name: 'Name', label: 'Tax Group Name', limitKey: 'taxgroup.Name', hint: `Optional — ${EXEMPT_TAX_GROUP} sells it tax-free. Name a group and add its rates to charge tax.` },
       ] },
     ],
   },
@@ -145,6 +238,30 @@ const MasterDataSetup = () => {
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
   const [showErrors, setShowErrors] = useState(false);
+
+  // Column widths, fetched from the server rather than mirrored here. A second
+  // copy of these numbers is exactly how this wizard came to accept 200 characters
+  // for a VARCHAR(50) column: the input could not overflow if it knew the limit.
+  const [limits, setLimits] = useState({});
+  useEffect(() => {
+    getFieldLimits().then(setLimits).catch(() => setLimits({}));
+  }, []);
+
+  // Which optional panels are open. Closed by default — that is the whole point of
+  // them.
+  const [openPanels, setOpenPanels] = useState({});
+  const togglePanel = (key) => setOpenPanels((o) => ({ ...o, [key]: !o[key] }));
+
+  // Branding. Held as data URIs and sent inside the bootstrap payload, because
+  // there is no branch to attach them to until that transaction commits.
+  const [media, setMedia] = useState({ logo: '', paymentQr: '' });
+  const [mediaMeta, setMediaMeta] = useState({});
+
+  // The GST answer. `null` means "not answered", which is NOT the same as "charging"
+  // — it writes no pos_tax_setting row at all and leaves the tenant on the table's
+  // own default. Writing GstCharging = 1 here would look identical today and
+  // diverge the moment that default is reconsidered.
+  const [gstAnswer, setGstAnswer] = useState(null);
 
   // ── Step 3 ─────────────────────────────────────────────────────────────────
   const [itemSource, setItemSource] = useState(SOURCE.SINGLE);
@@ -316,6 +433,21 @@ const MasterDataSetup = () => {
       return out;
     };
     const payload = { organization: clean(seeded.organization || {}), branch: clean(seeded.branch || {}) };
+
+    // Branding, when any was chosen. Validated and re-measured on the server before
+    // the transaction opens, so a rejected image is a 400 with nothing attempted
+    // rather than a rolled-back signup.
+    const images = Object.fromEntries(
+      Object.entries(media).filter(([, dataUri]) => !!dataUri),
+    );
+    if (Object.keys(images).length > 0) payload.branch.media = images;
+
+    // The GST answer, only if one was given. See the note on gstAnswer.
+    if (gstAnswer === 'charging') {
+      payload.taxSetting = { gstCharging: true };
+    } else if (gstAnswer === 'composition' || gstAnswer === 'unregistered') {
+      payload.taxSetting = { gstCharging: false, offReason: gstAnswer };
+    }
     // Only the TYPED item rides inside the transaction. A file's items are
     // created afterwards — the bulk endpoint sits behind the first-time setup
     // gate and cannot be called until this tenancy exists.
@@ -575,7 +707,9 @@ const MasterDataSetup = () => {
               </>
             )}
 
-            {(!isItemStep || typingItem) && step.groups.filter((g) => g.fields.some((f) => !f.hidden)).map((g) => (
+            {(!isItemStep || typingItem) && step.groups
+              .filter((g) => !g.optional && g.fields.some((f) => !f.hidden))
+              .map((g) => (
               <fieldset className="mds-group" key={g.path + g.title}>
                 <legend>{g.title}</legend>
                 <div className="mds-grid">
@@ -587,19 +721,26 @@ const MasterDataSetup = () => {
                     const problem = problems[id];
                     // Said once they try to move on, or once the value is as long
                     // as it can be — not after the first character.
+                    const cap = limits[f.limitKey] || f.maxLength;
                     const showProblem = !!problem
-                      && (showErrors || (f.maxLength && String(value).length >= f.maxLength));
+                      && (showErrors || (cap && String(value).length >= cap));
                     const described = !problem && f.describe ? f.describe(value) : null;
                     return (
                       <div className={`mds-field ${invalid || showProblem ? 'is-invalid' : ''}`} key={id}>
                         <label htmlFor={id}>
                           {f.label || f.name}{f.required && <span className="mds-req">*</span>}
+                          {f.tip && <Tip text={f.tip} />}
+                          {/* Only as the cap approaches. A counter on every field is
+                              noise; one that appears near the edge is information. */}
+                          {cap && String(value).length > cap * 0.8 && (
+                            <span className="mds-count">{String(value).length}/{cap}</span>
+                          )}
                         </label>
                         <input
                           id={id}
                           type={f.type === 'number' ? 'number' : 'text'}
                           step={f.type === 'number' ? 'any' : undefined}
-                          maxLength={f.maxLength}
+                          maxLength={limits[f.limitKey] || f.maxLength}
                           autoCapitalize={f.upper ? 'characters' : undefined}
                           spellCheck={f.upper ? false : undefined}
                           aria-invalid={invalid || showProblem ? true : undefined}
@@ -630,6 +771,119 @@ const MasterDataSetup = () => {
                 )}
               </fieldset>
             ))}
+
+            {/* ── The optional panels ────────────────────────────────────────
+                Closed by default and stated as skippable. Each one says where its
+                fields can be set later, so leaving them shut costs the tenant
+                nothing they cannot recover. */}
+            {!isItemStep && step.groups.filter((g) => g.optional).map((g) => (
+              <OptionalPanel
+                key={g.title}
+                title={g.title}
+                blurb={g.blurb}
+                open={!!openPanels[g.title]}
+                onToggle={() => togglePanel(g.title)}
+              >
+                <div className="mds-grid">
+                  {g.fields.filter((f) => !f.hidden).map((f) => {
+                    const fp = f.path || g.path;
+                    const id = `${fp}.${f.name}`;
+                    const value = getVal(form, fp, f.name);
+                    const problem = problems[id];
+                    const cap = limits[f.limitKey] || f.maxLength;
+                    return (
+                      <div className={`mds-field ${problem ? 'is-invalid' : ''}`} key={id}>
+                        <label htmlFor={id}>
+                          {f.label || f.name}
+                          {f.tip && <Tip text={f.tip} />}
+                          {cap && String(value).length > cap * 0.8 && (
+                            <span className="mds-count">{String(value).length}/{cap}</span>
+                          )}
+                        </label>
+                        <input
+                          id={id}
+                          type="text"
+                          maxLength={cap}
+                          autoCapitalize={f.upper ? 'characters' : undefined}
+                          spellCheck={f.upper ? false : undefined}
+                          aria-invalid={problem ? true : undefined}
+                          value={value}
+                          onChange={(e) => update(
+                            fp, f.name, f.upper ? e.target.value.toUpperCase() : e.target.value,
+                          )}
+                        />
+                        {f.hint && !problem && <small className="mds-hint">{f.hint}</small>}
+                        {problem && <small className="mds-error">{problem}</small>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </OptionalPanel>
+            ))}
+
+            {/* ── Branding ───────────────────────────────────────────────────
+                On the Branch step because that is what a logo belongs to.
+                Deliberately last and deliberately closed: choosing two images is
+                the slowest thing anyone could be asked to do during signup, on a
+                phone, and it is the one thing a new restaurant is least likely to
+                have to hand. */}
+            {step.key === 'branch' && (
+              <OptionalPanel
+                title="Branding"
+                blurb="Add your logo now, or later from Business Profile — bills print fine without one."
+                open={!!openPanels.Branding}
+                onToggle={() => togglePanel('Branding')}
+              >
+                <div className="mds-media-grid">
+                  <MediaUploadCard
+                    label="Logo"
+                    hint="Monochrome prints best. Wide, short images suit a till roll."
+                    value={media.logo}
+                    meta={mediaMeta.logo}
+                    onChange={(dataUri, meta) => {
+                      setMedia((m) => ({ ...m, logo: dataUri }));
+                      setMediaMeta((m) => ({ ...m, logo: meta }));
+                    }}
+                    onRemove={() => {
+                      setMedia((m) => ({ ...m, logo: '' }));
+                      setMediaMeta((m) => ({ ...m, logo: undefined }));
+                    }}
+                  />
+                  <MediaUploadCard
+                    label="Payment QR"
+                    hint="A static UPI QR from your bank or PSP. The customer types the amount."
+                    value={media.paymentQr}
+                    meta={mediaMeta.paymentQr}
+                    onChange={(dataUri, meta) => {
+                      setMedia((m) => ({ ...m, paymentQr: dataUri }));
+                      setMediaMeta((m) => ({ ...m, paymentQr: meta }));
+                    }}
+                    onRemove={() => {
+                      setMedia((m) => ({ ...m, paymentQr: '' }));
+                      setMediaMeta((m) => ({ ...m, paymentQr: undefined }));
+                    }}
+                  />
+                </div>
+                <p className="mds-hint">
+                  Both start switched off on bills. Turn them on at Front Desk →
+                  Receipt Format once you are set up.
+                </p>
+              </OptionalPanel>
+            )}
+
+            {/* ── Tax ────────────────────────────────────────────────────────
+                "Decide later" is the default AND a real answer: it writes no row,
+                leaving the tenant on the same behaviour every tenant has had. */}
+            {step.key === 'branch' && (
+              <OptionalPanel
+                title="Tax"
+                blurb="You can change this whenever you like."
+                open={!!openPanels.Tax}
+                onToggle={() => togglePanel('Tax')}
+              >
+                <GstQuestion value={gstAnswer} onChange={setGstAnswer} />
+              </OptionalPanel>
+            )}
 
             {isItemStep && uploadingItems && (
               <ItemFilePicker
@@ -688,6 +942,127 @@ const MasterDataSetup = () => {
 };
 
 // ── The rates inside a tax group ─────────────────────────────────────────────
+/**
+ * The "where can I change this later?" marker.
+ *
+ * A native `title` attribute rather than a custom popover, deliberately: it works
+ * on a keyboard, it works with a screen reader, it cannot be clipped by a parent's
+ * overflow, and it costs no library. The trade-off is that it does not appear on
+ * touch — so a tooltip never carries anything the user NEEDS. Every one of these is
+ * a reassurance ("you can change this later at X"), never an instruction, and the
+ * fields that genuinely need guidance carry a visible `hint` instead.
+ */
+//
+// NO aria-label HERE, deliberately. An aria-label puts this text into the
+// accessible-NAME space, and the marker beside the GSTIN box says "…keeps the GSTIN
+// it was issued under" — so "find the thing labelled GSTIN" started matching two
+// elements, the input and the marker. That is not merely a test annoyance: a label
+// names a control, and this is supplementary prose about one. `title` is what a
+// native tooltip is, it is announced on a focusable element, and it leaves the
+// input's accessible name to the <label> that belongs to it.
+const Tip = ({ text }) => (
+  <span className="mds-tip" title={text} tabIndex={0} role="note">
+    ⓘ
+  </span>
+);
+
+/**
+ * A collapsed section of optional fields.
+ *
+ * WHY THE WIZARD HAS THESE AT ALL
+ * The required path is seven fields, and getting it there was a fought-for
+ * decision — the invoice-numbering boxes were removed because "where should your
+ * invoice numbers start" is not a question a new tenant can answer, and they were
+ * the last thing between them and a working branch. Eleven more boxes would undo
+ * that. So the new fields are offered rather than asked: shut by default, stated as
+ * optional, each naming where it can be set later.
+ *
+ * A <button> and a region rather than <details>/<summary>: the open state has to be
+ * React's, because the wizard remembers it across steps and the Review panel needs
+ * to know what was filled in.
+ */
+const OptionalPanel = ({ title, blurb, open, onToggle, children }) => (
+  <section className={`mds-panel ${open ? 'is-open' : ''}`}>
+    <button
+      type="button"
+      className="mds-panel-head"
+      onClick={onToggle}
+      aria-expanded={open}
+    >
+      <span className="mds-panel-caret" aria-hidden="true">{open ? '▾' : '▸'}</span>
+      <span className="mds-panel-title">{title}</span>
+      <span className="mds-panel-tag">optional</span>
+    </button>
+    {open && (
+      <div className="mds-panel-body">
+        {blurb && <p className="mds-panel-blurb">{blurb}</p>}
+        {children}
+      </div>
+    )}
+  </section>
+);
+
+/**
+ * Do you charge GST?
+ *
+ * FOUR OPTIONS, AND THE FOURTH IS THE DEFAULT.
+ * "Decide later" is not a cop-out — it is the only honest default. pos_tax_setting
+ * treats the ABSENCE of a row as charging, chosen that way so a tenant with an
+ * empty GSTIN field did not silently stop charging GST. Answering on the tenant's
+ * behalf would write a row that says the same thing today and a different thing the
+ * moment that default is reconsidered.
+ *
+ * Each "no" states what the paper will say, because that is the consequence the
+ * tenant can actually check.
+ */
+const GST_OPTIONS = [
+  {
+    value: 'charging',
+    label: 'Yes — we are registered for GST',
+    note: 'Bills print as TAX INVOICE with the tax split out. Needs a GSTIN on the branch.',
+  },
+  {
+    value: 'composition',
+    label: 'No — we are on the composition scheme',
+    note: 'Bills print as BILL OF SUPPLY with the composition declaration at the foot.',
+  },
+  {
+    value: 'unregistered',
+    label: 'No — we are not registered for GST',
+    note: 'Bills print as BILL OF SUPPLY, with no GSTIN and no declaration.',
+  },
+  {
+    value: null,
+    label: 'Decide later',
+    note: 'Bills charge GST, as they do for every new tenancy. Change it any time at POS Settings → GST.',
+  },
+];
+
+const GstQuestion = ({ value, onChange }) => (
+  <div className="mds-gst" role="radiogroup" aria-label="Do you charge GST?">
+    {GST_OPTIONS.map((o) => (
+      <button
+        key={String(o.value)}
+        type="button"
+        role="radio"
+        aria-checked={value === o.value}
+        className={`mds-gst-opt ${value === o.value ? 'is-on' : ''}`}
+        onClick={() => onChange(o.value)}
+      >
+        <span className="mds-gst-radio" aria-hidden="true" />
+        <span>
+          <strong>{o.label}</strong>
+          <em>{o.note}</em>
+        </span>
+      </button>
+    ))}
+    <p className="mds-hint">
+      Changing this later asks you to settle any open orders first — the bills on
+      those tables were priced under the old setting.
+    </p>
+  </div>
+);
+
 const TaxRates = ({ rates, invalid, onChange, exempt, problem }) => {
   const set = (i, key, value) => onChange(rates.map((r, j) => (j === i ? { ...r, [key]: value } : r)));
   const total = rateTotal(rates);

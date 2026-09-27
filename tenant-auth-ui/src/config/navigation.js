@@ -127,6 +127,11 @@ export const FRONT_DESK_NAV = [
     { key: 'fd-rejection-reasons', path: '/frontdesk/rejection-reasons', label: 'Rejection Reasons', icon: '🚫', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
     { key: 'fd-variants',   path: '/frontdesk/variants',   label: 'Variants',     icon: '🧩', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
     { key: 'fd-floors',     path: '/frontdesk/floors',     label: 'Floors',       icon: '🏢', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
+    // Above POS Settings and Receipt Format because it is what they refer back to:
+    // the business's own details, which those two screens decide the handling and
+    // the printing of. ORGANIZATION_READ as well as POS_CONFIG_READ — whoever
+    // manages the company's details should reach it without holding a POS scope.
+    { key: 'fd-business',   path: '/frontdesk/business-profile', label: 'Business Profile', icon: '🏪', scopes: [SCOPES.ORGANIZATION_READ, SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
     { key: 'fd-settings',   path: '/frontdesk/settings',   label: 'POS Settings', icon: '⚙️', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
     { key: 'fd-receipt',    path: '/frontdesk/receipt-format', label: 'Receipt Format', icon: '🧾', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
     { key: 'fd-campaigns',  path: '/frontdesk/campaigns',      label: 'Campaigns',      icon: '🎯', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },

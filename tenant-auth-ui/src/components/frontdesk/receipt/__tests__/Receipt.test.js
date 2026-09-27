@@ -414,3 +414,56 @@ describe('the GSTIN on an issued document', () => {
     expect(within(el).getByText(`GSTIN ${SHOP.gstin}`)).toBeInTheDocument();
   });
 });
+
+// ── The logo ─────────────────────────────────────────────────────────────────
+//
+// Three states, and the two that involve an absent image are the ones that used to
+// go wrong elsewhere: an <img> with an empty src draws a broken-image icon, which
+// on a bill reads as a printer fault rather than as "no logo".
+describe('the logo at the top of the bill', () => {
+  const shopWith = (logoUrl) => ({
+    name: 'Mayini Kitchen', address: 'Balagere Road', gstin: '', fssai: '',
+    logoUrl, paymentQrUrl: '',
+  })
+  const DATA_URI = 'data:image/png;base64,iVBORw0KGgoAAAANS'
+
+  const renderBill = (format, shop) => render(
+    <Receipt doc="bill" format={format} shop={shop} data={{ TransactionNo: 'INV-1' }} inline />,
+  )
+
+  it('prints it when set to always and one is uploaded', () => {
+    const { container } = renderBill({ logo: 'always' }, shopWith(DATA_URI))
+    expect(container.querySelector('.rc-logo img')).toHaveAttribute('src', DATA_URI)
+  })
+
+  it('prints it when set to if_present and one is uploaded', () => {
+    const { container } = renderBill({ logo: 'if_present' }, shopWith(DATA_URI))
+    expect(container.querySelector('.rc-logo img')).toBeTruthy()
+  })
+
+  // The case the third state exists for.
+  it('draws nothing when set to if_present and none is uploaded', () => {
+    const { container } = renderBill({ logo: 'if_present' }, shopWith(''))
+    expect(container.querySelector('.rc-logo')).toBeNull()
+  })
+
+  // ALWAYS with no image must still draw nothing. A field whose value is the image
+  // itself cannot stand empty the way a labelled row can.
+  it('draws nothing when set to always but none is uploaded', () => {
+    const { container } = renderBill({ logo: 'always' }, shopWith(''))
+    expect(container.querySelector('.rc-logo img')).toBeNull()
+  })
+
+  it('draws nothing when switched off, even with one uploaded', () => {
+    const { container } = renderBill({ logo: 'never' }, shopWith(DATA_URI))
+    expect(container.querySelector('.rc-logo')).toBeNull()
+  })
+
+  // It is the masthead, so it comes before the shop name rather than after it.
+  it('sits above the shop name', () => {
+    const { container } = renderBill({ logo: 'always', shopName: 'always' }, shopWith(DATA_URI))
+    const paper = container.querySelector('.rc-paper') || container
+    const html = paper.innerHTML
+    expect(html.indexOf('rc-logo')).toBeLessThan(html.indexOf('rc-shop'))
+  })
+})

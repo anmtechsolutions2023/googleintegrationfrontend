@@ -56,3 +56,73 @@ describe('escpos', () => {
     expect(lines).toEqual(['X'.repeat(24), 'X'.repeat(6)])
   })
 })
+
+// ── Raster images ────────────────────────────────────────────────────────────
+//
+// `GS v 0` is the one command here where a mistake is silent and ugly rather than
+// absent: xL/xH is the row width in BYTES, not in dots, and getting it wrong prints
+// a skewed diagonal smear rather than nothing. So the header is asserted byte by
+// byte.
+describe('raster images', () => {
+  const GS = 0x1d
+
+  const bitmap = (width, height, fill = 0xff) => ({
+    width,
+    height,
+    bytesPerRow: Math.ceil(width / 8),
+    data: new Uint8Array(Math.ceil(width / 8) * height).fill(fill),
+  })
+
+  it('emits the GS v 0 header with the width in BYTES, not dots', () => {
+    const e = createEncoder({ columns: 48 })
+    // 384 dots = 48 bytes per row.
+    e.raster(bitmap(384, 2))
+    const bytes = Array.from(e.toBytes())
+
+    expect(bytes.slice(0, 4)).toEqual([GS, 0x76, 0x30, 0x00])
+    // xL, xH — 48, not 384.
+    expect(bytes[4]).toBe(48)
+    expect(bytes[5]).toBe(0)
+    // yL, yH — the height in dots.
+    expect(bytes[6]).toBe(2)
+    expect(bytes[7]).toBe(0)
+    // Then exactly the pixel data, and nothing after it.
+    expect(bytes.length).toBe(8 + 48 * 2)
+  })
+
+  it('splits a height above 255 across yL and yH', () => {
+    const e = createEncoder({ columns: 48 })
+    e.raster(bitmap(8, 300))
+    const bytes = Array.from(e.toBytes())
+    // 300 = 0x012C → low byte 0x2C, high byte 0x01.
+    expect(bytes[6]).toBe(0x2c)
+    expect(bytes[7]).toBe(0x01)
+  })
+
+  // Pixels are pushed raw. Routing them through the text path would run them into
+  // toPrintable, which rewrites anything it cannot draw as '?' — every 0x3F byte in
+  // the image would become a question mark and the picture would be corrupt.
+  it('passes pixel bytes through untouched', () => {
+    const e = createEncoder({ columns: 48 })
+    const bmp = bitmap(8, 1, 0x00)
+    bmp.data[0] = 0xe2 // a byte toPrintable would substitute in text
+    e.raster(bmp)
+    const bytes = Array.from(e.toBytes())
+    expect(bytes[8]).toBe(0xe2)
+  })
+
+  // A logo is decoration. escposImage returns null when an image cannot be decoded,
+  // and a bill that failed to print because of a picture is a customer at a counter.
+  it('emits nothing at all for a missing or malformed bitmap', () => {
+    expect(createEncoder({ columns: 48 }).raster(null).toBytes()).toHaveLength(0)
+    expect(createEncoder({ columns: 48 }).raster({}).toBytes()).toHaveLength(0)
+    expect(createEncoder({ columns: 48 })
+      .raster({ width: 8, height: 0, bytesPerRow: 1, data: new Uint8Array() })
+      .toBytes()).toHaveLength(0)
+  })
+
+  it('is chainable like every other command', () => {
+    const e = createEncoder({ columns: 48 })
+    expect(e.raster(bitmap(8, 1))).toBe(e)
+  })
+})

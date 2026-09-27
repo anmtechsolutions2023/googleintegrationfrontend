@@ -55,6 +55,7 @@ import Feedback from './pages/frontdesk/Feedback';
 import Tokens from './pages/frontdesk/Tokens';
 import TokenDisplay from './pages/frontdesk/TokenDisplay';
 import PosSettings from './pages/frontdesk/PosSettings';
+import BusinessProfile from './pages/frontdesk/BusinessProfile';
 import OnlineOrders from './pages/frontdesk/OnlineOrders';
 import Portals from './pages/frontdesk/Portals';
 import PortalMenu from './pages/frontdesk/PortalMenu';
@@ -285,6 +286,10 @@ const AppRoutes = () => {
               in this tenancy". The old path is kept so existing links still land
               somewhere useful rather than 404ing. */}
           <Route path="staff" element={<Navigate to="/frontdesk/access-control" replace />} />
+          {/* Everything the setup wizard collected. ORGANIZATION_READ as well as
+              POS_CONFIG_READ: these are the business's own details, and whoever
+              manages them should not need a POS scope to look. */}
+          <Route path="business-profile" element={<ScopeGuard requiredScopes={[SCOPES.ORGANIZATION_READ, SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN]}><BusinessProfile /></ScopeGuard>} />
           <Route path="settings"  element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ,  SCOPES.TENANT_ADMIN]}><PosSettings /></ScopeGuard>} />
           <Route path="expenses"  element={<ScopeGuard requiredScopes={[SCOPES.POS_OPS_READ,     SCOPES.TENANT_ADMIN]}><Expenses /></ScopeGuard>} />
           <Route path="customers"      element={<ScopeGuard requiredScopes={[SCOPES.POS_CRM_READ,     SCOPES.TENANT_ADMIN]}><Customers /></ScopeGuard>} />

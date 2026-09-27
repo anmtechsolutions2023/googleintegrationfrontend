@@ -1,0 +1,191 @@
+/* src/pages/frontdesk/businessProfile.css
+   Plain CSS, matching the rest of Front Desk — no framework, no preprocessor.
+   Colours and spacing follow frontdesk.css so this screen does not read as a
+   bolt-on. */
+
+.bp-page { max-width: 880px; }
+
+.bp-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.bp-lead { color: #6b7280; margin: 4px 0 0; font-size: 14px; }
+
+.bp-branch { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: #6b7280; }
+.bp-branch select { padding: 6px 8px; border: 1px solid #d1d5db; border-radius: 6px; }
+
+/* ── Tabs ──────────────────────────────────────────────────────────────────
+   Horizontally scrollable rather than wrapped: five tabs wrap to two rows on a
+   phone and the second row reads as unrelated navigation. */
+.bp-tabs {
+  display: flex;
+  gap: 4px;
+  margin: 16px 0;
+  border-bottom: 1px solid #e5e7eb;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.bp-tabs button {
+  flex: 0 0 auto;
+  padding: 10px 14px;
+  border: 0;
+  background: none;
+  font-size: 14px;
+  color: #6b7280;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+}
+.bp-tabs button:hover { color: #111827; }
+.bp-tabs button.is-active { color: #111827; font-weight: 600; border-bottom-color: #2563eb; }
+
+/* ── Cards ─────────────────────────────────────────────────────────────── */
+.bp-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 18px;
+  margin-bottom: 16px;
+}
+.bp-card h2 { margin: 0; font-size: 16px; }
+.bp-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+/* Quiet by design. It answers a question the user only sometimes asks, so it must
+   not compete with the value it describes. */
+.bp-provenance { font-size: 12px; color: #9ca3af; }
+
+/* ── Fields ────────────────────────────────────────────────────────────── */
+.bp-field { display: block; margin-top: 14px; }
+.bp-field-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 4px;
+}
+.bp-count { font-size: 12px; font-weight: 400; color: #9ca3af; }
+.bp-field input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 9px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+}
+.bp-field input:focus { outline: 2px solid #93c5fd; outline-offset: -1px; border-color: #2563eb; }
+.bp-field input:disabled { background: #f9fafb; color: #6b7280; }
+.bp-field input.is-bad { border-color: #dc2626; }
+
+.bp-hint { display: block; font-size: 12px; color: #6b7280; margin-top: 4px; }
+.bp-note { display: block; font-size: 12px; margin-top: 4px; }
+.bp-note.is-bad { color: #dc2626; }
+.bp-note.is-ok { color: #059669; }
+
+/* One row on a desktop, stacked on a phone. City/State/Pincode and First/Last name
+   belong side by side where there is room and nowhere else. */
+.bp-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.bp-row .bp-field:nth-child(n) { margin-top: 14px; }
+
+.bp-readonly { margin-top: 18px; padding-top: 14px; border-top: 1px dashed #e5e7eb; }
+.bp-readonly p { margin: 0 0 2px; font-size: 14px; color: #111827; }
+
+.bp-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  position: sticky;
+  bottom: 0;
+  background: linear-gradient(to top, #f9fafb 60%, rgba(249, 250, 251, 0));
+  padding: 12px 0;
+}
+
+/* ── Branding ──────────────────────────────────────────────────────────── */
+.bp-media-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 12px; }
+.bp-media { border: 1px solid #e5e7eb; border-radius: 8px; padding: 14px; }
+.bp-media-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.bp-media-meta { font-size: 12px; color: #9ca3af; }
+
+/* A checkerboard behind the preview, so a white logo on a white background is
+   visible as an image rather than looking like a failed load. */
+.bp-media-frame {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 110px;
+  border-radius: 6px;
+  padding: 10px;
+  background-color: #fff;
+  background-image:
+    linear-gradient(45deg, #f3f4f6 25%, transparent 25%, transparent 75%, #f3f4f6 75%),
+    linear-gradient(45deg, #f3f4f6 25%, transparent 25%, transparent 75%, #f3f4f6 75%);
+  background-size: 14px 14px;
+  background-position: 0 0, 7px 7px;
+  border: 1px solid #e5e7eb;
+}
+.bp-media-frame.is-empty { background-image: none; background: #f9fafb; }
+/* Greyscale because the paper has one ink — a colour preview of a mono print lies. */
+.bp-media-frame img { max-width: 100%; max-height: 120px; filter: grayscale(100%) contrast(1.15); }
+.bp-media-none { font-size: 13px; color: #9ca3af; }
+
+.bp-media-hint { font-size: 12px; color: #6b7280; margin: 8px 0 0; }
+.bp-media-note { font-size: 12px; color: #9ca3af; margin: 4px 0 0; }
+.bp-media-actions { display: flex; gap: 8px; margin-top: 10px; }
+
+/* ── On the bill ───────────────────────────────────────────────────────── */
+.bp-bill-list { list-style: none; margin: 14px 0 10px; padding: 0; }
+.bp-bill-list li {
+  display: grid;
+  grid-template-columns: 20px 150px 1fr 70px 130px;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 13px;
+}
+.bp-bill-mark { font-weight: 700; }
+.bp-bill-list li.is-on .bp-bill-mark { color: #059669; }
+.bp-bill-list li.is-off .bp-bill-mark { color: #9ca3af; }
+.bp-bill-label { font-weight: 600; color: #374151; }
+.bp-bill-value { color: #111827; overflow-wrap: anywhere; }
+.bp-bill-value em { color: #9ca3af; font-style: normal; }
+.bp-bill-state { color: #6b7280; font-variant: small-caps; }
+.bp-bill-action { color: #9ca3af; font-size: 12px; }
+
+/* ── Phones ────────────────────────────────────────────────────────────────
+   The breakpoint the rest of Front Desk uses. Every grid collapses to one column;
+   the "on the bill" rows become label-over-value pairs rather than a squeezed
+   five-column table. */
+@media (max-width: 720px) {
+  .bp-row { grid-template-columns: 1fr; }
+  .bp-media-grid { grid-template-columns: 1fr; }
+  .bp-bill-list li {
+    grid-template-columns: 20px 1fr;
+    grid-template-areas:
+      'mark label'
+      '.    value'
+      '.    state';
+  }
+  .bp-bill-mark { grid-area: mark; }
+  .bp-bill-label { grid-area: label; }
+  .bp-bill-value { grid-area: value; }
+  .bp-bill-state { grid-area: state; }
+  .bp-bill-action { display: none; }
+}

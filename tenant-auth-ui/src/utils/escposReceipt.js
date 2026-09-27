@@ -16,14 +16,37 @@ import {
 } from './receiptFields'
 import { lineOptions, lineAddons, lineNote, lineBreakdown } from './lineOptions'
 
-const head = (e, format, shop) => {
+/**
+ * The masthead. Same fields and SAME ORDER as Receipt.js — the mark, then who you
+ * are, then how to reach you, then the registrations.
+ *
+ * `images` carries bitmaps the caller has already decoded and dithered. They
+ * cannot be produced here: decoding is asynchronous and this builder is
+ * deliberately synchronous and pure, so a print is bytes-in-bytes-out and testable
+ * without a DOM. See buildReceiptBytes.
+ */
+const head = (e, format, shop, images = {}) => {
   e.align('center')
+  // Gated on the bitmap actually existing, not merely on the setting: a logo that
+  // failed to decode must print nothing rather than a stripe of noise.
+  if (shows(format, 'logo', shop.logoUrl) && images.logo) {
+    e.raster(images.logo)
+    e.feed(1)
+  }
   if (shows(format, 'shopName', shop.name)) {
     e.bold(true).size(2, 2).line(String(shop.name || '').toUpperCase()).size(1, 1).bold(false)
   }
+  if (present(format, 'legalName', shop.legalName)) e.line(shop.legalName)
   if (present(format, 'address', shop.address)) e.line(shop.address)
+  if (present(format, 'phone', shop.phone)) e.line(`Ph ${shop.phone}`)
+  if (present(format, 'email', shop.email)) e.line(shop.email)
+  // Labelled, like the screen: an unlabelled personal name cannot be told from the
+  // cashier's, which prints further down.
+  if (present(format, 'contactName', shop.contactName)) e.line(`Contact: ${shop.contactName}`)
   if (present(format, 'gstin', shop.gstin)) e.line(`GSTIN ${shop.gstin}`)
   if (present(format, 'fssai', shop.fssai)) e.line(`FSSAI ${shop.fssai}`)
+  if (present(format, 'pan', shop.pan)) e.line(`PAN ${shop.pan}`)
+  if (present(format, 'tin', shop.tin)) e.line(`TIN ${shop.tin}`)
   if (hasValue(line(format, 'headerLine'))) e.line(line(format, 'headerLine'))
   e.align('left')
 }
@@ -90,11 +113,11 @@ const signature = (e, format, label) => {
   e.feed(2).centre('____________________').centre(label)
 }
 
-const bill = (e, format, shop, data) => {
+const bill = (e, format, shop, data, images = {}) => {
   const dateMode = choice(format, 'dateTime', 'datetime')
   const returned = Number(data.ReturnedAmount || 0)
 
-  head(e, format, shop)
+  head(e, format, shop, images)
   e.rule()
   e.align('center').bold(true).line(data.taxMode === 'gst' ? 'TAX INVOICE' : 'BILL OF SUPPLY').bold(false)
   if (data.isReprint) e.line('** REPRINT **')
@@ -142,14 +165,22 @@ const bill = (e, format, shop, data) => {
 
   e.rule()
   compositionNote(e, format)
+  // Above the thank-you line, so a customer settling at the table finds it without
+  // reading past the footer. Gated on the bitmap, like the logo.
+  if (shows(format, 'upiQr', shop.paymentQrUrl) && images.paymentQr) {
+    e.align('center')
+    e.raster(images.paymentQr)
+    e.line('Scan to pay')
+    e.align('left')
+  }
   if (hasValue(line(format, 'footerLine1'))) e.centre(line(format, 'footerLine1'))
   if (hasValue(line(format, 'footerLine2'))) e.centre(line(format, 'footerLine2'))
   signature(e, format, 'Signature')
 }
 
-const creditNote = (e, format, shop, data) => {
+const creditNote = (e, format, shop, data, images = {}) => {
   const dateMode = choice(format, 'dateTime', 'datetime')
-  head(e, format, shop)
+  head(e, format, shop, images)
   e.rule()
   // Inverted, because the one mistake that matters is a credit note mistaken
   // for a bill — a refund banked as a sale.
@@ -236,9 +267,9 @@ const kot = (e, format, _shop, data) => {
   e.centre(`${lines.length} items`)
 }
 
-const tokenSlip = (e, format, shop, data) => {
+const tokenSlip = (e, format, shop, data, images = {}) => {
   const dateMode = choice(format, 'dateTime', 'time')
-  head(e, format, shop)
+  head(e, format, shop, images)
   e.rule()
   e.centre('Your token')
   // The whole slip exists for ONE number, so it gets the whole slip.
@@ -260,11 +291,19 @@ const BODIES = { bill, creditNote, kot, tokenSlip }
  * @param {'bill'|'creditNote'|'kot'|'tokenSlip'} doc
  * @param {Object} p
  * @param {Object|null} p.format - Resolved settings for THIS document type.
- * @param {Object} [p.shop] - { name, address, gstin, fssai }
+ * @param {Object} [p.shop] - The masthead values: name, legalName, address, phone,
+ *   email, contactName, gstin, fssai, pan, tin, logoUrl, paymentQrUrl.
+ * @param {Object} [p.images] - Bitmaps the CALLER has already decoded and dithered,
+ *   as { logo, paymentQr }. Not produced here: decoding an image is asynchronous
+ *   and needs a canvas, and this builder is deliberately synchronous and pure so a
+ *   print is bytes-in-bytes-out and can be tested without a DOM. See
+ *   utils/escposImage.bitmapFor and usePrintReceipt.
  * @param {Object} p.data - The document.
  * @returns {Uint8Array|null} null for a document type this cannot draw.
  */
-export const buildReceiptBytes = (doc, { format = null, shop = {}, data } = {}) => {
+export const buildReceiptBytes = (
+  doc, { format = null, shop = {}, data, images = {} } = {},
+) => {
   const body = BODIES[doc]
   if (!body || !data) return null
   const columns = columnsFor(choice(format, 'paperWidth', '80'))
@@ -272,7 +311,7 @@ export const buildReceiptBytes = (doc, { format = null, shop = {}, data } = {}) 
   const masthead = printedShop(shop || {}, data)
   const e = createEncoder({ columns }).init()
   for (let i = 0; i < copies; i += 1) {
-    body(e, format, masthead, data)
+    body(e, format, masthead, data, images)
     e.cut()
   }
   return e.toBytes()

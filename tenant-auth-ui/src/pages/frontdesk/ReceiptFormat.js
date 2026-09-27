@@ -5,6 +5,7 @@ import Receipt from '../../components/frontdesk/receipt/Receipt'
 import PrinterCard from '../../components/frontdesk/PrinterCard'
 import { SCOPES } from '../../constants'
 import { useCan } from '../../hooks/useCan'
+import { useBranchMedia } from '../../hooks/useBranchMedia'
 import './receiptFormat.css'
 
 /**
@@ -108,6 +109,18 @@ const ReceiptFormat = () => {
   const [draft, setDraft] = useState({})
   const [sample, setSample] = useState(null)
   const [sampleIsReal, setSampleIsReal] = useState(false)
+
+  // THE PREVIEW HAS TO FETCH THE IMAGES TOO.
+  //
+  // This screen used to hand `schema.shop` straight to <Receipt>, and the paths in
+  // it are not loadable — authenticated, cross-origin, and answering JSON rather
+  // than bytes. The QR came out as a broken-image icon here while printing
+  // perfectly from the till, because the till hydrates them and this did not.
+  //
+  // A preview that does not match the paper is worse than no preview: this is the
+  // screen somebody uses to decide whether to switch the QR on at all. Same hook as
+  // usePrintReceipt, so the two cannot drift apart again.
+  const previewShop = useBranchMedia(branchId, schema?.shop || null, schema)
   const [openSections, setOpenSections] = useState({ header: true, identity: true })
 
   useEffect(() => {
@@ -358,7 +371,7 @@ const ReceiptFormat = () => {
               </span>
             </div>
             {previewData && (
-              <Receipt doc={doc} format={values} shop={schema.shop} data={previewData} inline />
+              <Receipt doc={doc} format={values} shop={previewShop || schema.shop} data={previewData} inline />
             )}
             <p className="rf-preview-foot">
               {sampleIsReal

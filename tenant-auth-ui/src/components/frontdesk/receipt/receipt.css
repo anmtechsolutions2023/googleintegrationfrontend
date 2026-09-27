@@ -143,3 +143,38 @@
   margin-top: 3px;
   letter-spacing: 0.06em;
 }
+
+/* ── Logo and payment QR ─────────────────────────────────────────────────────
+   Both are capped in CSS as well as at upload. The upload path downscales to 384
+   dots — the full width of an 80mm head — but a branch that had an image stored
+   before that path existed, or one served at its original size, must still not be
+   able to push a bill onto a second page.
+
+   Greyscale on screen because the paper has one ink: previewing a colour logo that
+   will print as a grey smear is a preview that lies. The thermal path dithers the
+   same image to 1-bit for real — see utils/escposImage. */
+.rc-logo { margin: 0 0 4px; }
+.rc-logo img {
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
+  max-height: 24mm;
+  filter: grayscale(100%) contrast(1.15);
+}
+
+.rc-qr { margin: 6px 0 4px; }
+.rc-qr img {
+  display: block;
+  margin: 0 auto 2px;
+  /* Big enough to scan off a till roll. Below about 20mm a phone camera struggles
+     with the error correction on a thermal print. */
+  width: 28mm;
+  height: 28mm;
+  filter: grayscale(100%) contrast(1.3);
+}
+
+/* 58mm paper is not a scaled 80mm one: there are 32 columns instead of 48, so the
+   images have to give up room rather than shrink the text around them. */
+@media print {
+  .rc-logo img { max-height: 20mm; }
+}

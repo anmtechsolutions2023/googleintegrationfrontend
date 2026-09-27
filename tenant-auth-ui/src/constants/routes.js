@@ -38,6 +38,11 @@ export const ROUTES = {
   // First-time master-data setup wizard (transactional bootstrap)
   MASTER_SETUP: '/master-setup',
 
+  // Everything the setup wizard collected, viewable and editable afterwards.
+  // Lives under Front Desk rather than Master Data: Master Data is a generic CRUD
+  // grid over raw tables and shows an address as a dropdown of GUIDs.
+  BUSINESS_PROFILE: '/frontdesk/business-profile',
+
   // Front Desk (POS)
   FRONTDESK: '/frontdesk',
   FRONTDESK_MODULE: '/frontdesk/:tab',

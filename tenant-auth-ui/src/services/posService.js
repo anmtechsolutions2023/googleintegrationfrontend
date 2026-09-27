@@ -829,6 +829,60 @@ export const setReceiptTaxMode = async (branchId, taxMode) => {
   return toObject(res.data)
 }
 
+// ── Branch media: the logo and payment QR a bill can carry ──────────────────
+// The FORMAT decides whether either prints; these are the bytes. A branch may
+// hold a logo it does not print, and both states are legitimate.
+//
+// `listBranchMedia` returns metadata only ({ logo, paymentQr }, either null) so
+// asking "is there a logo" never costs half a megabyte.
+export const listBranchMedia = async (branchId) => {
+  const res = await api.get('/api/pos/media', { params: { branchId } })
+  return toObject(res.data)
+}
+export const getBranchMedia = async (branchId, kind) => {
+  const res = await api.get(`/api/pos/media/${kind}`, { params: { branchId } })
+  return toObject(res.data)
+}
+// `dataUri` is produced by utils/imageDownscale, which caps the dimensions before
+// anything reaches the wire. The server re-measures regardless.
+export const putBranchMedia = async (branchId, kind, dataUri) => {
+  const res = await api.post('/api/pos/media', { kind, dataUri }, { params: { branchId } })
+  return toObject(res.data)
+}
+export const deleteBranchMedia = async (branchId, kind) => {
+  const res = await api.delete(`/api/pos/media/${kind}`, { params: { branchId } })
+  return toObject(res.data)
+}
+
+// ── Business profile ────────────────────────────────────────────────────────
+// Everything onboarding collected, in ONE read and ONE atomic write.
+//
+// The write is a single call on purpose: this spans organizationdetail,
+// branchdetail, addressdetail and contactdetail, and four sequential PUTs can fail
+// on the third — leaving the name changed, the address changed and the GSTIN not,
+// with no way for the user to tell which half landed.
+//
+// Only the sections present are touched, so the tab in front of the user saves
+// itself without overwriting the four it is not showing.
+export const getBusinessProfile = async (branchId) => {
+  const res = await api.get('/api/business-profile', { params: { branchId } })
+  return toObject(res.data)
+}
+export const updateBusinessProfile = async (branchId, patch) => {
+  const res = await api.put('/api/business-profile', patch, { params: { branchId } })
+  return toObject(res.data)
+}
+
+// ── Field limits ────────────────────────────────────────────────────────────
+// 'table.column' → max length, straight from the column widths the server's Joi
+// rules are built from. Fetched rather than mirrored: a second copy of these
+// numbers is exactly how the wizard came to accept 200 characters for a
+// VARCHAR(50) column.
+export const getFieldLimits = async () => {
+  const res = await api.get('/api/master-data/field-limits')
+  return toObject(res.data)
+}
+
 // ── Campaigns and offers ────────────────────────────────────────────────────
 // An offer is not a second way to price a bill: the engine produces the same
 // per-line discounts the till already takes.
@@ -921,6 +975,8 @@ const posService = {
   getRefundSettlementQueue, setRefundSettlement,
   getReturnReasonsReport, getReturnProductReport, getReturnReasons,
   getReceiptFormat, getReceiptFormatSchema, updateReceiptFormat, setReceiptTaxMode,
+  listBranchMedia, getBranchMedia, putBranchMedia, deleteBranchMedia,
+  getBusinessProfile, updateBusinessProfile, getFieldLimits,
   getItemDetails, getCategories,
   getCampaigns, getCampaign, createCampaign, updateCampaign, setCampaignStatus,
   deleteCampaign, getCampaignReport, getCampaignOffers,

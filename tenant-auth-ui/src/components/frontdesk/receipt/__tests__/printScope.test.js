@@ -202,3 +202,63 @@ describe('printing is scoped to an actual receipt', () => {
     expect(document.getElementById('rc-page-size')).toBeNull()
   })
 })
+
+// ── Pictures have to be decoded before the snapshot ──────────────────────────
+//
+// THE BUG THIS COVERS. The guard above waited for TEXT and nothing else, so
+// print() could fire while a logo was still decoding and the page was snapshotted
+// without it. A payment QR of a few kilobytes decoded inside that gap and came out
+// fine; a logo several times larger did not, every time — which reads as "logos do
+// not print" rather than as a race, and sent the diagnosis towards the printer.
+//
+// The two conditions are NOT equally serious, and these pin both halves: a picture
+// is worth waiting for and never worth refusing a bill over.
+describe('waiting for the pictures', () => {
+  const PaperWithImage = ({ branchId, onReady, complete }) => {
+    const api = usePrintReceipt(branchId)
+    onReady(api)
+    if (!api.job) return null
+    return (
+      <div className="rc-root">
+        <div className="rc-paper">
+          {/* jsdom never loads anything, so `complete` is stubbed to say where the
+              browser would have got to. */}
+          <img alt="" ref={(el) => { if (el) Object.defineProperty(el, 'complete', { value: complete, configurable: true }) }} />
+          INV-0002 · MAYINI KITCHEN
+        </div>
+      </div>
+    )
+  }
+
+  const mountWithImage = async (complete) => {
+    let api
+    await act(async () => {
+      render(<PaperWithImage branchId="b-1" onReady={(a) => { api = a }} complete={complete} />)
+    })
+    return () => api
+  }
+
+  it('does not print while an image is still decoding', async () => {
+    const get = await mountWithImage(false)
+    await act(async () => { get().print('bill', { TransactionNo: 'INV-0002' }) })
+    // Several frames' worth of chances, still nothing on the paper.
+    await act(async () => { await new Promise((r) => setTimeout(r, 60)) })
+    expect(window.print).not.toHaveBeenCalled()
+  })
+
+  it('prints once the image is decoded', async () => {
+    const get = await mountWithImage(true)
+    await act(async () => { get().print('bill', { TransactionNo: 'INV-0002' }) })
+    await waitFor(() => expect(window.print).toHaveBeenCalled())
+  })
+
+  // A bill without its logo is a bill. A customer at a counter with no bill is not.
+  it('gives up waiting and prints anyway rather than refusing the bill', async () => {
+    const get = await mountWithImage(false)
+    await act(async () => { get().print('bill', { TransactionNo: 'INV-0002' }) })
+    await act(async () => { await new Promise((r) => setTimeout(r, 1100)) })
+    await waitFor(() => expect(window.print).toHaveBeenCalled())
+    // And it is NOT reported as a failed print — the paper came out.
+    expect(get().failed).toBeNull()
+  })
+})

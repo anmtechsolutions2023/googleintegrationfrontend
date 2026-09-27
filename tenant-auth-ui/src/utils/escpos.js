@@ -125,6 +125,36 @@ export const createEncoder = ({ columns = 48 } = {}) => {
       return api
     },
     rule(ch = '-') { text(ch.repeat(width())); push(LF); return api },
+    /**
+     * A 1-bit bitmap, printed as a raster block.
+     *
+     * `GS v 0` — the raster bit-image command every ESC/POS printer made this
+     * century implements. The older `ESC *` is per-line and needs the caller to
+     * manage vertical feed between strips; this takes the whole image at once.
+     *
+     * Layout: GS 'v' '0' m xL xH yL yH then the packed rows. m = 0 is normal
+     * density. xL/xH is the row WIDTH IN BYTES, not in dots — the single easiest
+     * thing to get wrong here, and it prints a skewed diagonal smear when you do.
+     * yL/yH is the height in dots.
+     *
+     * The bitmap is already packed and already the right width for the paper; see
+     * utils/escposImage, which does the greyscale, the dithering and the packing.
+     * Nothing about images belongs in this file beyond emitting them.
+     *
+     * @param {{width:number, height:number, bytesPerRow:number, data:Uint8Array}} bitmap
+     * @returns {Object} api
+     */
+    raster(bitmap) {
+      if (!bitmap || !bitmap.data || !bitmap.bytesPerRow || !bitmap.height) return api
+      const { bytesPerRow, height, data } = bitmap
+      push(GS, 0x76, 0x30, 0x00,
+        bytesPerRow & 0xff, (bytesPerRow >> 8) & 0xff,
+        height & 0xff, (height >> 8) & 0xff)
+      // Pushed directly rather than through text(): these are pixels, and
+      // toPrintable would rewrite half of them as '?'.
+      for (let i = 0; i < data.length; i += 1) bytes.push(data[i] & 0xff)
+      return api
+    },
     feed(lines = 1) { push(ESC, 0x64, Math.min(255, Math.max(0, lines))); return api },
     /** Feed past the cutter, then a partial cut. */
     cut() { api.feed(4); push(GS, 0x56, 0x01); return api },
