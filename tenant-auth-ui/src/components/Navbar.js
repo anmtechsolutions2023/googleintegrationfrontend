@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { personLabel, formatForDisplay } from '../utils/phone';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import BrandMark from './BrandMark';
 import { MESSAGES, STRINGS, APP_CONFIG } from '../constants';
 import { ROUTES } from '../constants/routes';
 import { isSetupPending } from '../utils/permissions';
@@ -61,7 +62,11 @@ const Navbar = () => {
   return (
     <nav className="navbar">
       <div className="nav-logo" onClick={() => navigate(isGuest ? ROUTES.ONBOARDING : ROUTES.DASHBOARD)}>
-        {STRINGS.app.logo} {STRINGS.app.name}
+        {/* No tile: the navbar is already #1a202c, and a dark square on a dark
+            bar is a box drawn around nothing. No title either — the product name
+            is right beside it, and a screen reader should not read it twice. */}
+        <BrandMark size={26} />
+        <span>{STRINGS.app.name}</span>
       </div>
 
       {/* Desktop nav links — hidden for guests */}

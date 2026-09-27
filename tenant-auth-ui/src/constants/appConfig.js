@@ -4,7 +4,9 @@
 export const APP_CONFIG = {
   // Application Info
   APP_NAME: 'Restro OS',
-  APP_LOGO: '🏢',
+  // No APP_LOGO. The mark is a drawing, not a character: it lives in
+  // components/BrandMark.js, where it can be one shape at every size instead of
+  // whatever each platform decided 🏢 should look like.
 
   // Session & Authentication
   COOKIE_NAME: 'app_token',

@@ -42,6 +42,11 @@
 }
 
 .onboarding-app-name {
+  /* Tiled here: this card sits on a light background, and the mark's dome is
+     white — bare, it would be an invisible shape beside the name. */
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-size: 1.1rem;
   font-weight: 700;
   color: #2d3748;

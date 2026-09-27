@@ -6,7 +6,7 @@ const STRINGS = {
   // Application-wide strings
   app: {
     name: 'Restro OS',
-    logo: '🏢',
+    // The mark is <BrandMark />, not a string — see constants/appConfig.js.
     tagline: 'Manage your tenant resources',
   },
 

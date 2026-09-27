@@ -9,6 +9,7 @@ import { isSetupPending } from '../utils/permissions';
 import { requestOtp } from '../services/authService';
 import { groupNational, looksComplete } from '../utils/phone';
 import './login.css';
+import BrandMark from '../components/BrandMark';
 
 const STEP = { PHONE: 'phone', CODE: 'code' };
 
@@ -133,11 +134,10 @@ const Login = () => {
           later — so signing in reads as entering the app, not passing a gate. */}
       <div className="login-brand">
         <div className="login-mark">
-          <svg viewBox="0 0 32 32" width="30" height="30" role="img" aria-label={STRINGS.app.name}>
-            <path d="M4 23h24" stroke="#4fc3f7" strokeWidth="2.2" strokeLinecap="round" fill="none" />
-            <path d="M6.5 22a9.5 9.5 0 0 1 19 0" stroke="#fff" strokeWidth="2.2" fill="none" strokeLinecap="round" />
-            <circle cx="16" cy="8.2" r="1.9" fill="#4fc3f7" />
-          </svg>
+          {/* The panel behind this is #1a1a2e, so the mark needs no tile. This is
+              where it was originally drawn; it now lives in one component so the
+              navbar cannot show something else. */}
+          <BrandMark size={30} />
           <span>{STRINGS.app.name}</span>
         </div>
 

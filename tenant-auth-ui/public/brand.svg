@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="Restro OS">
+  <!-- The Restro OS mark. Kept in step with src/components/BrandMark.js: same
+       32-unit grid, same three shapes, same two colours.
+
+       TILED, unlike the in-app default. A favicon lands on whatever the browser's
+       tab strip happens to be, light or dark, and the dome is white — bare, it
+       disappears on half the machines it runs on. -->
+  <rect width="32" height="32" rx="7" fill="#1a1a2e"/>
+  <path d="M4 23h24" stroke="#4fc3f7" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+  <path d="M6.5 22a9.5 9.5 0 0 1 19 0" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+  <circle cx="16" cy="8.2" r="1.9" fill="#4fc3f7"/>
+</svg>

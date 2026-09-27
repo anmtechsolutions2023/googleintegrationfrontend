@@ -6,6 +6,7 @@ import { toast } from 'react-toastify';
 import { ROUTES } from '../constants/routes';
 import { STRINGS } from '../constants';
 import './OnboardingPage.css';
+import BrandMark from '../components/BrandMark';
 
 const STATUS_CONFIG = {
   PENDING: {
@@ -82,7 +83,10 @@ const OnboardingPage = () => {
       <div className="onboarding-card">
         {/* Header */}
         <div className="onboarding-header">
-          <span className="onboarding-app-name">{STRINGS.app.logo} {STRINGS.app.name}</span>
+          <span className="onboarding-app-name">
+            <BrandMark size={22} tile />
+            {STRINGS.app.name}
+          </span>
           <button className="onboarding-logout" onClick={handleLogout}>
             {STRINGS.buttons.logout}
           </button>

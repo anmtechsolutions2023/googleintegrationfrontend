@@ -18,12 +18,22 @@
 
 /* ── Logo ── */
 .nav-logo {
+  /* Flex since the mark replaced the emoji: a glyph sat on the text baseline by
+     itself, an <svg> does not and hangs low without this. */
+  display: flex;
+  align-items: center;
+  gap: 9px;
   font-size: 1.2rem;
   font-weight: 700;
   color: #63b3ed;
   cursor: pointer;
   white-space: nowrap;
 }
+
+/* The mark keeps its own size on a narrow screen. Shrinking it with the type
+   makes a 26px logo into an 18px smudge, and it is the one thing on the bar that
+   has to stay recognisable. */
+.nav-logo svg { flex: 0 0 auto; }
 
 @media (min-width: 480px) {
   .nav-logo { font-size: 1.5rem; }
