@@ -21,6 +21,36 @@ export const AUTH = {
     window.location.origin + '/auth/callback',
 };
 
+// QR table ordering. The QR printed on a table encodes
+// `${PUBLIC_DINE_ORIGIN}/t/<token>`, so it must be the address guests' phones
+// can reach — set REACT_APP_PUBLIC_DINE_ORIGIN when the staff app is served
+// from an internal host.
+export const PUBLIC_DINE_ORIGIN =
+  process.env.REACT_APP_PUBLIC_DINE_ORIGIN || window.location.origin;
+
+export const DINE = {
+  resolve: (token) => `/api/dine/${token}`,
+  logo: (token) => `/api/dine/${token}/logo`,
+  otpRequest: (token) => `/api/dine/${token}/otp/request`,
+  otpVerify: (token) => `/api/dine/${token}/otp/verify`,
+  SESSION: '/api/dine/session',
+  ME: '/api/dine/me',
+  MENU: '/api/dine/menu',
+  QUOTE: '/api/dine/orders/quote',
+  ORDERS: '/api/dine/orders',
+};
+
+export const QR = {
+  CODES: '/api/pos/qr/codes',
+  rotate: (tableId) => `/api/pos/qr/codes/${tableId}/rotate`,
+  SETTINGS: '/api/pos/qr/settings',
+  LIMITS: '/api/pos/qr/limits',
+  PENDING: '/api/pos/qr/orders/pending',
+  REJECTION_REASONS: '/api/pos/qr/rejection-reasons',
+  accept: (orderId) => `/api/pos/qr/orders/${orderId}/accept`,
+  reject: (orderId) => `/api/pos/qr/orders/${orderId}/reject`,
+};
+
 // API Endpoints - organized by domain/feature for scalability
 export const ENDPOINTS = {
   // Onboarding endpoints (guest token)

@@ -13,7 +13,7 @@ jest.mock('../../../services/posService', () => ({
     getTables: jest.fn(), getFloors: jest.fn(), getItemMeta: jest.fn(),
     getOrders: jest.fn(), getItemDetail: jest.fn(), getVariants: jest.fn(),
     getAddonGroups: jest.fn(), getAddons: jest.fn(),
-    getPaymentModes: jest.fn(), getKots: jest.fn(), quotePricing: jest.fn(),
+    getPaymentModes: jest.fn(), getBranchPaymentMethods: jest.fn(), getKots: jest.fn(), quotePricing: jest.fn(),
     createOrder: jest.fn(), updateOrder: jest.fn(), updateTable: jest.fn(),
     transferOrder: jest.fn(), deleteOrder: jest.fn(),
     fireKot: jest.fn(), createBill: jest.fn(), settleBill: jest.fn(),
@@ -53,6 +53,15 @@ beforeEach(() => {
   posService.getAddonGroups.mockResolvedValue([])
   posService.getAddons.mockResolvedValue([])
   posService.getKots.mockResolvedValue([])
+  // The till reads the branch-resolved list; these suites are not about
+  // payment methods, so it simply echoes whatever the catalogue mock holds.
+  posService.getBranchPaymentMethods.mockImplementation(async () => ({
+    methods: (await posService.getPaymentModes()).map((m) => ({
+      paymentModeId: m.Id, type: m.Type, accountName: m.AccountName ?? null,
+      accountKind: null, requiresReference: !!m.RequiresReference,
+      active: true, enabled: true, enabledByDefault: true, source: 'default',
+    })),
+  }));
   posService.getPaymentModes.mockResolvedValue([{ Id: 'mode-cash', Type: 'Cash' }])
   posService.getItemDetail.mockResolvedValue({ Id: 'item-m1', Name: 'Masala Dosa' })
   posService.quotePricing.mockImplementation(async (lines) => ({

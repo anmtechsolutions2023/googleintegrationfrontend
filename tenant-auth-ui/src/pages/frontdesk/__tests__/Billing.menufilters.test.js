@@ -13,7 +13,7 @@ jest.mock('../../../services/posService', () => ({
     getTables: jest.fn(), getFloors: jest.fn(), getItemMeta: jest.fn(),
     getOrders: jest.fn(), getItemDetail: jest.fn(), getVariants: jest.fn(),
     getAddonGroups: jest.fn(), getAddons: jest.fn(),
-    getPaymentModes: jest.fn(), getKots: jest.fn(), quotePricing: jest.fn(),
+    getPaymentModes: jest.fn(), getBranchPaymentMethods: jest.fn(), getKots: jest.fn(), quotePricing: jest.fn(),
     createOrder: jest.fn(), updateOrder: jest.fn(), updateTable: jest.fn(),
     transferOrder: jest.fn(), deleteOrder: jest.fn(),
     fireKot: jest.fn(), createBill: jest.fn(), settleBill: jest.fn(),
@@ -69,9 +69,20 @@ beforeEach(() => {
   posService.getKots.mockResolvedValue([]);
   posService.getItemDetail.mockImplementation((id) =>
     Promise.resolve({ Id: id, Name: NAMES[id] || id }));
+  // The till reads the branch-resolved list; these suites are not about
+  // payment methods, so it simply echoes whatever the catalogue mock holds.
+  posService.getBranchPaymentMethods.mockImplementation(async () => ({
+    methods: (await posService.getPaymentModes()).map((m) => ({
+      paymentModeId: m.Id, type: m.Type, accountName: m.AccountName ?? null,
+      accountKind: null, requiresReference: !!m.RequiresReference,
+      active: true, enabled: true, enabledByDefault: true, source: 'default',
+    })),
+  }));
   posService.getPaymentModes.mockResolvedValue([
     { Id: MODE_CASH, Type: 'Cash', AccountName: 'Cash', AccountKind: 'ASSET' },
-    { Id: MODE_CARD, Type: 'Card', AccountName: 'Bank', AccountKind: 'ASSET' },
+    // RequiresReference is what drives the reference field now — the till no
+    // longer infers it from the name 'Card'.
+    { Id: MODE_CARD, Type: 'Card', AccountName: 'Bank', AccountKind: 'ASSET', RequiresReference: 1 },
     { Id: MODE_ZOMATO, Type: 'Zomato Settlement', AccountName: 'Aggregator Receivable', AccountKind: 'ASSET' },
   ]);
   posService.getPosSettings.mockResolvedValue({ 'kot.auto_print': 'off' });
@@ -246,6 +257,60 @@ const settle = async () => {
   fireEvent.click(screen.getByRole('button', { name: /Place & Pay/i }));
   await screen.findByText('Amount Payable');
 };
+
+// The counter offers what THIS OUTLET accepts, not the whole tenant catalogue.
+// Before this, every tender the business had ever defined was one tap away —
+// including the portal settlement tenders, which book to a receivable rather
+// than the drawer and leave the cash session short by the whole sale.
+describe('what the counter offers', () => {
+  /** Resolve the branch list with each named type switched off. */
+  const withDisabled = (...off) => {
+    posService.getBranchPaymentMethods.mockImplementation(async () => ({
+      methods: (await posService.getPaymentModes()).map((m) => ({
+        paymentModeId: m.Id, type: m.Type, accountName: m.AccountName ?? null,
+        accountKind: m.AccountKind ?? null, requiresReference: !!m.RequiresReference,
+        active: true,
+        enabled: !off.includes(m.Type),
+        enabledByDefault: !off.includes(m.Type),
+        source: 'default',
+      })),
+    }));
+  };
+
+  test('a method this outlet does not accept is not on the screen', async () => {
+    withDisabled('Zomato Settlement', 'Card');
+    await settle();
+
+    const names = screen.getAllByRole('radio').map((r) => r.closest('label').textContent);
+    expect(names.some((n) => n.includes('Cash'))).toBe(true);
+    expect(names.some((n) => n.includes('Zomato Settlement'))).toBe(false);
+    expect(names.some((n) => n.includes('Card'))).toBe(false);
+  });
+
+  test('an inactive method is offered by nobody, whatever the outlet says', async () => {
+    posService.getBranchPaymentMethods.mockImplementation(async () => ({
+      methods: (await posService.getPaymentModes()).map((m) => ({
+        paymentModeId: m.Id, type: m.Type, accountName: m.AccountName ?? null,
+        accountKind: null, requiresReference: false,
+        // Switched ON here but retired in the catalogue: the catalogue wins.
+        active: m.Type !== 'Card', enabled: true, enabledByDefault: true, source: 'branch',
+      })),
+    }));
+    await settle();
+
+    const names = screen.getAllByRole('radio').map((r) => r.closest('label').textContent);
+    expect(names.some((n) => n.includes('Card'))).toBe(false);
+  });
+
+  test('a failed read leaves the till on its inherited list rather than empty', async () => {
+    // Money is taken on this screen. A settings call that times out must not be
+    // able to stop the counter accepting payment.
+    posService.getBranchPaymentMethods.mockRejectedValue(new Error('offline'));
+    await settle();
+
+    expect(screen.getAllByRole('radio').length).toBeGreaterThan(0);
+  });
+});
 
 describe('paying, on the screen', () => {
   test('every mode is visible without opening anything', async () => {

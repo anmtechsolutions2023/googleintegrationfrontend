@@ -557,6 +557,27 @@ export const getPaymentModes = async () => {
   return toArray(res.data)
 }
 
+// ── Branch payment methods ──────────────────────────────────────────────────
+// WHICH TENDERS THIS OUTLET ACCEPTS. getPaymentModes above is the tenant-wide
+// CATALOGUE — every method the business has ever defined, including the portal
+// settlement tenders no counter can use. This is that list resolved for one
+// branch, which is what the till should offer.
+//
+// Each row carries `enabled` (this outlet's effective answer), `source`
+// ('branch' when decided here, 'default' when inherited) and `requiresReference`
+// — the reference-number rule, which is a property of the METHOD rather than of
+// its name.
+export const getBranchPaymentMethods = async (branchId) => {
+  const res = await api.get('/api/pos/payment-methods', { params: { branchId } })
+  return toObject(res.data)
+}
+// Partial lists are normal: send the one switch that changed. A method this call
+// does not name is left exactly as it was.
+export const setBranchPaymentMethods = async (branchId, methods) => {
+  const res = await api.put('/api/pos/payment-methods', { methods }, { params: { branchId } })
+  return toObject(res.data)
+}
+
 // ── Accounting ledger ───────────────────────────────────────────────────────
 // Settled bills as numbered documents. Read-only: a settled document is
 // corrected by refund, never by editing.
@@ -970,6 +991,7 @@ const posService = {
   getGstSplit, getGstReadiness, recordGstFiling, downloadGstPack, downloadSalesWithoutGst,
   downloadErrorMessage,
   getPaymentModes,
+  getBranchPaymentMethods, setBranchPaymentMethods,
   getLedgerDocuments, getLedgerDocument, refundLedgerDocument,
   createLedgerReturn, getLedgerReturns, getReturnsRegister,
   getRefundSettlementQueue, setRefundSettlement,

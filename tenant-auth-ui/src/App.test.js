@@ -52,6 +52,9 @@ jest.mock('./pages/frontdesk/Tracking',      () => () => <div>Tracking</div>);
 jest.mock('./pages/frontdesk/Inventory',     () => () => <div>Inventory</div>);
 jest.mock('./pages/frontdesk/Reports',       () => () => <div>POS Reports</div>);
 jest.mock('./pages/frontdesk/AccessControl', () => () => <div>Access Control</div>);
+jest.mock('./pages/frontdesk/QrCodes',     () => () => <div>QR Codes</div>);
+jest.mock('./pages/frontdesk/QrOrders',    () => () => <div>QR Orders</div>);
+jest.mock('./pages/dine/DineApp',          () => () => <div>Dine</div>);
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const APPROVED_USER = {

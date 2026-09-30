@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { MODULES } from '../../config/modules'
 import { POS_MODULES } from '../../config/posModules'
 import './MasterData.css'
+import { digitsOnly, groupNational, mobileError, toE164 } from '../../utils/phone'
 
 // A reference select may point at a core module (MODULES) or a POS module
 // (POS_MODULES) — crudService resolves the endpoint the same way. Looking only
@@ -148,6 +149,15 @@ const FormModal = ({
         }
       }
 
+      // Mobile numbers: the same rule every phone field in the app uses
+      // (utils/phone.mobileError) — 10 digits starting 6-9. The server
+      // normalises to +91XXXXXXXXXX and has the final say.
+      if (field.type === 'phone') {
+        const problem = mobileError(value, { required: !!field.required })
+        if (problem) newErrors[field.name] = problem
+        return
+      }
+
       // String length validation
       if (
         field.maxLength &&
@@ -261,6 +271,11 @@ const FormModal = ({
           const val = processedData[field.name]
           processedData[field.name] =
             val === true || val === 1 || val === '1' || val === 'true'
+        }
+        if (field.type === 'phone') {
+          // Sent in the stored form, so a blank is "no number", never "".
+          const val = processedData[field.name]
+          processedData[field.name] = digitsOnly(val).length > 0 ? toE164(val) : null
         }
       })
       onSubmit(processedData)
@@ -720,6 +735,28 @@ const FormModal = ({
             disabled={loading}
             style={hasError ? { borderColor: '#e74c3c' } : {}}
           />
+        )
+
+      case 'phone':
+        return (
+          <div
+            className="form-input"
+            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 0, ...(hasError ? { borderColor: '#e74c3c' } : {}) }}
+          >
+            <span aria-hidden="true" style={{ padding: '0 4px 0 10px', fontWeight: 600, color: '#5a6c7d' }}>+91</span>
+            <input
+              type="tel"
+              id={field.name}
+              inputMode="numeric"
+              autoComplete="tel-national"
+              value={groupNational(value)}
+              onChange={(e) => handleChange(field.name, digitsOnly(e.target.value), 'string')}
+              placeholder={field.placeholder || '98765 43210'}
+              disabled={loading}
+              aria-invalid={hasError}
+              style={{ border: 0, outline: 'none', flex: 1, minWidth: 0, padding: '8px 10px 8px 0', background: 'transparent', font: 'inherit' }}
+            />
+          </div>
         )
 
       case 'email':

@@ -73,11 +73,17 @@ import Assets from './pages/frontdesk/Assets';
 import AssetCategories from './pages/frontdesk/AssetCategories';
 import ExpenseCategories from './pages/frontdesk/ExpenseCategories';
 import AccessControl from './pages/frontdesk/AccessControl';
+import QrCodes from './pages/frontdesk/QrCodes';
+import QrOrders from './pages/frontdesk/QrOrders';
+import DineApp from './pages/dine/DineApp';
 
 const AppRoutes = () => {
   const { loading, user } = useAuth();
   const { pathname } = useLocation();
   const isCustomerDisplay = pathname.startsWith(`${ROUTES.FRONTDESK}/tokens/display`);
+  // A guest's phone at a QR table: public, and never shows staff navigation —
+  // even when the phone happens to hold a staff session.
+  const isDinerPage = pathname.startsWith('/t/');
   if (loading) return <LoadingSpinner />;
 
   return (
@@ -85,11 +91,14 @@ const AppRoutes = () => {
       {/* The customer token board is a sign on a second monitor, not a page:
           app navigation on it is something a customer could click, and it eats
           the top of a display that is meant to be read from across a room. */}
-      {user && !isCustomerDisplay && <Navbar />}
+      {user && !isCustomerDisplay && !isDinerPage && <Navbar />}
       <Routes>
         {/* Public */}
         <Route path={ROUTES.LOGIN} element={<Login />} />
         <Route path={ROUTES.FORBIDDEN} element={<Forbidden />} />
+        {/* QR table ordering — the guest's phone. Public: no staff login, no
+            guards. Everything it can do is decided server-side from the token. */}
+        <Route path={ROUTES.DINE} element={<DineApp />} />
         <Route path={ROUTES.HOME} element={<Navigate to={ROUTES.DASHBOARD} replace />} />
 
         {/* Audit logs — provisioned users with AUDIT:READ (or IAM admins).
@@ -251,6 +260,7 @@ const AppRoutes = () => {
                   SCOPES.POS_CRM_READ,
                   SCOPES.POS_OPS_READ,
                   SCOPES.POS_REPORTS_READ,
+                  SCOPES.POS_QR_READ,
                   SCOPES.TENANT_ADMIN,
                 ]}
               >
@@ -262,6 +272,10 @@ const AppRoutes = () => {
           <Route index element={<FrontDeskDashboard />} />
           <Route path="billing"   element={<ScopeGuard requiredScopes={[SCOPES.POS_ORDER_READ,   SCOPES.TENANT_ADMIN]}><Billing /></ScopeGuard>} />
           <Route path="tables"    element={<ScopeGuard requiredScopes={[SCOPES.POS_ORDER_READ,   SCOPES.TENANT_ADMIN]}><Tables /></ScopeGuard>} />
+          {/* QR table ordering. The queue follows order-taking (POS_ORDER) as well as
+              POS_QR; the codes are POS_QR only — see SCOPE_SETS in the backend. */}
+          <Route path="qr-orders" element={<ScopeGuard requiredScopes={[SCOPES.POS_QR_READ, SCOPES.POS_QR_WRITE, SCOPES.POS_ORDER_READ, SCOPES.TENANT_ADMIN]}><QrOrders /></ScopeGuard>} />
+          <Route path="qr-codes"  element={<ScopeGuard requiredScopes={[SCOPES.POS_QR_READ, SCOPES.POS_QR_WRITE, SCOPES.TENANT_ADMIN]}><QrCodes /></ScopeGuard>} />
           <Route path="kitchen"   element={<ScopeGuard requiredScopes={[SCOPES.POS_KITCHEN_READ, SCOPES.TENANT_ADMIN]}><Kitchen /></ScopeGuard>} />
           <Route path="tokens"    element={<ScopeGuard requiredScopes={[SCOPES.POS_OPS_READ,     SCOPES.TENANT_ADMIN]}><Tokens /></ScopeGuard>} />
           <Route path="online"    element={<ScopeGuard requiredScopes={[SCOPES.POS_OPS_READ,     SCOPES.TENANT_ADMIN]}><OnlineOrders /></ScopeGuard>} />

@@ -10,23 +10,10 @@ import { requestOtp } from '../services/authService';
 import { groupNational, looksComplete } from '../utils/phone';
 import './login.css';
 import BrandMark from '../components/BrandMark';
+// Shared with the guest's QR-table sign-in, so both code screens time the same.
+import { useCountdown, mmss } from '../hooks/useCountdown';
 
 const STEP = { PHONE: 'phone', CODE: 'code' };
-
-/** Counts down to zero once, from a fresh start value. */
-const useCountdown = (seconds, active) => {
-  const [left, setLeft] = useState(seconds);
-  useEffect(() => {
-    setLeft(seconds);
-    if (!active) return undefined;
-    const id = setInterval(() => setLeft((n) => (n > 0 ? n - 1 : 0)), 1000);
-    return () => clearInterval(id);
-  }, [seconds, active]);
-  return left;
-};
-
-const mmss = (total) =>
-  `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
 
 const Login = () => {
   const { login } = useAuth();

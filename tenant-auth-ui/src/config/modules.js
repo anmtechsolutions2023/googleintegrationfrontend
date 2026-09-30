@@ -1256,10 +1256,44 @@ export const MODULES = {
         maxLength: 50,
         placeholder: 'e.g. Cash, Card, UPI, Bank Transfer, Cheque',
       },
+      {
+        // REQUIRED, and required by the API too. A tender exists to say where
+        // money LANDS; one with no account books nowhere and vanishes from
+        // every report that groups by account. The column has existed since the
+        // ledger shipped and the list has always shown its name — but nothing
+        // ever wrote it, so every method made here booked to nothing.
+        name: 'DefaultAccountTypeBaseId',
+        label: 'Money lands in',
+        type: 'select',
+        required: true,
+        reference: 'accountTypeBases',
+        hint: 'Cash goes to Cash. Card, UPI and bank transfers go to Bank.',
+      },
+      {
+        // Replaces a hardcoded match on the mode's NAME, which meant renaming
+        // 'Card' silently stopped the till and the ledger asking for one.
+        name: 'RequiresReference',
+        label: 'Needs a reference number',
+        type: 'boolean',
+        default: false,
+        hint: 'The cashier must enter a transaction or approval number before the sale can be settled.',
+      },
+      {
+        name: 'EnabledByDefault',
+        label: 'On for new outlets',
+        type: 'boolean',
+        default: true,
+        hint: 'Outlets that have not been configured will offer this method.',
+      },
       { name: 'Active', type: 'boolean', default: true },
     ],
     tableColumns: [
       'Type',
+      // A method whose account is blank is the bug this closes — the column
+      // makes it visible at a glance rather than at settle time.
+      'AccountName',
+      'RequiresReference',
+      'EnabledByDefault',
       'Active',
       'CreatedBy',
       'UpdatedBy',

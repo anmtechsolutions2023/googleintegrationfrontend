@@ -94,7 +94,9 @@ export const POS_MODULES = {
     displayField: 'Name',
     fields: [
       { name: 'Name', type: 'text', required: true, maxLength: 100 },
-      { name: 'Phone', type: 'text', maxLength: 20 },
+      // Validated as an Indian mobile and saved as +91XXXXXXXXXX — the same form a
+      // guest verifies with at a QR table, so both land on ONE customer.
+      { name: 'Phone', label: 'Mobile number', type: 'phone' },
       { name: 'Email', type: 'email', maxLength: 100 },
       // A business customer. With a GSTIN on the record, their bills are
       // issued B2B and reported against it in the GST return.

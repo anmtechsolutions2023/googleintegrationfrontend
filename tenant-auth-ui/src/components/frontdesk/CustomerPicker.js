@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import posService from '../../services/posService'
+import { digitsOnly, mobileError, toE164 } from '../../utils/phone'
 
 /**
  * Attach a customer to the order being taken.
@@ -63,13 +64,20 @@ const CustomerPicker = ({ value, onChange, disabled = false }) => {
   // sending the cashier to another screen mid-order.
   const createFromTerm = async () => {
     const q = term.trim()
+    // Something that looks like a number is held to the same mobile rule as
+    // every other phone field (utils/phone.mobileError), and saved as
+    // +91XXXXXXXXXX — the form a guest verifies with at a QR table.
+    const isPhone = /^[0-9+\-\s]{4,}$/.test(q)
+    if (isPhone) {
+      const problem = mobileError(q, { required: true })
+      if (problem) { setError(problem); return }
+    }
     setCreating(true)
     setError(null)
     try {
-      const isPhone = /^[0-9+\-\s]{6,}$/.test(q)
       const created = await posService.createCustomer({
-        Name: isPhone ? `Guest ${q.slice(-4)}` : q,
-        Phone: isPhone ? q : null,
+        Name: isPhone ? `Guest ${digitsOnly(q).slice(-4)}` : q,
+        Phone: isPhone ? toE164(q) : null,
       })
       pick({ Id: created.id || created.Id, Name: created.Name, Phone: created.Phone })
     } catch (e) {

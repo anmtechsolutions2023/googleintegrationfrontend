@@ -50,7 +50,7 @@ export const MASTER_DATA_SCOPES = [
 const FRONT_DESK_SCOPES = [
   SCOPES.POS_ORDER_READ, SCOPES.POS_CONFIG_READ, SCOPES.POS_KITCHEN_READ,
   SCOPES.POS_BILLING_READ, SCOPES.POS_CRM_READ, SCOPES.POS_OPS_READ,
-  SCOPES.POS_REPORTS_READ, SCOPES.TENANT_ADMIN,
+  SCOPES.POS_REPORTS_READ, SCOPES.POS_QR_READ, SCOPES.TENANT_ADMIN,
 ]
 
 /**
@@ -99,6 +99,9 @@ export const FRONT_DESK_NAV = [
     { key: 'fd-dashboard', path: '/frontdesk',          label: 'Dashboard',     icon: '📊', scopes: null },
     { key: 'fd-billing',   path: '/frontdesk/billing',  label: 'Billing & KOT', icon: '🧾', scopes: [SCOPES.POS_ORDER_READ,   SCOPES.TENANT_ADMIN] },
     { key: 'fd-tables',    path: '/frontdesk/tables',   label: 'Tables',        icon: '🪑', scopes: [SCOPES.POS_ORDER_READ,   SCOPES.TENANT_ADMIN] },
+    // Orders guests placed from the code on their table, awaiting Accept/Reject.
+    // Mirrors SCOPE_SETS.POS_QR_ORDER_READ: floor staff with POS_ORDER see it too.
+    { key: 'fd-qr-orders', path: '/frontdesk/qr-orders', label: 'QR Orders',     icon: '📲', scopes: [SCOPES.POS_QR_READ, SCOPES.POS_QR_WRITE, SCOPES.POS_ORDER_READ, SCOPES.TENANT_ADMIN] },
     { key: 'fd-kitchen',   path: '/frontdesk/kitchen',  label: 'Kitchen (KDS)', icon: '👨‍🍳', scopes: [SCOPES.POS_KITCHEN_READ, SCOPES.TENANT_ADMIN] },
     { key: 'fd-tokens',    path: '/frontdesk/tokens',   label: 'Token Queue',   icon: '🎫', scopes: [SCOPES.POS_OPS_READ,     SCOPES.TENANT_ADMIN] },
     { key: 'fd-online',    path: '/frontdesk/online',   label: 'Online Orders', icon: '🛒', scopes: [SCOPES.POS_OPS_READ,     SCOPES.TENANT_ADMIN] },
@@ -127,6 +130,9 @@ export const FRONT_DESK_NAV = [
     { key: 'fd-rejection-reasons', path: '/frontdesk/rejection-reasons', label: 'Rejection Reasons', icon: '🚫', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
     { key: 'fd-variants',   path: '/frontdesk/variants',   label: 'Variants',     icon: '🧩', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
     { key: 'fd-floors',     path: '/frontdesk/floors',     label: 'Floors',       icon: '🏢', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
+    // Under Floors: a code is printed per table. POS_QR alone — a code is a
+    // public door into the order queue, so menu setup does not grant it.
+    { key: 'fd-qr-codes',   path: '/frontdesk/qr-codes',   label: 'QR Codes',     icon: '🔳', scopes: [SCOPES.POS_QR_READ, SCOPES.POS_QR_WRITE, SCOPES.TENANT_ADMIN] },
     // Above POS Settings and Receipt Format because it is what they refer back to:
     // the business's own details, which those two screens decide the handling and
     // the printing of. ORGANIZATION_READ as well as POS_CONFIG_READ — whoever

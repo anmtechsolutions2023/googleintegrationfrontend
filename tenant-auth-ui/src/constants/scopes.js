@@ -36,6 +36,11 @@ export const SCOPES = {
   POS_OPS_READ:       'POS_OPS:READ',
   POS_OPS_WRITE:      'POS_OPS:WRITE',
   POS_REPORTS_READ:   'POS_REPORTS:READ',
+  // QR table ordering. READ: see/print table codes and the queue of orders
+  // guests placed. WRITE: rotate codes, switch the feature per branch, and
+  // accept/reject guests' orders. Mirrors SCOPES in the backend's constants.js.
+  POS_QR_READ:        'POS_QR:READ',
+  POS_QR_WRITE:       'POS_QR:WRITE',
 
   // Approving an expense commits money, so it is deliberately NOT POS_OPS:WRITE
   // — the person who raises a claim should not be able to approve it.

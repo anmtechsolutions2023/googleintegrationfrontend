@@ -50,6 +50,12 @@ export const ROUTES = {
   // The one place a tenancy's people, invitations and roles are managed.
   // /admin/users and /admin/roles redirect here.
   ACCESS_CONTROL: '/frontdesk/access-control',
+
+  // QR table ordering. /t/:token is the PUBLIC page a guest's phone opens from
+  // the code on their table — no staff login, no app chrome.
+  DINE: '/t/:token',
+  FRONTDESK_QR_CODES: '/frontdesk/qr-codes',
+  FRONTDESK_QR_ORDERS: '/frontdesk/qr-orders',
 };
 
 // Route groups for navigation menus

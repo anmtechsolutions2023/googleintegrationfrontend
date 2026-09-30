@@ -64,6 +64,47 @@ const itemTaxRate = (meta) => Number(meta?.TaxBreakdown?.effectiveRate) || 0
 
 const money = (n) => (Number(n) || 0).toFixed(2)
 
+// ── What the counter may be paid with ───────────────────────────────────────
+// Both helpers emit ONE shape — the catalogue's — so everything downstream
+// (the radios, modeName, the tender rows that become paymentbreakup) keeps
+// reading the same keys whichever source the list came from.
+//
+// A tender carries the ACCOUNT it lands in, and that is not decoration: a
+// counter sale settled to 'Zomato Settlement' books to Aggregator Receivable —
+// money owed for weeks — and leaves the cash session short by the whole sale
+// with nothing on screen to explain it.
+const asOfferedMode = (m) => ({
+  Id: m.paymentModeId,
+  Type: m.type,
+  AccountName: m.accountName,
+  AccountKind: m.accountKind,
+  // The reference-number rule, as a property of the METHOD. It used to be a
+  // hardcoded match on the name, so renaming 'Card' silently dropped it.
+  RequiresReference: !!m.requiresReference,
+})
+
+/** The outlet's resolved list — what THIS counter accepts. */
+const offeredModes = (methods) => (methods || [])
+  .filter((m) => m.enabled && m.active)
+  .map(asOfferedMode)
+
+/**
+ * The tenant catalogue reduced to what an unconfigured outlet inherits.
+ *
+ * Used only before a branch is known (an empty cart). Without the filter the
+ * counter would offer every tender the business has ever defined, portal
+ * settlements included.
+ */
+const defaultOfferedModes = (rows) => (rows || [])
+  .filter((m) => (m.EnabledByDefault ?? m.enabledByDefault ?? 1) && (m.Active ?? m.active ?? 1))
+  .map((m) => ({
+    Id: m.Id ?? m.id,
+    Type: m.Type ?? m.type,
+    AccountName: m.AccountName ?? m.accountName,
+    AccountKind: m.AccountKind ?? m.accountKind,
+    RequiresReference: !!(m.RequiresReference ?? m.requiresReference),
+  }))
+
 
 const Billing = () => {
   // The till is offered on POS_ORDER:READ, but what it lets you DO splits in
@@ -131,7 +172,12 @@ const Billing = () => {
   const [lineDiscounts, setLineDiscounts] = useState({})
   // Tender rows. Each becomes one paymentbreakup in the ledger, so the UI
   // mirrors the data model exactly — no translation layer to get wrong.
-  const [paymentModes, setPaymentModes] = useState([])
+  // TWO SOURCES, ONE DERIVED ANSWER — deliberately not one piece of state both
+  // writers set. The till reloads its data whenever an order is placed, so a
+  // shared `paymentModes` meant the bulk load raced the branch read and the
+  // counter silently reverted to the tenant-wide list mid-shift.
+  const [paymentCatalogue, setPaymentCatalogue] = useState([])
+  const [branchMethods, setBranchMethods] = useState(null)
   const [tenders, setTenders] = useState([])
   const [settledInvoice, setSettledInvoice] = useState(null)
   // The moment the customer is standing at the counter with their money out.
@@ -216,7 +262,9 @@ const Billing = () => {
       setVariants(v || [])
       setAddonGroups(ag || [])
       setAddons(ao || [])
-      setPaymentModes(modes || [])
+      // The tenant-wide catalogue. Only ever used before a branch is known; see
+      // the derivation below.
+      setPaymentCatalogue(modes || [])
       setKots(Array.isArray(k) ? k : [])
       const open = (orders || []).filter((o) => (o.Status || '').toLowerCase() !== 'closed')
       setActiveOrders(open)
@@ -678,6 +726,43 @@ const Billing = () => {
     if (activeBranchId) setPrintBranchId((cur) => cur || activeBranchId)
   }, [activeBranchId])
 
+  // WHAT THIS OUTLET ACCEPTS.
+  //
+  // The catalogue loaded above is tenant-wide: every method the business has
+  // ever defined, portal settlement tenders included. Which of them THIS counter
+  // offers is a per-branch decision, so it is read per branch — same shape as
+  // the POS settings read below it.
+  //
+  // A failed read keeps the inherited list rather than emptying it: a till that
+  // can take no money because a settings call timed out is worse than one
+  // offering the tenant defaults.
+  useEffect(() => {
+    let cancelled = false
+    if (!activeBranchId) return undefined
+    // Called inside a resolved promise so a SYNCHRONOUS throw lands in .catch
+    // too. A backend that does not serve this route yet, or anything else that
+    // makes the call itself fail, must leave the counter on its inherited list —
+    // never take the till down. Money is being taken on this screen.
+    Promise.resolve()
+      .then(() => posService.getBranchPaymentMethods(activeBranchId))
+      .then((resolved) => {
+        if (cancelled || !resolved?.methods) return
+        setBranchMethods(resolved.methods)
+      })
+      // Leave whatever we already hold. A till that can take no money because a
+      // settings call timed out is worse than one offering the tenant defaults.
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [activeBranchId])
+
+  // WHAT THE COUNTER OFFERS. The outlet's resolved list once we have it;
+  // until then the catalogue reduced to what an unconfigured outlet inherits —
+  // which is still filtered, because the catalogue carries the portal
+  // settlement tenders and those must never be one tap away at a counter.
+  const paymentModes = useMemo(() => (
+    branchMethods ? offeredModes(branchMethods) : defaultOfferedModes(paymentCatalogue)
+  ), [branchMethods, paymentCatalogue])
+
   // Auto-print preference for that branch. Left ON when the read fails: a
   // missing ticket stops the kitchen, an unwanted print dialog does not.
   useEffect(() => {
@@ -945,8 +1030,15 @@ const Billing = () => {
     const m = paymentModes.find((p) => (p.id || p.Id) === id)
     return m ? (m.Type || m.type || '') : ''
   }
-  // Card/UPI/Wallet must carry a reference or the takings cannot be reconciled.
-  const needsRef = (id) => ['card', 'upi', 'wallet'].includes(modeName(id).toLowerCase())
+  // A method the business marked as needing one must carry a reference, or the
+  // takings cannot be reconciled. The METHOD says so, not its name: this was a
+  // match against ['card','upi','wallet'], so renaming 'Card' to 'Credit Card'
+  // silently stopped requiring one — and 'Amex' never required one at all. The
+  // ledger enforces the same flag server-side, so the two cannot drift.
+  const needsRef = (id) => {
+    const m = paymentModes.find((p) => (p.id || p.Id) === id)
+    return !!(m && (m.RequiresReference ?? m.requiresReference))
+  }
   const missingRef = tenders.some((t) => needsRef(t.paymentModeId) && !String(t.refNo || '').trim())
 
   const addTender = (amount) => {
@@ -1287,7 +1379,9 @@ const Billing = () => {
     if (!selectedTable && !counterMode) { toast.warn('Select a table first'); return }
     if (sessionRounds.length === 0) { toast.warn('No active order to settle'); return }
     if (tenders.length === 0) { toast.warn('Add at least one payment'); return }
-    if (missingRef) { toast.warn('Enter a reference number for card, UPI and wallet payments'); return }
+    // Which methods need one is the tenant's decision now, so the message no
+    // longer names a fixed three.
+    if (missingRef) { toast.warn('Enter a reference number for this payment method'); return }
     setSettling(true)
     try {
       // The server recomputes the bill from every round it covers and applies
@@ -2516,8 +2610,8 @@ const Billing = () => {
 
                 {paymentModes.length === 0 ? (
                   <div className="fd-tender-empty fd-tender-nomodes" role="alert">
-                    No payment modes set up for this outlet. Add Cash / Card / UPI under{' '}
-                    <b>Master Data → Payment Modes</b>, then reopen Settle.
+                    No payment methods are switched on for this outlet. Turn one on
+                    under <b>Front Desk → Payment Methods</b>, then reopen Settle.
                   </div>
                 ) : tenders.length === 0 ? (
                   <div className="fd-tender-empty">No payment added yet.</div>
@@ -2867,7 +2961,7 @@ const Billing = () => {
             {/* Say WHY settling is blocked rather than showing a mute button. */}
             {missingRef && (
               <div className="fd-settle-warn" role="alert">
-                Enter a reference number for card, UPI and wallet payments.
+                Enter a reference number for this payment method.
               </div>
             )}
             {balanceDue > 0 && tenders.length > 0 && (

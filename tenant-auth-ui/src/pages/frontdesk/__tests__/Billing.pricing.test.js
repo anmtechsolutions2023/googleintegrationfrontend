@@ -9,7 +9,7 @@ jest.mock('../../../services/posService', () => ({
     getTables: jest.fn(), getFloors: jest.fn(), getItemMeta: jest.fn(),
     getOrders: jest.fn(), getItemDetail: jest.fn(), getVariants: jest.fn(),
     getAddonGroups: jest.fn(), getAddons: jest.fn(),
-    getPaymentModes: jest.fn(),
+    getPaymentModes: jest.fn(), getBranchPaymentMethods: jest.fn(),
     getKots: jest.fn(),
     quotePricing: jest.fn(),
     createOrder: jest.fn(), updateOrder: jest.fn(), updateTable: jest.fn(),
@@ -39,7 +39,10 @@ const MODE_CASH = 'mmmmmmmm-0000-0000-0000-000000000001';
 const MODE_CARD = 'mmmmmmmm-0000-0000-0000-000000000002';
 const PAYMENT_MODES = [
   { Id: MODE_CASH, Type: 'Cash' },
-  { Id: MODE_CARD, Type: 'Card' },
+  // The reference field follows this FLAG, not the name: the till used to match
+  // ['card','upi','wallet'] against the mode's name, so renaming 'Card' silently
+  // dropped the requirement and a new 'Amex' never had it.
+  { Id: MODE_CARD, Type: 'Card', RequiresReference: 1 },
 ];
 
 const VARIANTS = [
@@ -172,6 +175,15 @@ beforeEach(() => {
   posService.getVariants.mockResolvedValue(VARIANTS);
   posService.getAddonGroups.mockResolvedValue(ADDON_GROUPS);
   posService.getAddons.mockResolvedValue(ADDONS);
+  // The till reads the branch-resolved list; these suites are not about
+  // payment methods, so it simply echoes whatever the catalogue mock holds.
+  posService.getBranchPaymentMethods.mockImplementation(async () => ({
+    methods: (await posService.getPaymentModes()).map((m) => ({
+      paymentModeId: m.Id, type: m.Type, accountName: m.AccountName ?? null,
+      accountKind: null, requiresReference: !!m.RequiresReference,
+      active: true, enabled: true, enabledByDefault: true, source: 'default',
+    })),
+  }));
   posService.getPaymentModes.mockResolvedValue(PAYMENT_MODES);
   posService.getItemDetail.mockImplementation(async (id) => ({
     Id: id, Name: id === 'item-m1' ? 'Masala Dosa' : 'Water',
@@ -1081,7 +1093,7 @@ describe('Billing — tenders (split payment)', () => {
   test('explains and blocks settle when the tenant has no payment modes', async () => {
     posService.getPaymentModes.mockResolvedValue([]);
     await openSettle();
-    expect(screen.getByText(/No payment modes set up/i)).toBeInTheDocument();
+    expect(screen.getByText(/No payment methods are switched on for this outlet/i)).toBeInTheDocument();
     // Add payment is disabled (not a silent dead button) and settle is blocked.
     expect(screen.getByRole('button', { name: /Split payment/i })).toBeDisabled();
     expect(screen.getByRole('button', { name: /Settle & Post|Save Partial/i })).toBeDisabled();

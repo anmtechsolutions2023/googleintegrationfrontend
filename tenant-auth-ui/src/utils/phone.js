@@ -40,6 +40,31 @@ export const groupNational = (raw) => {
 /** Enough to enable the button. The server still has the final say. */
 export const looksComplete = (raw) => IN_MOBILE.test(digitsOnly(raw));
 
+/**
+ * Why a typed mobile number is not acceptable yet, or null when it is.
+ *
+ * The ONE place the UI states the rule, so the guest's phone (QR ordering), the
+ * customer form and the till's quick-add cannot drift apart. The server still
+ * has the final say — this only lets a person fix the number before sending.
+ *
+ * @param {string} raw - As typed.
+ * @param {Object} [opts]
+ * @param {boolean} [opts.required=false] - An empty field is an error.
+ * @returns {string|null}
+ */
+export const mobileError = (raw, { required = false } = {}) => {
+  const d = digitsOnly(raw)
+  if (d.length === 0) return required ? 'Enter a mobile number.' : null
+  if (!/^[6-9]/.test(d)) {
+    return 'Not a valid Indian mobile number. It must start with 6, 7, 8 or 9.'
+  }
+  if (d.length < 10) {
+    const left = 10 - d.length
+    return `${left} more digit${left === 1 ? '' : 's'} needed.`
+  }
+  return null
+}
+
 /** What we send: E.164, so the wire format matches the stored format. */
 export const toE164 = (raw, dialCode = '+91') => `${dialCode}${digitsOnly(raw)}`;
 
