@@ -112,6 +112,26 @@ const QrCodes = () => {
     }
   }
 
+  /**
+   * Print the sheet of table cards.
+   *
+   * The body class is what scopes qr.css's print rules to THIS print. They hide
+   * everything but the card grid with `visibility: hidden`, and while that was
+   * ungated it applied to every print in the application — a bill or a kitchen
+   * ticket came out blank, because `visibility` is not something the receipt's
+   * `display: block` can override.
+   *
+   * Removed on afterprint rather than straight after print(): the dialog is
+   * still reading the page when print() returns, and clearing it immediately is
+   * how the sheet would go blank instead.
+   */
+  const printSheet = () => {
+    const done = () => document.body.classList.remove('qr-printing')
+    window.addEventListener('afterprint', done, { once: true })
+    document.body.classList.add('qr-printing')
+    window.print()
+  }
+
   if (!loading && branches.length === 0) {
     return (
       <div className="fd-crud-page">
@@ -159,7 +179,7 @@ const QrCodes = () => {
               <option value="">All floors</option>
               {floors.map((f) => <option key={f} value={f}>{f}</option>)}
             </select>
-            <button type="button" className="fd-btn fd-btn-primary" onClick={() => window.print()} disabled={visible.length === 0}>
+            <button type="button" className="fd-btn fd-btn-primary" onClick={printSheet} disabled={visible.length === 0}>
               Print sheet (A4)
             </button>
           </div>

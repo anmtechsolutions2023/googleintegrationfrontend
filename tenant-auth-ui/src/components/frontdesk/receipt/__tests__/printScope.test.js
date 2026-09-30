@@ -262,3 +262,71 @@ describe('waiting for the pictures', () => {
     expect(get().failed).toBeNull()
   })
 })
+
+// ── No stylesheet may hide the page for everyone ─────────────────────────────
+// The bug this exists for: qr.css shipped `@media print { body * { visibility:
+// hidden } }` UNGATED, to show only the QR card grid. CRA bundles every imported
+// stylesheet into one global sheet, so that rule applied to every print in the
+// application — and `visibility: hidden` is not something the receipt's
+// `display: block` can override. Every bill and every kitchen ticket printed a
+// blank sheet, which reads as a broken printer rather than as a CSS bug.
+//
+// The rule: a print rule that hides or repositions the whole document must be
+// gated on a body class its own screen sets for the duration of its print.
+describe('every stylesheet keeps its print rules to itself', () => {
+  const fs = require('fs');
+  const path = require('path');
+
+  const cssFiles = (dir) => fs.readdirSync(dir, { withFileTypes: true })
+    .flatMap((e) => {
+      const full = path.join(dir, e.name);
+      if (e.isDirectory()) return cssFiles(full);
+      return e.name.endsWith('.css') ? [full] : [];
+    });
+
+  const printBlocks = (css) => {
+    const out = [];
+    let i = css.indexOf('@media print');
+    while (i !== -1) {
+      const open = css.indexOf('{', i);
+      let depth = 0;
+      let j = open;
+      for (; j < css.length; j += 1) {
+        if (css[j] === '{') depth += 1;
+        if (css[j] === '}') { depth -= 1; if (depth === 0) break; }
+      }
+      out.push(css.slice(open + 1, j));
+      i = css.indexOf('@media print', j);
+    }
+    return out;
+  };
+
+  it('no ungated rule hides or moves the whole document when printing', () => {
+    const offenders = [];
+
+    cssFiles(path.join(__dirname, '..', '..', '..', '..')).forEach((file) => {
+      const css = fs.readFileSync(file, 'utf8');
+      printBlocks(css).forEach((block) => {
+        block.split('\n')
+          .map((l) => l.trim())
+          .filter((l) => l.includes('{') && !l.startsWith('/*') && !l.startsWith('*'))
+          .forEach((rule) => {
+            const selector = rule.slice(0, rule.indexOf('{')).trim();
+            const body = rule.slice(rule.indexOf('{'));
+            // Declarations that take the page away from whatever else is on it.
+            const sweeping = /visibility:\s*hidden|display:\s*none|position:\s*(absolute|fixed)/.test(body);
+            // A rule aimed at the whole document rather than at its own widget.
+            const global = /(^|,)\s*(body\s*\*|\*|html|body)\s*(\*)?\s*$/.test(selector)
+              || /^body\s+\*/.test(selector);
+            // Gated on a class some screen turns on for its own print.
+            const gated = /body\.[a-z-]*printing/.test(selector);
+            if (sweeping && global && !gated) {
+              offenders.push(`${path.basename(file)}: ${selector}`);
+            }
+          });
+      });
+    });
+
+    expect(offenders).toEqual([]);
+  });
+});

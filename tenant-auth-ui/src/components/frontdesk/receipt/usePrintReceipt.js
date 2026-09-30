@@ -186,6 +186,23 @@ export const usePrintReceipt = (branchId) => {
 
   const docFormat = job ? (format?.documents?.[job.doc] || null) : null
 
+  // THE PAPER WIDTH AS A PRIMITIVE, and the print effect depends on THIS rather
+  // than on docFormat.
+  //
+  // docFormat is a fresh object every time `format` state is replaced, and the
+  // print effect's cleanup calls clearPageSize() — which removes the injected
+  // @page rule AND `body.rc-printing`. Every print rule in receipt.css is scoped
+  // under that class, and .rc-root is `display: none` without it. So a single
+  // setFormat while the dialog was open tore the print stylesheet down under it:
+  // the receipt vanished and the page reverted to A4 portrait, which is a dialog
+  // saying "1 page" over a blank sheet.
+  //
+  // The trigger was this hook's own staleness refresh. Opening the print dialog
+  // moves focus, the focus listener refetches the format, setFormat lands while
+  // the dialog is up, and the bill prints blank. A number cannot change identity,
+  // so depending on the width instead makes that re-run impossible.
+  const printWidthMm = docFormat?.paperWidth === '58' ? 58 : 80
+
   useEffect(() => {
     if (!job) return undefined
     let cancelled = false
@@ -251,7 +268,7 @@ export const usePrintReceipt = (branchId) => {
           logger.warn('Receipt printed before an image finished decoding', { doc: job.doc })
         }
         document.body.classList.add('rc-printing')
-        applyPageSize(docFormat?.paperWidth === '58' ? 58 : 80)
+        applyPageSize(printWidthMm)
         window.print()
         return
       }
@@ -277,7 +294,7 @@ export const usePrintReceipt = (branchId) => {
       window.removeEventListener('afterprint', done)
       clearPageSize()
     }
-  }, [job, docFormat])
+  }, [job, printWidthMm])
 
   return {
     job,

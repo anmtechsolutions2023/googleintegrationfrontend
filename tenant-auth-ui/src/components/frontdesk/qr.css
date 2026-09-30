@@ -100,12 +100,22 @@
 }
 
 /* ── Print: one card per table, nothing else on the page ───────────────── */
+/* EVERY RULE BELOW IS GATED ON body.qr-printing, which QrCodes adds for the
+   duration of the sheet print and removes afterwards.
+
+   `body * { visibility: hidden }` used to sit here UNGATED. CRA bundles every
+   imported stylesheet into one global sheet, so that rule was live on every
+   screen in the application — and it hid the RECEIPT on every bill and kitchen
+   ticket anyone tried to print. The receipt's own rules say `display: block`,
+   which does not override `visibility: hidden`, so the dialog opened on a sheet
+   that was blank in exactly the way a broken printer looks.
+   The receipt does the same gating for the same reason; see receipt.css. */
 @media print {
-  body * { visibility: hidden; }
-  .fd-qr-print, .fd-qr-print * { visibility: visible; }
-  .fd-qr-print { position: absolute; left: 0; top: 0; width: 100%; }
-  .fd-qr-print .fd-qr-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10mm; }
-  .fd-qr-print .fd-qr-card { break-inside: avoid; border: 1px dashed #999; border-radius: 0; }
-  .fd-qr-print .fd-qr-card-actions, .fd-qr-print .fd-qr-card-meta { display: none; }
-  .fd-qr-print .fd-qr-card img { width: 45mm; height: 45mm; }
+  body.qr-printing * { visibility: hidden; }
+  body.qr-printing .fd-qr-print, body.qr-printing .fd-qr-print * { visibility: visible; }
+  body.qr-printing .fd-qr-print { position: absolute; left: 0; top: 0; width: 100%; }
+  body.qr-printing .fd-qr-print .fd-qr-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10mm; }
+  body.qr-printing .fd-qr-print .fd-qr-card { break-inside: avoid; border: 1px dashed #999; border-radius: 0; }
+  body.qr-printing .fd-qr-print .fd-qr-card-actions, body.qr-printing .fd-qr-print .fd-qr-card-meta { display: none; }
+  body.qr-printing .fd-qr-print .fd-qr-card img { width: 45mm; height: 45mm; }
 }

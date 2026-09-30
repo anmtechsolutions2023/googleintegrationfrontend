@@ -5,6 +5,9 @@ const HERO = {
   waiting: { title: 'Waiting for staff to confirm', body: 'Usually under 2 minutes. Nothing is cooked until a staff member accepts your order.' },
   kitchen: { title: 'In the kitchen', body: 'Your order was accepted and sent to the kitchen.' },
   ready: { title: 'Ready, on its way', body: 'Your food is ready and will be served shortly.' },
+  // Terminal. Without it a settled round kept its ticket status and went on
+  // saying "Ready, on its way" after the guest had paid and left.
+  served: { title: 'Served — thank you', body: 'This round is complete. Your bill has been settled at the counter.' },
   rejected: { title: 'Staff could not accept this order', body: 'Please talk to your server, or change your order.' },
 }
 
@@ -15,16 +18,21 @@ const STEPS = [
   { key: 'ready', name: 'Ready' },
 ]
 
+// 'served' is past the end of the rail rather than a fifth dot: the guest has
+// paid and gone, and a step they cannot influence is noise on the way out.
+const COMPLETE = 'served'
+
 const time = (iso) => {
   try { return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) } catch { return '' }
 }
 
 const Steps = ({ status, placedAt }) => {
-  const at = STEPS.findIndex((s) => s.key === status)
+  const complete = status === COMPLETE
+  const at = complete ? STEPS.length : STEPS.findIndex((s) => s.key === status)
   return (
     <ol className="dine-steps">
       {STEPS.map((s, i) => {
-        const done = i < at || (status === 'ready' && i === at)
+        const done = complete || i < at || (status === 'ready' && i === at)
         const now = i === at && !done
         return (
           <li key={s.key} className={`dine-step ${done ? 'is-done' : ''} ${now ? 'is-now' : ''}`}>
