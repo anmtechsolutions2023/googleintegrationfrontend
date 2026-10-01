@@ -24,7 +24,8 @@ export const ROUTES = {
   ADMIN_FEATURES: '/admin/features',
 
   // Reports Module
-  REPORTS: '/reports',
+  // Insights › Reports. /reports still redirects here.
+  REPORTS: '/insights/reports',
   REPORTS_DETAIL: '/reports/:id',
 
   // Audit Module
@@ -32,8 +33,9 @@ export const ROUTES = {
   AUDIT_DETAIL: '/audit/:id',
 
   // Master Data Module
-  MASTER: '/master',
-  MASTER_MODULE: '/master/:moduleKey',
+  // Admin › Data tables (the Master Data grids). /master still redirects here.
+  MASTER: '/org/data',
+  MASTER_MODULE: '/org/data/:moduleKey',
 
   // First-time master-data setup wizard (transactional bootstrap)
   MASTER_SETUP: '/master-setup',
@@ -41,7 +43,7 @@ export const ROUTES = {
   // Everything the setup wizard collected, viewable and editable afterwards.
   // Lives under Front Desk rather than Master Data: Master Data is a generic CRUD
   // grid over raw tables and shows an address as a dropdown of GUIDs.
-  BUSINESS_PROFILE: '/frontdesk/business-profile',
+  BUSINESS_PROFILE: '/outlet/business/profile',
 
   // Front Desk (POS)
   FRONTDESK: '/frontdesk',
@@ -49,13 +51,13 @@ export const ROUTES = {
 
   // The one place a tenancy's people, invitations and roles are managed.
   // /admin/users and /admin/roles redirect here.
-  ACCESS_CONTROL: '/frontdesk/access-control',
+  ACCESS_CONTROL: '/org/people',
 
   // QR table ordering. /t/:token is the PUBLIC page a guest's phone opens from
   // the code on their table — no staff login, no app chrome.
   DINE: '/t/:token',
-  FRONTDESK_QR_CODES: '/frontdesk/qr-codes',
-  FRONTDESK_QR_ORDERS: '/frontdesk/qr-orders',
+  FRONTDESK_QR_CODES: '/outlet/floors/qr-codes',
+  FRONTDESK_QR_ORDERS: '/service/floor/qr',
 };
 
 // Route groups for navigation menus

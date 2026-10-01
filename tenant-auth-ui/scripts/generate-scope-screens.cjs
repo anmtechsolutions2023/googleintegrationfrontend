@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 // scripts/generate-scope-screens.cjs
 //
-// Derives "which screens does this scope open" from config/navigation.js — the
-// file that already decides it — and writes scope-screens.json.
+// Derives "which screens does this scope open" from config/workspaces.js — the
+// file that already decides it — and writes scope-screens.json. A screen is a
+// tab or section line carrying `label:` and `scopes:`; an embedded Master Data
+// grid (`grid('taxTypes')`) counts under its category's read scope.
 //
 // WHY A GENERATED FILE AND NOT A HAND-WRITTEN ONE
 // The capability names on the dashboard were hand-written once and four of them
@@ -22,7 +24,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const NAV = path.join(__dirname, '..', 'src', 'config', 'navigation.js');
+const NAV = path.join(__dirname, '..', 'src', 'config', 'workspaces.js');
 const OUT = path.join(__dirname, '..', 'src', 'config', 'scope-screens.json');
 
 const src = fs.readFileSync(NAV, 'utf8');
@@ -34,19 +36,45 @@ const scopeValue = {};
 for (const m of scopeSrc.matchAll(/([A-Z_]+):\s*'([^']+)'/g)) scopeValue[m[1]] = m[2];
 
 // Every FRONT_DESK_NAV entry, with the group it sits in.
-const frontDesk = src.slice(src.indexOf('FRONT_DESK_NAV'));
+// moduleKey -> category constant name, from config/modules.js.
+const modulesSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'config', 'modules.js'), 'utf8');
+// Each module's own block only: a module that inherits its category (no
+// `category:` line) must not borrow the next module's.
+const moduleCategory = {};
+const starts = [...modulesSrc.matchAll(/^  (\w+): \{/gm)];
+starts.forEach((m, i) => {
+  const block = modulesSrc.slice(m.index, i + 1 < starts.length ? starts[i + 1].index : undefined);
+  const c = block.match(/category: MODULE_CATEGORIES\.(\w+)/);
+  if (c) moduleCategory[m[1]] = c[1];
+});
+// category constant name -> display value -> read scope constant name.
+const categoryName = {};
+for (const m of modulesSrc.matchAll(/^  ([A-Z_]+): '([^']+)',$/gm)) categoryName[m[1]] = m[2];
+const permSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'utils', 'permissions.js'), 'utf8');
+const readBlock = permSrc.slice(permSrc.indexOf('CATEGORY_READ_SCOPE'), permSrc.indexOf('CATEGORY_WRITE_SCOPE'));
+const categoryRead = {};
+for (const m of readBlock.matchAll(/'([^']+)':\s*SCOPES\.([A-Z_]+)/g)) categoryRead[m[1]] = m[2];
+
+const scopeNamesOf = (line) => {
+  const lit = line.match(/scopes:\s*\[([^\]]*)\]/);
+  if (lit) return lit[1].split(',').map((r) => r.trim().replace(/^SCOPES\./, '')).filter(Boolean);
+  const g = line.match(/scopes:\s*grid\('(\w+)'\)/);
+  if (g) {
+    const cat = categoryName[moduleCategory[g[1]]];
+    return cat && categoryRead[cat] ? [categoryRead[cat]] : [];
+  }
+  return [];
+};
+
 const byScope = {};
 let group = null;
 
-for (const line of frontDesk.split('\n')) {
-  const g = line.match(/group:\s*'([^']+)'/);
+for (const line of src.slice(src.indexOf('export const WORKSPACES')).split('\n')) {
+  const g = line.match(/workspace:\s*'([^']+)'/);
   if (g) group = g[1];
-  const label = line.match(/label:\s*'([^']+)'/);
-  const scopes = line.match(/scopes:\s*\[([^\]]*)\]/);
-  if (!label || !scopes) continue;
-  for (const raw of scopes[1].split(',')) {
-    const name = raw.trim().replace(/^SCOPES\./, '');
-    if (!name) continue;
+  const label = line.match(/\blabel:\s*'([^']+)'/);
+  if (!label) continue;
+  for (const name of scopeNamesOf(line)) {
     const value = scopeValue[name];
     // TENANT_ADMIN opens everything by rank, so listing it against each screen
     // would say only "an admin can do anything" — which the banner says once.
@@ -58,8 +86,8 @@ for (const line of frontDesk.split('\n')) {
 }
 
 const payload = {
-  // Regenerate rather than edit: this file is derived from navigation.js.
-  generatedFrom: 'src/config/navigation.js',
+  // Regenerate rather than edit: this file is derived from workspaces.js.
+  generatedFrom: 'src/config/workspaces.js',
   subjects: Object.values(byScope).sort((a, b) => a.subject.localeCompare(b.subject)),
 };
 const text = `${JSON.stringify(payload, null, 2)}\n`;

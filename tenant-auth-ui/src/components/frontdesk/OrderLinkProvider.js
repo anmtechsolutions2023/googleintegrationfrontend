@@ -4,7 +4,7 @@ import OrderDetailModal from './OrderDetailModal'
 /**
  * The unified order-linking mechanism.
  *
- * Mounted ONCE (in FrontDeskLayout). Any descendant can render an order number
+ * Mounted ONCE (in WorkspaceLayout). Any descendant can render an order number
  * as a link with <OrderNoLink orderId=... />, and the single modal this
  * provider owns opens over whatever screen the user was on.
  *

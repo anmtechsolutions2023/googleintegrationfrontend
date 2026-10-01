@@ -36,7 +36,6 @@ jest.mock('./components/MasterData', () => ({
 }));
 
 // Front Desk (POS) stubs — prevents axios ESM parse error via posService → api.js
-jest.mock('./components/frontdesk/FrontDeskLayout', () => () => <div>Front Desk Layout</div>);
 jest.mock('./pages/frontdesk/FrontDeskDashboard', () => () => <div>Front Desk Dashboard</div>);
 jest.mock('./pages/frontdesk/Billing',     () => () => <div>Billing</div>);
 jest.mock('./pages/frontdesk/Tables',      () => () => <div>Tables</div>);

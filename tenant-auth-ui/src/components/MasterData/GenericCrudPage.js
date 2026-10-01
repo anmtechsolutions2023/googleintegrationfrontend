@@ -150,8 +150,12 @@ const buildCostInfoLabels = async (items) => {
  * A dynamic page that renders CRUD operations for any module
  * Based on the moduleKey from URL params
  */
-const GenericCrudPage = () => {
-  const { moduleKey } = useParams()
+// `moduleKey` as a prop lets a workspace tab embed one grid (Outlet › Tax &
+// GST shows the tax grids); without it the key comes from the URL, as on
+// Admin › Data tables.
+const GenericCrudPage = ({ moduleKey: moduleKeyProp } = {}) => {
+  const params = useParams()
+  const moduleKey = moduleKeyProp || params.moduleKey
   const navigate = useNavigate()
 
   const module = useMemo(() => MODULES[moduleKey], [moduleKey])
@@ -227,7 +231,7 @@ const GenericCrudPage = () => {
   }, [module])
 
   useEffect(() => {
-    if (!module) navigate('/master', { replace: true })
+    if (!module) navigate('/org/data', { replace: true })
   }, [module, navigate])
 
   useEffect(() => {

@@ -64,7 +64,7 @@ const Sidebar = ({ isOpen, onClose }) => {
 
   // Check if module route is active
   const isActive = (moduleKey) => {
-    return location.pathname === `/master/${moduleKey}`
+    return location.pathname === `/org/data/${moduleKey}`
   }
 
   return (
@@ -98,7 +98,7 @@ const Sidebar = ({ isOpen, onClose }) => {
               {modules.map((module) => (
                 <Link
                   key={module.key}
-                  to={`/master/${module.key}`}
+                  to={`/org/data/${module.key}`}
                   className={`sidebar-item ${
                     isActive(module.key) ? 'active' : ''
                   }`}

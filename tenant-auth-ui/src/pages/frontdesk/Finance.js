@@ -116,14 +116,16 @@ const bucketLabel = (bucket, value) => {
   return v ? new Date(v).toLocaleDateString() : '—'
 }
 
-const Finance = () => {
+// `defaultTab` lets the Money workspace open GST filing as its own tab while
+// the URL's ?tab= still wins when a report links to a specific one.
+const Finance = ({ defaultTab = 'overview' } = {}) => {
   // The tab lives in the URL so a report can be LINKED to — Reports lists all
   // thirteen of these and every card has to land on the right one. It is also
   // what makes a tab shareable and survivable across a reload.
   const [params, setParams] = useSearchParams()
   const urlTab = params.get('tab')
   const [tab, setTabState] = useState(
-    TABS.some((t) => t.key === urlTab) ? urlTab : 'overview',
+    TABS.some((t) => t.key === urlTab) ? urlTab : defaultTab,
   )
 
   // Writing with replace: flipping between tabs is not thirteen back-button

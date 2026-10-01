@@ -82,16 +82,15 @@ describe('Navbar — menu while setup is pending', () => {
   test('shows the full menu once setup is complete', () => {
     renderNavbar({ setupCompleted: true });
 
-    expect(screen.getAllByText('Master Data').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Reports').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Access').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Front Desk').length).toBeGreaterThan(0);
+    // Every tenant screen now lives in a workspace rail; the bar keeps Home.
+    expect(screen.getAllByText('Home').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Audit Logs')).not.toBeInTheDocument();
     expect(screen.queryByText('Setup Required')).not.toBeInTheDocument();
   });
 
   test('super admins keep the full menu even mid-setup', () => {
     renderNavbar({ scopes: ['TENANT:SUPER_ADMIN'], setupCompleted: false });
-    expect(screen.getAllByText('Access').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Platform').length).toBeGreaterThan(0);
     expect(screen.queryByText('Setup Required')).not.toBeInTheDocument();
   });
 });

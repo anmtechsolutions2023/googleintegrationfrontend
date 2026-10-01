@@ -1,6 +1,6 @@
 import { MODULES } from '../modules';
 import { POS_MODULES } from '../posModules';
-import { FRONT_DESK_NAV } from '../navigation';
+import { WORKSPACES } from '../workspaces';
 
 // A `reference` key is how a select finds the list it offers. crudService
 // resolves it through MODULES then POS_MODULES and calls that entry's endpoint —
@@ -59,14 +59,16 @@ describe('the portal menu masters', () => {
 
   // Every one of these has a matching sidebar entry, or the screen exists and
   // nobody can reach it.
-  it.each(NEW)('%s has a Front Desk nav entry pointing at its route', (key) => {
-    const paths = FRONT_DESK_NAV.flatMap((g) => g.items).map((i) => i.path);
+  it.each(NEW)('%s has a workspace section pointing at its route', (key) => {
+    const paths = WORKSPACES.flatMap((w) => w.tabs).flatMap((t) => (
+      t.sections ? t.sections.map((s) => `${t.path}/${s.key}`) : [t.path]
+    ));
     const expected = {
-      posMeatTypes: '/frontdesk/meat-types',
-      posMenuTags: '/frontdesk/menu-tags',
-      posAddonGroups: '/frontdesk/addon-groups',
-      posAddons: '/frontdesk/addons',
-      posRejectionReasons: '/frontdesk/rejection-reasons',
+      posMeatTypes: '/menu/labels/meat-types',
+      posMenuTags: '/menu/labels/menu-tags',
+      posAddonGroups: '/menu/options/addon-groups',
+      posAddons: '/menu/options/addons',
+      posRejectionReasons: '/menu/channels/rejection-reasons',
     }[key];
     expect(paths).toContain(expected);
   });

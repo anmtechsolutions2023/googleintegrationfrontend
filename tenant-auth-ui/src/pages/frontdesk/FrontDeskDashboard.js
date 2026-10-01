@@ -7,7 +7,7 @@ import { normalizeStatus, statusLabel } from '../../utils/posStatus'
 import { useAuth } from '../../context/AuthContext'
 import { hasScope } from '../../utils/permissions'
 import { SCOPES } from '../../constants'
-import { FRONT_DESK_NAV, visibleNavGroups } from '../../config/navigation'
+import { visibleWorkspaces, visibleTabs, entryPathOf, tabLabelOf } from '../../config/workspaces'
 
 const FrontDeskDashboard = () => {
   const { user } = useAuth()
@@ -30,31 +30,33 @@ const FrontDeskDashboard = () => {
 
   if (loading) return <div className="fd-loading">Loading dashboard...</div>
 
-  // Without the figures, the useful thing to show is the way to the work. The
-  // sidebar has already been filtered to what this user may open, so the same
-  // list makes an honest starting point rather than an apology.
+  // Without the figures, the useful thing to show is the way to the work: every
+  // tab this person may open, from the same config that builds the rail, so
+  // the list makes an honest starting point rather than an apology.
   if (!canSeeStats) {
-    const shortcuts = visibleNavGroups(FRONT_DESK_NAV, user)
-      .flatMap((g) => g.items)
-      .filter((i) => i.path !== '/frontdesk')
+    const shortcuts = visibleWorkspaces(user)
+      .flatMap((ws) => visibleTabs(ws, user).map((t) => ({
+        key: `${ws.key}.${t.key}`, path: entryPathOf(t, user), label: tabLabelOf(t), group: ws.workspace,
+      })))
+      .filter((i) => i.key !== 'service.today')
 
     return (
       <div className="fd-dashboard">
-        <h1>📊 Front Desk</h1>
+        <h1>Today</h1>
         <p className="fd-page-sub">
           Takings and order figures need reports access, which your role does not
           include. Everything you can work on is here.
         </p>
         {shortcuts.length === 0 ? (
           <div className="fd-empty">
-            No front-desk screens are available to your role yet. Ask an
+            No screens are available to your role yet. Ask an
             administrator in this tenancy to review your permissions.
           </div>
         ) : (
           <div className="fd-shortcut-grid">
             {shortcuts.map((item) => (
               <Link key={item.key} to={item.path} className="fd-shortcut-card">
-                <span className="fd-shortcut-icon">{item.icon}</span>
+                <span className="fd-shortcut-icon">{item.group}</span>
                 <span>{item.label}</span>
               </Link>
             ))}
@@ -79,7 +81,7 @@ const FrontDeskDashboard = () => {
 
   return (
     <div className="fd-dashboard">
-      <h1>📊 Front Desk Dashboard</h1>
+      <h1>Today</h1>
 
       <div className="fd-kpi-grid">
         <div className="fd-kpi-card accent-green">

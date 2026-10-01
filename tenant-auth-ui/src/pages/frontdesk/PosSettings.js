@@ -5,7 +5,6 @@ import { useAuth } from '../../context/AuthContext'
 import { hasScope } from '../../utils/permissions'
 import { SCOPES } from '../../constants'
 import KitchenNotePresets from '../../components/frontdesk/KitchenNotePresets'
-import GstSettingsCard from '../../components/frontdesk/GstSettingsCard'
 import { NOTE_PRESETS_KEY, parsePresets } from '../../utils/lineOptions'
 
 // Mirrors POS_SETTING_KEYS / TOKEN_NUMBERING in the backend's config/constants.js.
@@ -112,11 +111,9 @@ const PosSettings = () => {
     return (
       <div className="fd-crud-page">
         <h1>⚙️ POS Settings</h1>
-        {/* Tenant-wide, so it does not wait for a branch to exist. */}
-        <GstSettingsCard canWrite={canWrite} />
         <div className="fd-empty" style={{ marginTop: 16 }}>
-          These settings are per branch. Add a branch under Organization →
-          Branch Details first.
+          These settings are per branch. Add a branch under Outlet → Business &amp;
+          branches first.
         </div>
       </div>
     )
@@ -130,9 +127,8 @@ const PosSettings = () => {
   return (
     <div className="fd-crud-page">
       <h1>⚙️ POS Settings</h1>
-      {/* First, and above the branch picker: GST is one switch for the whole
-          business, not a per-branch preference. */}
-      <GstSettingsCard canWrite={canWrite} />
+      {/* The GST switch moved to Outlet › Tax & GST: it is one switch for the
+          whole business, and it sits with the tax groups it governs. */}
       <p className="fd-page-sub" style={{ marginTop: 20 }}>
         Applies to one branch at a time. A branch you have never saved here runs
         on the defaults shown below.

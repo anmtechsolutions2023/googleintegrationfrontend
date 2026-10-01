@@ -152,7 +152,7 @@ const Reports = () => {
             {recentOrders.map((o) => (
               <tr key={o.Id || o.id}>
                 {/* Same linking mechanism the dashboard and the ledger use: the
-                    provider in FrontDeskLayout owns one modal for the whole
+                    provider in WorkspaceLayout owns one modal for the whole
                     section. /api/pos/reports has always returned o.Id for these
                     rows — this screen was the one place that rendered the order
                     number as plain text and dropped it. */}

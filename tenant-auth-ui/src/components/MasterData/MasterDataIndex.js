@@ -117,7 +117,7 @@ const MasterDataIndex = () => {
                 {modules.map((module) => (
                   <Link
                     key={module.key}
-                    to={`/master/${module.key}`}
+                    to={`/org/data/${module.key}`}
                     className="module-card"
                   >
                     <span className="module-icon">{module.icon}</span>

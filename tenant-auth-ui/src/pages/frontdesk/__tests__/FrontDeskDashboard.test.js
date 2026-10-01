@@ -73,7 +73,8 @@ describe('without reports access', () => {
   // The useful thing to offer instead is the way to the work.
   it('offers the screens the role can actually open', async () => {
     await renderAs(CASHIER);
-    expect(screen.getByText('Billing & KOT')).toBeInTheDocument();
+    // The Floor tab (Order & bill, Tables, QR inbox) is where a cashier works.
+    expect(screen.getByText('Floor')).toBeInTheDocument();
     expect(screen.getByText('Customers')).toBeInTheDocument();
     // …and nothing the same role would be refused.
     expect(screen.queryByText('Ledger')).not.toBeInTheDocument();

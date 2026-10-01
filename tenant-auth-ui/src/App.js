@@ -6,20 +6,9 @@ import 'react-toastify/dist/ReactToastify.css';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { SCOPES, APP_CONFIG } from './constants';
 import { ROUTES } from './constants/routes';
-import { MASTER_DATA_SCOPES } from './config/navigation';
-import {
-  ProtectedRoute,
-  ScopeGuard,
-  ApprovedRoute,
-  GuestRoute,
-} from './components/Guards';
+import { ScopeGuard, ApprovedRoute, GuestRoute } from './components/Guards';
 import Navbar from './components/Navbar';
 import LoadingSpinner from './components/LoadingSpinner';
-import {
-  MasterDataLayout,
-  MasterDataIndex,
-  GenericCrudPage,
-} from './components/MasterData';
 
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -28,54 +17,15 @@ import NotFound from './pages/NotFound';
 import AdminPage from './pages/AdminPage';
 import AuditLogs from './pages/AuditLogs';
 import MasterDataSetup from './pages/MasterDataSetup';
-import ReportsHome from './pages/ReportsHome';
 import OnboardingPage from './pages/OnboardingPage';
 import AdminDashboard from './pages/admin/AdminDashboard';
-
-// Front Desk (POS)
-import FrontDeskLayout from './components/frontdesk/FrontDeskLayout';
-import FrontDeskDashboard from './pages/frontdesk/FrontDeskDashboard';
-import Billing from './pages/frontdesk/Billing';
-import Tables from './pages/frontdesk/Tables';
-import Kitchen from './pages/frontdesk/Kitchen';
-import MenuMaster from './pages/frontdesk/MenuMaster';
-import FoodTypes from './pages/frontdesk/FoodTypes';
-import MeatTypes from './pages/frontdesk/MeatTypes';
-import MenuTags from './pages/frontdesk/MenuTags';
-import AddonGroups from './pages/frontdesk/AddonGroups';
-import Addons from './pages/frontdesk/Addons';
-import RejectionReasons from './pages/frontdesk/RejectionReasons';
-import CategorySchedules from './pages/frontdesk/CategorySchedules';
-import Channels from './pages/frontdesk/Channels';
-import Variants from './pages/frontdesk/Variants';
-import Floors from './pages/frontdesk/Floors';
-import Expenses from './pages/frontdesk/Expenses';
-import Customers from './pages/frontdesk/Customers';
-import Feedback from './pages/frontdesk/Feedback';
-import Tokens from './pages/frontdesk/Tokens';
 import TokenDisplay from './pages/frontdesk/TokenDisplay';
-import PosSettings from './pages/frontdesk/PosSettings';
-import BusinessProfile from './pages/frontdesk/BusinessProfile';
-import OnlineOrders from './pages/frontdesk/OnlineOrders';
-import Portals from './pages/frontdesk/Portals';
-import PortalMenu from './pages/frontdesk/PortalMenu';
-import Tracking from './pages/frontdesk/Tracking';
-import Inventory from './pages/frontdesk/Inventory';
-import Reports from './pages/frontdesk/Reports'
-import Ledger from './pages/frontdesk/Ledger';
-import Finance from './pages/frontdesk/Finance';
-import Returns from './pages/frontdesk/Returns';
-import ReceiptFormat from './pages/frontdesk/ReceiptFormat';
-import Campaigns from './pages/frontdesk/Campaigns';
-import CampaignDetail from './pages/frontdesk/CampaignDetail';
-import CashSessions from './pages/frontdesk/CashSessions';
-import Assets from './pages/frontdesk/Assets';
-import AssetCategories from './pages/frontdesk/AssetCategories';
-import ExpenseCategories from './pages/frontdesk/ExpenseCategories';
-import AccessControl from './pages/frontdesk/AccessControl';
-import QrCodes from './pages/frontdesk/QrCodes';
-import QrOrders from './pages/frontdesk/QrOrders';
 import DineApp from './pages/dine/DineApp';
+
+// Every tenant screen lives in one of seven workspaces — see config/workspaces.js.
+import WorkspaceLayout from './components/workspace/WorkspaceLayout';
+import { workspaceRoutes } from './components/workspace/workspaceRoutes';
+import { LegacyRedirect, HomeRedirect } from './components/workspace/WorkspaceRedirects';
 
 const AppRoutes = () => {
   const { loading, user } = useAuth();
@@ -101,9 +51,19 @@ const AppRoutes = () => {
         <Route path={ROUTES.DINE} element={<DineApp />} />
         <Route path={ROUTES.HOME} element={<Navigate to={ROUTES.DASHBOARD} replace />} />
 
-        {/* Audit logs — provisioned users with AUDIT:READ (or IAM admins).
-            allowDuringSetup: one of the three screens reachable before the
-            first-time setup wizard is finished. */}
+        {/* Guest-only: unprovisioned users waiting for approval */}
+        <Route path={ROUTES.ONBOARDING} element={<GuestRoute><OnboardingPage /></GuestRoute>} />
+
+        {/* Home. Mid-setup it is the home page — one of the few screens the
+            setup gate leaves reachable; after that it forwards to the first
+            workspace this person can open. */}
+        <Route
+          path={ROUTES.DASHBOARD}
+          element={<ApprovedRoute allowDuringSetup><HomeRedirect fallback={<Dashboard />} /></ApprovedRoute>}
+        />
+
+        {/* Audit logs during first-time setup, before the workspaces open up.
+            After setup the same page is Admin › Audit Logs. */}
         <Route
           path={ROUTES.AUDIT}
           element={
@@ -115,111 +75,8 @@ const AppRoutes = () => {
           }
         />
 
-        {/* Guest-only: unprovisioned users waiting for approval */}
-        <Route
-          path={ROUTES.ONBOARDING}
-          element={
-            <GuestRoute>
-              <OnboardingPage />
-            </GuestRoute>
-          }
-        />
-
-        {/* ── Approved (provisioned) users only ── */}
-        {/* Home — allowDuringSetup: reachable before the setup wizard is done. */}
-        <Route
-          path={ROUTES.DASHBOARD}
-          element={
-            <ApprovedRoute allowDuringSetup>
-              <Dashboard />
-            </ApprovedRoute>
-          }
-        />
-
-        <Route
-          path={ROUTES.REPORTS}
-          element={
-            <ApprovedRoute>
-              <ScopeGuard
-                /* Any scope that opens at least one report in the catalogue.
-                   NOT reports:READ — no feature in the seed defines it, so no
-                   role could hold it and only a tenant admin ever got in. The
-                   page itself filters to what each holder may actually see. */
-                requiredScopes={[
-                  SCOPES.TRANSACTIONS_READ,
-                  SCOPES.POS_REPORTS_READ,
-                  SCOPES.POS_CRM_READ,
-                  SCOPES.POS_BILLING_READ,
-                  SCOPES.ASSET_READ,
-                  SCOPES.AUDIT_READ,
-                  SCOPES.TENANT_ADMIN,
-                ]}
-              >
-                <ReportsHome />
-              </ScopeGuard>
-            </ApprovedRoute>
-          }
-        />
-
-        {/* Legacy admin page (TENANT_ADMIN scope) — unchanged */}
-        <Route
-          path={ROUTES.ADMIN_SETTINGS}
-          element={
-            <ApprovedRoute>
-              <ScopeGuard requiredScopes={[SCOPES.TENANT_ADMIN]}>
-                <AdminPage />
-              </ScopeGuard>
-            </ApprovedRoute>
-          }
-        />
-
-        {/* Managing a tenancy's own people moved to Front Desk — one screen for
-            "who works here". These two were a second implementation over the
-            same API and had drifted apart, so the old URLs redirect rather than
-            404 for anybody holding a bookmark. Declared ahead of /admin/* so
-            they resolve before the super-admin guard below. */}
-        <Route path={`${ROUTES.ADMIN}/users`} element={<Navigate to={ROUTES.ACCESS_CONTROL} replace />} />
-        <Route path={`${ROUTES.ADMIN}/roles`} element={<Navigate to={ROUTES.ACCESS_CONTROL} replace />} />
-
-        {/* The platform console: onboarding requests, the global feature
-            catalogue, cross-tenant users, system configuration. Super admins
-            only — none of this can be narrowed to a single tenancy, which is
-            exactly why it did not move to Front Desk with the rest. */}
-        <Route
-          path={`${ROUTES.ADMIN}/*`}
-          element={
-            <ApprovedRoute>
-              <ScopeGuard requiredScopes={[SCOPES.TENANT_SUPER_ADMIN]}>
-                <AdminDashboard />
-              </ScopeGuard>
-            </ApprovedRoute>
-          }
-        />
-
-        {/* Master Data Module.
-            Gated on the six master-data category reads: the index renders only
-            the categories the user may read, so without one of them the page
-            was a heading over nothing. The per-module pages inside carry their
-            own category check as well — that one has to stay, because a direct
-            link to /master/<module> must be refused even when the user can read
-            a DIFFERENT category. */}
-        <Route
-          path={ROUTES.MASTER}
-          element={
-            <ApprovedRoute>
-              <ScopeGuard requiredScopes={MASTER_DATA_SCOPES}>
-                <MasterDataLayout />
-              </ScopeGuard>
-            </ApprovedRoute>
-          }
-        >
-          <Route index element={<MasterDataIndex />} />
-          <Route path=":moduleKey" element={<GenericCrudPage />} />
-        </Route>
-
-        {/* First-time master-data setup wizard (tenant admins).
-            allowDuringSetup: this is the destination the gate redirects to, so
-            it must never be gated itself or the redirect would loop. */}
+        {/* First-time setup wizard (tenant admins). allowDuringSetup: this is
+            where the gate sends people, so it must never be gated itself. */}
         <Route
           path={ROUTES.MASTER_SETUP}
           element={
@@ -231,10 +88,28 @@ const AppRoutes = () => {
           }
         />
 
-        {/* Customer-facing token board. Registered BEFORE (and outside) the
-            Front Desk layout on purpose: it is a sign on a second monitor, not
-            a page — no sidebar, no navigation, nothing a customer could press.
-            Still behind the same login and scope as the queue it displays. */}
+        {/* Legacy admin page (TENANT_ADMIN scope) — unchanged */}
+        <Route
+          path={ROUTES.ADMIN_SETTINGS}
+          element={<ApprovedRoute><ScopeGuard requiredScopes={[SCOPES.TENANT_ADMIN]}><AdminPage /></ScopeGuard></ApprovedRoute>}
+        />
+
+        {/* A tenancy's people moved into Admin › People & Access. Declared ahead
+            of /admin/* so they resolve before the super-admin guard below. */}
+        <Route path={`${ROUTES.ADMIN}/users`} element={<Navigate to={ROUTES.ACCESS_CONTROL} replace />} />
+        <Route path={`${ROUTES.ADMIN}/roles`} element={<Navigate to={ROUTES.ACCESS_CONTROL} replace />} />
+
+        {/* The platform console: onboarding requests, the global feature
+            catalogue, cross-tenant users, system configuration. Super admins
+            only — none of it can be narrowed to one tenancy, so it is not a
+            workspace. */}
+        <Route
+          path={`${ROUTES.ADMIN}/*`}
+          element={<ApprovedRoute><ScopeGuard requiredScopes={[SCOPES.TENANT_SUPER_ADMIN]}><AdminDashboard /></ScopeGuard></ApprovedRoute>}
+        />
+
+        {/* Customer-facing token board: a sign on a second monitor, so it sits
+            outside the workspace shell — no rail, nothing a customer could press. */}
         <Route
           path={`${ROUTES.FRONTDESK}/tokens/display`}
           element={
@@ -246,107 +121,23 @@ const AppRoutes = () => {
           }
         />
 
-        {/* Front Desk (POS) */}
-        <Route
-          path={`${ROUTES.FRONTDESK}/*`}
-          element={
-            <ApprovedRoute>
-              <ScopeGuard
-                requiredScopes={[
-                  SCOPES.POS_ORDER_READ,
-                  SCOPES.POS_CONFIG_READ,
-                  SCOPES.POS_KITCHEN_READ,
-                  SCOPES.POS_BILLING_READ,
-                  SCOPES.POS_CRM_READ,
-                  SCOPES.POS_OPS_READ,
-                  SCOPES.POS_REPORTS_READ,
-                  SCOPES.POS_QR_READ,
-                  SCOPES.TENANT_ADMIN,
-                ]}
-              >
-                <FrontDeskLayout />
-              </ScopeGuard>
-            </ApprovedRoute>
-          }
-        >
-          <Route index element={<FrontDeskDashboard />} />
-          <Route path="billing"   element={<ScopeGuard requiredScopes={[SCOPES.POS_ORDER_READ,   SCOPES.TENANT_ADMIN]}><Billing /></ScopeGuard>} />
-          <Route path="tables"    element={<ScopeGuard requiredScopes={[SCOPES.POS_ORDER_READ,   SCOPES.TENANT_ADMIN]}><Tables /></ScopeGuard>} />
-          {/* QR table ordering. The queue follows order-taking (POS_ORDER) as well as
-              POS_QR; the codes are POS_QR only — see SCOPE_SETS in the backend. */}
-          <Route path="qr-orders" element={<ScopeGuard requiredScopes={[SCOPES.POS_QR_READ, SCOPES.POS_QR_WRITE, SCOPES.POS_ORDER_READ, SCOPES.TENANT_ADMIN]}><QrOrders /></ScopeGuard>} />
-          <Route path="qr-codes"  element={<ScopeGuard requiredScopes={[SCOPES.POS_QR_READ, SCOPES.POS_QR_WRITE, SCOPES.TENANT_ADMIN]}><QrCodes /></ScopeGuard>} />
-          <Route path="kitchen"   element={<ScopeGuard requiredScopes={[SCOPES.POS_KITCHEN_READ, SCOPES.TENANT_ADMIN]}><Kitchen /></ScopeGuard>} />
-          <Route path="tokens"    element={<ScopeGuard requiredScopes={[SCOPES.POS_OPS_READ,     SCOPES.TENANT_ADMIN]}><Tokens /></ScopeGuard>} />
-          <Route path="online"    element={<ScopeGuard requiredScopes={[SCOPES.POS_OPS_READ,     SCOPES.TENANT_ADMIN]}><OnlineOrders /></ScopeGuard>} />
-          {/* Configuring a portal is master-data work a manager does; the queue
-              above is floor work a cashier does. Same split as channels vs billing. */}
-          <Route path="portals"   element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ,  SCOPES.TENANT_ADMIN]}><Portals /></ScopeGuard>} />
-          <Route path="portals/:portalId/menu" element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN]}><PortalMenu /></ScopeGuard>} />
-          <Route path="menu"       element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ,  SCOPES.TENANT_ADMIN]}><MenuMaster /></ScopeGuard>} />
-          <Route path="food-types" element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ,  SCOPES.TENANT_ADMIN]}><FoodTypes /></ScopeGuard>} />
-          {/* Portal menu masters — what a dish IS beyond its price, and why an
-              order was refused. Same read scope as the other Setup screens. */}
-          <Route path="meat-types" element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ,  SCOPES.TENANT_ADMIN]}><MeatTypes /></ScopeGuard>} />
-          <Route path="menu-tags"  element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ,  SCOPES.TENANT_ADMIN]}><MenuTags /></ScopeGuard>} />
-          <Route path="addon-groups" element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ,  SCOPES.TENANT_ADMIN]}><AddonGroups /></ScopeGuard>} />
-          <Route path="addons"     element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ,  SCOPES.TENANT_ADMIN]}><Addons /></ScopeGuard>} />
-          <Route path="rejection-reasons" element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ,  SCOPES.TENANT_ADMIN]}><RejectionReasons /></ScopeGuard>} />
-          <Route path="category-schedules" element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ,  SCOPES.TENANT_ADMIN]}><CategorySchedules /></ScopeGuard>} />
-          <Route path="channels"  element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ,  SCOPES.TENANT_ADMIN]}><Channels /></ScopeGuard>} />
-          <Route path="variants"  element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ,  SCOPES.TENANT_ADMIN]}><Variants /></ScopeGuard>} />
-          <Route path="floors"    element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ,  SCOPES.TENANT_ADMIN]}><Floors /></ScopeGuard>} />
-          {/* Staff is now a tab on Access Control — one screen answers "who works
-              in this tenancy". The old path is kept so existing links still land
-              somewhere useful rather than 404ing. */}
-          <Route path="staff" element={<Navigate to="/frontdesk/access-control" replace />} />
-          {/* Everything the setup wizard collected. ORGANIZATION_READ as well as
-              POS_CONFIG_READ: these are the business's own details, and whoever
-              manages them should not need a POS scope to look. */}
-          <Route path="business-profile" element={<ScopeGuard requiredScopes={[SCOPES.ORGANIZATION_READ, SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN]}><BusinessProfile /></ScopeGuard>} />
-          <Route path="settings"  element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ,  SCOPES.TENANT_ADMIN]}><PosSettings /></ScopeGuard>} />
-          <Route path="expenses"  element={<ScopeGuard requiredScopes={[SCOPES.POS_OPS_READ,     SCOPES.TENANT_ADMIN]}><Expenses /></ScopeGuard>} />
-          <Route path="customers"      element={<ScopeGuard requiredScopes={[SCOPES.POS_CRM_READ,     SCOPES.TENANT_ADMIN]}><Customers /></ScopeGuard>} />
-          <Route path="feedback"       element={<ScopeGuard requiredScopes={[SCOPES.POS_CRM_READ,     SCOPES.TENANT_ADMIN]}><Feedback /></ScopeGuard>} />
-          <Route path="tracking"       element={<ScopeGuard requiredScopes={[SCOPES.POS_OPS_READ,     SCOPES.TENANT_ADMIN]}><Tracking /></ScopeGuard>} />
-          <Route path="inventory"      element={<ScopeGuard requiredScopes={[SCOPES.INVENTORY_READ,   SCOPES.TENANT_ADMIN]}><Inventory /></ScopeGuard>} />
-          <Route path="reports"        element={<ScopeGuard requiredScopes={[SCOPES.POS_REPORTS_READ, SCOPES.TENANT_ADMIN]}><Reports /></ScopeGuard>} />
-          {/* Accounting ledger — gated on TRANSACTIONS scopes: a ledger
-              document IS the transaction record. */}
-          <Route path="ledger"         element={<ScopeGuard requiredScopes={[SCOPES.TRANSACTIONS_READ, SCOPES.TRANSACTIONS_WRITE, SCOPES.TENANT_ADMIN]}><Ledger /></ScopeGuard>} />
-          {/* Financial reporting reads the same documents as the ledger, so it
-              shares the ledger's scopes rather than the operational POS ones. */}
-          <Route path="finance"        element={<ScopeGuard requiredScopes={[SCOPES.TRANSACTIONS_READ, SCOPES.TRANSACTIONS_WRITE, SCOPES.TENANT_ADMIN]}><Finance /></ScopeGuard>} />
-          {/* The returns register. Same scopes as the ledger — a credit note IS
-              a transaction record, and reading one is reading the books. */}
-          <Route path="returns"        element={<ScopeGuard requiredScopes={[SCOPES.TRANSACTIONS_READ, SCOPES.TRANSACTIONS_WRITE, SCOPES.TENANT_ADMIN]}><Returns /></ScopeGuard>} />
-          {/* What prints on paper. Configuration — the same scopes as the menu
-              and the floor plan, not the operational POS ones. */}
-          <Route path="receipt-format" element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ, SCOPES.POS_CONFIG_WRITE, SCOPES.TENANT_ADMIN]}><ReceiptFormat /></ScopeGuard>} />
-          {/* Campaigns and the offers inside them. Configuration — creating an
-              offer authorises the business to give money away on every till. */}
-          <Route path="campaigns"      element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ, SCOPES.POS_CONFIG_WRITE, SCOPES.TENANT_ADMIN]}><Campaigns /></ScopeGuard>} />
-          <Route path="campaigns/:id"  element={<ScopeGuard requiredScopes={[SCOPES.POS_CONFIG_READ, SCOPES.POS_CONFIG_WRITE, SCOPES.TENANT_ADMIN]}><CampaignDetail /></ScopeGuard>} />
-          {/* The drawer belongs to whoever takes the money. */}
-          <Route path="cash-sessions"  element={<ScopeGuard requiredScopes={[SCOPES.POS_BILLING_READ, SCOPES.POS_BILLING_WRITE, SCOPES.TENANT_ADMIN]}><CashSessions /></ScopeGuard>} />
-          <Route path="assets"         element={<ScopeGuard requiredScopes={[SCOPES.ASSET_READ, SCOPES.ASSET_WRITE, SCOPES.TENANT_ADMIN]}><Assets /></ScopeGuard>} />
-          <Route path="asset-categories"   element={<ScopeGuard requiredScopes={[SCOPES.ASSET_READ, SCOPES.ASSET_WRITE, SCOPES.TENANT_ADMIN]}><AssetCategories /></ScopeGuard>} />
-          {/* Reading categories is open to anyone who can raise an expense —
-              they have to pick one. Writing is gated inside the page. */}
-          <Route path="expense-categories" element={<ScopeGuard requiredScopes={[SCOPES.POS_OPS_READ, SCOPES.POS_OPS_WRITE, SCOPES.EXPENSE_APPROVE, SCOPES.TENANT_ADMIN]}><ExpenseCategories /></ScopeGuard>} />
-          <Route path="access-control" element={<ScopeGuard requiredScopes={[SCOPES.TENANT_ADMIN]}><AccessControl /></ScopeGuard>} />
+        {/* The seven workspaces. Routes, guards and tabs all come from
+            config/workspaces.js. */}
+        <Route element={<ApprovedRoute><WorkspaceLayout /></ApprovedRoute>}>
+          {workspaceRoutes()}
         </Route>
+
+        {/* Old addresses — /frontdesk/*, /master/*, /reports — forward to where
+            each screen lives now, keeping ids and query strings. */}
+        <Route path={ROUTES.FRONTDESK} element={<ApprovedRoute><LegacyRedirect /></ApprovedRoute>} />
+        <Route path={`${ROUTES.FRONTDESK}/*`} element={<ApprovedRoute><LegacyRedirect /></ApprovedRoute>} />
+        <Route path="/master" element={<ApprovedRoute><LegacyRedirect /></ApprovedRoute>} />
+        <Route path="/master/*" element={<ApprovedRoute><LegacyRedirect /></ApprovedRoute>} />
+        <Route path="/reports" element={<ApprovedRoute><LegacyRedirect /></ApprovedRoute>} />
 
         {/* 404 — wrapped so an unrecognised URL cannot be used to slip past the
             setup gate. Unauthenticated visitors still land on Login as before. */}
-        <Route
-          path="*"
-          element={
-            <ApprovedRoute>
-              <NotFound />
-            </ApprovedRoute>
-          }
-        />
+        <Route path="*" element={<ApprovedRoute><NotFound /></ApprovedRoute>} />
       </Routes>
     </>
   );

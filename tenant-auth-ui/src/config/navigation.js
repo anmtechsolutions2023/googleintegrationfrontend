@@ -3,168 +3,47 @@ import { ROUTES } from '../constants/routes'
 import { STRINGS } from '../constants'
 import {
   hasScope, canRunSetupWizard, isSetupPending, isSuperAdmin,
-  CATEGORY_READ_SCOPE,
 } from '../utils/permissions'
 
 /**
- * Every navigable destination in the app, in one declarative list.
+ * The top bar, and the platform console's tabs.
  *
- * Menus are rendered FROM this file rather than hand-written in each shell, so
- * adding a destination means adding an entry here and nothing else — no menu
- * component has to be reopened, and none can drift from another. That drift was
- * a real defect and not a tidiness point: the Master Data link carried no
- * permission check at all, and the desktop bar and the mobile drawer used to
- * hold two hand-maintained copies of the same list.
+ * Every tenant screen now lives in a WORKSPACE — see config/workspaces.js,
+ * which builds the left rail, the tabs, the routes and the redirects from the
+ * old /frontdesk/* and /master/* addresses. What remains here is the little
+ * that sits outside any workspace: Home, the first-time setup wizard, the audit
+ * log while setup is pending, and the super admin's platform console.
  *
- * The rule for `scopes` is: MIRROR THE API GUARD. A menu entry whose scopes are
- * looser than the route's takes the user to a 403; one that is tighter hides a
- * screen they are entitled to. Either way the menu is lying about what they may
- * do, which is worse than an ugly menu.
- *
- * `scopes: null` means unconditional. hasScope() admits a super admin to
- * everything, matching checkScope's bypass on the server.
+ * The rule for `scopes` is unchanged: MIRROR THE API GUARD. `scopes: null`
+ * means unconditional; hasScope() admits a super admin to everything, matching
+ * checkScope's bypass on the server.
  */
 
-// Master Data is an index over six categories, and a user may hold READ on any
-// one of them. Derived from the category map so a new category is covered
-// automatically — the link's old state, no check at all, showed an empty index
-// to anybody without a single one of these.
-//
-// POS categories are excluded deliberately. CATEGORY_READ_SCOPE also maps
-// 'POS Config', 'POS Operations' and 'POS CRM', which live on the Front Desk;
-// including them put Master Data in the menu of every cashier, since
-// POS_CONFIG:READ is part of taking orders. The index itself only ever renders
-// the six below, so the link must ask for the same six.
-export const MASTER_DATA_CATEGORIES = [
-  'Master Data', 'Inventory', 'Transactions',
-  'Payments', 'Contacts & Addresses', 'Organization',
-]
-
-export const MASTER_DATA_SCOPES = [
-  ...new Set(MASTER_DATA_CATEGORIES.map((c) => CATEGORY_READ_SCOPE[c]).filter(Boolean)),
-  SCOPES.TENANT_ADMIN,
-]
-
-// Any POS read scope is enough to reach the Front Desk shell; the sidebar
-// inside it then narrows to the individual screens.
-const FRONT_DESK_SCOPES = [
-  SCOPES.POS_ORDER_READ, SCOPES.POS_CONFIG_READ, SCOPES.POS_KITCHEN_READ,
-  SCOPES.POS_BILLING_READ, SCOPES.POS_CRM_READ, SCOPES.POS_OPS_READ,
-  SCOPES.POS_REPORTS_READ, SCOPES.POS_QR_READ, SCOPES.TENANT_ADMIN,
-]
+// Kept for callers that import them from here; the definition moved with the
+// Master Data grids into Admin › Data tables.
+export { MASTER_DATA_CATEGORIES, MASTER_DATA_SCOPES } from './workspaces'
 
 /**
- * The top navigation bar.
- *
  * `duringSetup: true` marks the few entries that survive the first-time setup
  * gate. Everything else disappears until the wizard is finished, because the
  * API refuses those calls with TENANT_SETUP_REQUIRED — the menu says the same
  * thing the server would.
  */
 export const PRIMARY_NAV = [
+  // Home forwards to the first workspace this person can open.
   { key: 'home', path: ROUTES.DASHBOARD, label: STRINGS.nav.home, scopes: null, duringSetup: true },
-  { key: 'master', path: ROUTES.MASTER, label: STRINGS.nav.masterData, scopes: MASTER_DATA_SCOPES },
   // The wizard entry point disappears for good once setup is done.
   { key: 'setupWizard', path: ROUTES.MASTER_SETUP, label: STRINGS.nav.masterSetup,
     scopes: null, duringSetup: true, when: canRunSetupWizard },
-  // Gated on the scopes the reports' own data uses. reports:READ was invented
-  // by the old stub route and no feature defines it, so the item was invisible
-  // to every role but tenant admin — including the managers it is for.
-  { key: 'reports', path: ROUTES.REPORTS, label: STRINGS.nav.reports,
-    scopes: [
-      SCOPES.TRANSACTIONS_READ, SCOPES.POS_REPORTS_READ, SCOPES.POS_CRM_READ,
-      SCOPES.POS_BILLING_READ, SCOPES.ASSET_READ, SCOPES.AUDIT_READ,
-      SCOPES.TENANT_ADMIN,
-    ] },
-  // A tenancy's own people, invitations and roles — one screen, on Front Desk.
-  // /admin/users and /admin/roles redirect to it.
-  { key: 'access', path: ROUTES.ACCESS_CONTROL, label: STRINGS.nav.access,
-    scopes: [SCOPES.ADMIN_ACCESS, SCOPES.TENANT_ADMIN] },
-  { key: 'frontdesk', path: ROUTES.FRONTDESK, label: STRINGS.nav.frontDesk, scopes: FRONT_DESK_SCOPES },
+  // While setup is pending the workspaces are closed, so the audit log needs a
+  // way in of its own. Afterwards it is Admin › Audit Logs.
   { key: 'audit', path: ROUTES.AUDIT, label: STRINGS.nav.auditLogs,
-    scopes: [SCOPES.AUDIT_READ, SCOPES.ADMIN_ACCESS, SCOPES.TENANT_ADMIN], duringSetup: true },
+    scopes: [SCOPES.AUDIT_READ, SCOPES.ADMIN_ACCESS, SCOPES.TENANT_ADMIN], duringSetup: true, when: isSetupPending },
   // The platform console — onboarding, the global feature catalogue,
   // cross-tenant users, system configuration. Nothing here can be narrowed to
-  // one tenancy, so it is super-admin-only and separate from Access above.
+  // one tenancy, so it is super-admin-only and not a workspace.
   { key: 'platform', path: ROUTES.ADMIN, label: STRINGS.nav.platform,
     scopes: [SCOPES.TENANT_SUPER_ADMIN], duringSetup: true },
-]
-
-/**
- * The Front Desk sidebar, grouped by what the user is trying to do.
- * Groups with nothing visible in them are not rendered at all.
- */
-export const FRONT_DESK_NAV = [
-  { group: 'Operations', items: [
-    { key: 'fd-dashboard', path: '/frontdesk',          label: 'Dashboard',     icon: '📊', scopes: null },
-    { key: 'fd-billing',   path: '/frontdesk/billing',  label: 'Billing & KOT', icon: '🧾', scopes: [SCOPES.POS_ORDER_READ,   SCOPES.TENANT_ADMIN] },
-    { key: 'fd-tables',    path: '/frontdesk/tables',   label: 'Tables',        icon: '🪑', scopes: [SCOPES.POS_ORDER_READ,   SCOPES.TENANT_ADMIN] },
-    // Orders guests placed from the code on their table, awaiting Accept/Reject.
-    // Mirrors SCOPE_SETS.POS_QR_ORDER_READ: floor staff with POS_ORDER see it too.
-    { key: 'fd-qr-orders', path: '/frontdesk/qr-orders', label: 'QR Orders',     icon: '📲', scopes: [SCOPES.POS_QR_READ, SCOPES.POS_QR_WRITE, SCOPES.POS_ORDER_READ, SCOPES.TENANT_ADMIN] },
-    { key: 'fd-kitchen',   path: '/frontdesk/kitchen',  label: 'Kitchen (KDS)', icon: '👨‍🍳', scopes: [SCOPES.POS_KITCHEN_READ, SCOPES.TENANT_ADMIN] },
-    { key: 'fd-tokens',    path: '/frontdesk/tokens',   label: 'Token Queue',   icon: '🎫', scopes: [SCOPES.POS_OPS_READ,     SCOPES.TENANT_ADMIN] },
-    { key: 'fd-online',    path: '/frontdesk/online',   label: 'Online Orders', icon: '🛒', scopes: [SCOPES.POS_OPS_READ,     SCOPES.TENANT_ADMIN] },
-    { key: 'fd-tracking',  path: '/frontdesk/tracking', label: 'Live Tracking', icon: '📍', scopes: [SCOPES.POS_OPS_READ,     SCOPES.TENANT_ADMIN] },
-  ]},
-  { group: 'Setup', items: [
-    { key: 'fd-menu',       path: '/frontdesk/menu',       label: 'Menu Master',  icon: '🍽️', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
-    { key: 'fd-food-types', path: '/frontdesk/food-types', label: 'Food Types',   icon: '🥗', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
-    // Meat type sits next to Food Type because they are read together and
-    // constantly confused — they are ORTHOGONAL, not a hierarchy: a dish is
-    // Non-Veg (food type) AND Chicken (meat type).
-    { key: 'fd-meat-types', path: '/frontdesk/meat-types', label: 'Meat Types',   icon: '🍗', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
-    { key: 'fd-menu-tags',  path: '/frontdesk/menu-tags',  label: 'Menu Tags',    icon: '🏷️', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
-    // Availability sits with the menu-structure screens: it answers "when is
-    // this section on the menu", which is a property of the category.
-    { key: 'fd-cat-schedules', path: '/frontdesk/category-schedules', label: 'Category Hours', icon: '🕒', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
-    // Groups before options: you cannot add an option without a group to put it
-    // in, and the nav order is the order the screens are used.
-    { key: 'fd-addon-groups', path: '/frontdesk/addon-groups', label: 'Add-on Groups', icon: '🧩', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
-    { key: 'fd-addons',     path: '/frontdesk/addons',     label: 'Add-ons',      icon: '➕', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
-    { key: 'fd-channels',   path: '/frontdesk/channels',   label: 'Channels',     icon: '📡', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
-    // A portal is a SELLER ON a channel, so it sits directly under Channels.
-    { key: 'fd-portals',    path: '/frontdesk/portals',    label: 'Portals',      icon: '🔀', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
-    // Under Portals: a rejection reason is something you send a portal, and a
-    // reason may belong to one portal or to the house.
-    { key: 'fd-rejection-reasons', path: '/frontdesk/rejection-reasons', label: 'Rejection Reasons', icon: '🚫', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
-    { key: 'fd-variants',   path: '/frontdesk/variants',   label: 'Variants',     icon: '🧩', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
-    { key: 'fd-floors',     path: '/frontdesk/floors',     label: 'Floors',       icon: '🏢', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
-    // Under Floors: a code is printed per table. POS_QR alone — a code is a
-    // public door into the order queue, so menu setup does not grant it.
-    { key: 'fd-qr-codes',   path: '/frontdesk/qr-codes',   label: 'QR Codes',     icon: '🔳', scopes: [SCOPES.POS_QR_READ, SCOPES.POS_QR_WRITE, SCOPES.TENANT_ADMIN] },
-    // Above POS Settings and Receipt Format because it is what they refer back to:
-    // the business's own details, which those two screens decide the handling and
-    // the printing of. ORGANIZATION_READ as well as POS_CONFIG_READ — whoever
-    // manages the company's details should reach it without holding a POS scope.
-    { key: 'fd-business',   path: '/frontdesk/business-profile', label: 'Business Profile', icon: '🏪', scopes: [SCOPES.ORGANIZATION_READ, SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
-    { key: 'fd-settings',   path: '/frontdesk/settings',   label: 'POS Settings', icon: '⚙️', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
-    { key: 'fd-receipt',    path: '/frontdesk/receipt-format', label: 'Receipt Format', icon: '🧾', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
-    { key: 'fd-campaigns',  path: '/frontdesk/campaigns',      label: 'Campaigns',      icon: '🎯', scopes: [SCOPES.POS_CONFIG_READ, SCOPES.TENANT_ADMIN] },
-    { key: 'fd-inventory',  path: '/frontdesk/inventory',  label: 'Inventory',    icon: '📦', scopes: [SCOPES.INVENTORY_READ,  SCOPES.TENANT_ADMIN] },
-    { key: 'fd-expense-cats', path: '/frontdesk/expense-categories', label: 'Expense Categories', icon: '🏷️', scopes: [SCOPES.POS_OPS_READ, SCOPES.EXPENSE_APPROVE, SCOPES.TENANT_ADMIN] },
-    { key: 'fd-asset-cats',   path: '/frontdesk/asset-categories',   label: 'Asset Categories',   icon: '🏷️', scopes: [SCOPES.ASSET_READ,   SCOPES.ASSET_WRITE,     SCOPES.TENANT_ADMIN] },
-  ]},
-  // Money in, money out, and what is left. Separated from Operations because
-  // these read the accounting ledger rather than the POS tables.
-  { group: 'Finance', items: [
-    { key: 'fd-finance',  path: '/frontdesk/finance',       label: 'Finance',        icon: '💰', scopes: [SCOPES.TRANSACTIONS_READ, SCOPES.TRANSACTIONS_WRITE, SCOPES.TENANT_ADMIN] },
-    { key: 'fd-returns',  path: '/frontdesk/returns',       label: 'Returns',        icon: '↩️', scopes: [SCOPES.TRANSACTIONS_READ, SCOPES.TRANSACTIONS_WRITE, SCOPES.TENANT_ADMIN] },
-    { key: 'fd-expenses', path: '/frontdesk/expenses',      label: 'Expenses',       icon: '💸', scopes: [SCOPES.POS_OPS_READ,      SCOPES.TENANT_ADMIN] },
-    { key: 'fd-cash',     path: '/frontdesk/cash-sessions', label: 'Cash Sessions',  icon: '🧮', scopes: [SCOPES.POS_BILLING_READ,  SCOPES.POS_BILLING_WRITE, SCOPES.TENANT_ADMIN] },
-    { key: 'fd-assets',   path: '/frontdesk/assets',        label: 'Asset Register', icon: '🏗️', scopes: [SCOPES.ASSET_READ,        SCOPES.ASSET_WRITE, SCOPES.TENANT_ADMIN] },
-  ]},
-  { group: 'CRM', items: [
-    { key: 'fd-customers', path: '/frontdesk/customers', label: 'Customers', icon: '👥', scopes: [SCOPES.POS_CRM_READ, SCOPES.TENANT_ADMIN] },
-    { key: 'fd-feedback',  path: '/frontdesk/feedback',  label: 'Feedback',  icon: '⭐', scopes: [SCOPES.POS_CRM_READ, SCOPES.TENANT_ADMIN] },
-  ]},
-  { group: 'Analytics & Admin', items: [
-    { key: 'fd-reports', path: '/frontdesk/reports', label: 'Reports', icon: '📈', scopes: [SCOPES.POS_REPORTS_READ, SCOPES.TENANT_ADMIN] },
-    { key: 'fd-ledger',  path: '/frontdesk/ledger',  label: 'Ledger',  icon: '📒', scopes: [SCOPES.TRANSACTIONS_READ, SCOPES.TRANSACTIONS_WRITE, SCOPES.TENANT_ADMIN] },
-    // People, invitations and roles for this tenancy — a tenant-admin act, and
-    // the only place any of it is managed.
-    { key: 'fd-access',  path: ROUTES.ACCESS_CONTROL, label: 'People & Access', icon: '🔐', scopes: [SCOPES.TENANT_ADMIN, SCOPES.ADMIN_ACCESS] },
-  ]},
 ]
 
 /**
@@ -176,7 +55,7 @@ export const FRONT_DESK_NAV = [
  * system-wide. None can be narrowed to a single tenancy.
  *
  * Users and Roles used to sit here too. They were tenant-scoped all along and
- * duplicated /frontdesk/access-control, so they moved there and the old URLs
+ * duplicated what is now Admin › People & Access, so they moved there and the old URLs
  * redirect.
  */
 export const ADMIN_NAV = [
@@ -205,17 +84,10 @@ export const visibleNavItems = (items = [], user) => {
   })
 }
 
-/**
- * The same filter for the grouped sidebar. Groups left empty are dropped, so a
- * user with no Finance permissions never sees a Finance heading over nothing.
- */
-export const visibleNavGroups = (groups = [], user) =>
-  groups
-    .map(({ group, items }) => ({ group, items: visibleNavItems(items, user) }))
-    .filter(({ items }) => items.length > 0)
-
 /** Admin tabs this user may open. */
 export const visibleAdminTabs = (user) =>
   ADMIN_NAV.filter((tab) => !tab.superAdminOnly || isSuperAdmin(user))
 
-export default { PRIMARY_NAV, FRONT_DESK_NAV, ADMIN_NAV, visibleNavItems, visibleNavGroups, visibleAdminTabs }
+const navigation = { PRIMARY_NAV, ADMIN_NAV, visibleNavItems, visibleAdminTabs }
+
+export default navigation

@@ -7,7 +7,6 @@ import { SCOPES, APP_CONFIG } from '../../constants'
 import FormModal from '../../components/MasterData/FormModal'
 import ConfirmDialog from '../../components/MasterData/ConfirmDialog'
 import RoundsTimeline from '../../components/frontdesk/RoundsTimeline'
-import QrOrderAlert from '../../components/frontdesk/QrOrderAlert'
 import { buildTableRounds } from '../../utils/posRounds'
 import { TABLE_STATUSES, statusLabel } from '../../utils/posStatus'
 
@@ -197,8 +196,6 @@ const Tables = () => {
           <button className="btn btn-secondary" onClick={load}>🔄 Refresh</button>
         </div>
       </div>
-      {/* Orders guests placed from a table's QR code, waiting for Accept/Reject. */}
-      <QrOrderAlert />
 
       {view === 'occupancy' ? (
         <>

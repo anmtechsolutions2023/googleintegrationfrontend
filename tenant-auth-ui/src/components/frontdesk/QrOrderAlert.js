@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import qrService from '../../services/qrService'
 import { useAuth } from '../../context/AuthContext'
 import { hasScope } from '../../utils/permissions'
@@ -21,6 +21,7 @@ export const QR_ORDER_READ_SCOPES = [
  */
 const QrOrderAlert = () => {
   const { user } = useAuth()
+  const { pathname } = useLocation()
   const allowed = hasScope(user, QR_ORDER_READ_SCOPES)
   const [pending, setPending] = useState([])
 
@@ -35,7 +36,8 @@ const QrOrderAlert = () => {
     return () => { alive = false; clearInterval(id) }
   }, [allowed])
 
-  if (!allowed || pending.length === 0) return null
+  // Not on the inbox itself — the list below already is the alert.
+  if (!allowed || pending.length === 0 || pathname.startsWith(ROUTES.FRONTDESK_QR_ORDERS)) return null
   const first = pending[0]
   const n = pending.length
 
