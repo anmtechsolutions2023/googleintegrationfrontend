@@ -219,6 +219,37 @@ describe('step 2 — the board folds to one row', () => {
   });
 });
 
+describe('table names on the tiles', () => {
+  test('a long name shows its first five characters, with the full name as the tooltip', async () => {
+    posService.getTables.mockResolvedValue([
+      { Id: 'x1', Name: 'Garden-01', FloorId: 'ground', Status: 'free', Capacity: 5 },
+      { Id: 'x2', Name: 'G-1', FloorId: 'ground', Status: 'free', Capacity: 2 },
+    ]);
+    posService.getOrders.mockResolvedValue([]);
+    await open();
+    const tile = tileFor('Garden-01');
+    expect(tile.querySelector('.fd-ttile-nm')).toHaveTextContent(/^Garde…$/);
+    expect(tile).toHaveAttribute('title', 'Garden-01');
+    // The seats keep their own line, so they never squeeze the name.
+    expect(tile).toHaveTextContent('5 seats');
+    // A short name is shown whole.
+    expect(tileFor('G-1').querySelector('.fd-ttile-nm')).toHaveTextContent(/^G-1$/);
+  });
+});
+
+describe('the table being served', () => {
+  test('stays at the front of the row when another floor\'s tab is chosen', async () => {
+    await open();
+    fireEvent.click(tileFor('F-5'));
+    await screen.findByRole('group', { name: 'Table row' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ground floor, 8 tables' }));
+    expect(rowNames()[0]).toBe('F-5');
+    expect(rowNames()).toContain('G-3');
+    expect(rowNames()).not.toContain('F-6');
+  });
+});
+
 describe('with no tables', () => {
   test('shows no board and says how to add tables, or use takeaway', async () => {
     posService.getTables.mockResolvedValue([]);

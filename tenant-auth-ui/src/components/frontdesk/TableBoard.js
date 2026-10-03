@@ -39,6 +39,15 @@ const saveFloor = (f) => {
 
 const rupees = (n) => `₹${Math.round(Number(n) || 0).toLocaleString('en-IN')}`
 
+// A tile shows the first five characters of a table's name, then "…"; the
+// full name is its tooltip and its accessible name. Left to CSS, a long name
+// was cut to a single letter ("G…") by whatever else shared the line.
+const NAME_CHARS = 5
+const shortName = (name) => {
+  const s = String(name || '')
+  return s.length > NAME_CHARS ? `${s.slice(0, NAME_CHARS)}…` : s
+}
+
 const COUNTS = [
   { key: 'all', label: 'All' },
   { key: 'free', label: 'Free' },
@@ -92,7 +101,10 @@ const TableBoard = ({
   const rowTables = useMemo(() => {
     const pool = info.filter((x) => (find.trim() ? matches(x) : onFloor(x)))
     if (find.trim()) return pool
-    const sel = pool.filter((x) => x.id === selectedTableId)
+    // The table being served leads the row whichever floor tab is showing —
+    // taken from every table, not the floor's, or picking another floor's tab
+    // hid it while its order was still open beside the row.
+    const sel = info.filter((x) => x.id === selectedTableId)
     const rest = pool.filter((x) => x.id !== selectedTableId)
     return [
       ...sel,
@@ -151,7 +163,10 @@ const TableBoard = ({
     if (x.key === 'occ') { corner = x.age; line = rupees(x.total) }
     else if (x.key === 'bill') { corner = 'bill'; line = rupees(x.total) }
     else if (x.key === 'res') line = 'Reserved'
-    else { corner = x.seats > 0 ? `${x.seats} seats` : ''; line = sel ? 'New order' : 'Free' }
+    // Free: the seats go on the second line, so the name keeps the first. The
+    // green edge says free; the tooltip and the accessible name say it in words.
+    else if (sel) line = 'New order'
+    else line = x.seats > 0 ? `${x.seats} seats` : 'Free'
     const said = [
       x.name,
       { free: 'free', occ: 'occupied', bill: 'bill printed', res: 'reserved' }[x.key],
@@ -169,14 +184,17 @@ const TableBoard = ({
         className={`fd-ttile is-${x.key}${x.late ? ' is-late' : ''}${sel ? ' is-sel' : ''}${suggested ? ' is-suggest' : ''}${faded ? ' is-faded' : ''}`}
         aria-pressed={sel}
         aria-label={said}
+        title={x.name}
         onClick={() => choose(x)}
       >
         {x.qr && <span className="fd-ttile-qr" aria-hidden="true">QR</span>}
-        <span className="fd-ttile-r1">
-          <span className="fd-ttile-nm">{x.name}</span>
+        {/* The name has the first line to itself; what the table owes and
+            for how long share the second. */}
+        <span className="fd-ttile-nm">{shortName(x.name)}</span>
+        <span className="fd-ttile-r2">
+          <span className="fd-ttile-ln">{line}</span>
           {corner && <span className="fd-ttile-cn">{corner}</span>}
         </span>
-        <span className="fd-ttile-ln">{line}</span>
       </button>
     )
   }
