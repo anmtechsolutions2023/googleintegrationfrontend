@@ -56,6 +56,13 @@ const ReturnPicker = ({ document: doc, reasons = [], busy, onCancel, onConfirm }
     return sum + (Number(l.GrossAmount || 0) * qty) / sold
   }, 0), [lines, picked])
 
+  // On a part-paid invoice the return clears what is still owed FIRST; only
+  // the rest goes back to the customer. Mirrors the server's rule exactly, so
+  // the cashier knows what to hand over before pressing anything.
+  const owed = Number(doc?.Due) || 0
+  const clearsDue = Math.min(total, owed)
+  const handBack = Math.max(0, total - owed)
+
   const selectedCount = Object.keys(picked).length
   const anythingLeft = lines.some((l) => remainingOf(l) > 0)
 
@@ -210,6 +217,11 @@ const ReturnPicker = ({ document: doc, reasons = [], busy, onCancel, onConfirm }
                 <span className="muted small">
                   of ₹{money(doc.GrossAmount)} invoiced
                 </span>
+                {owed > 0 && total > 0 && (
+                  <span className="fd-return-split">
+                    ₹{money(clearsDue)} clears the balance due · ₹{money(handBack)} back to the customer
+                  </span>
+                )}
               </div>
               <div className="fd-return-actions">
                 <button type="button" className="fd-btn fd-btn-outline" onClick={onCancel} disabled={busy}>

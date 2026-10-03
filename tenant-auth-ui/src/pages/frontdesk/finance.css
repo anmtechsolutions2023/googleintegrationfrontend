@@ -501,3 +501,8 @@
   .fd-gst-strip { flex-direction: column; }
   .fd-gst-strip-seg, .fd-gst-strip-seg:first-child, .fd-gst-strip-seg:last-child { border-radius: 6px; min-height: 30px; }
 }
+
+/* A KPI with a worklist behind it (Outstanding → Dues) opens it. */
+.fd-kpi-card.is-link { text-decoration: none; color: inherit; cursor: pointer; transition: box-shadow 0.15s ease; }
+.fd-kpi-card.is-link:hover { box-shadow: 0 2px 10px rgba(15, 52, 96, 0.12); }
+.fd-kpi-card.is-link:focus-visible { outline: 2px solid #0f3460; outline-offset: 2px; }

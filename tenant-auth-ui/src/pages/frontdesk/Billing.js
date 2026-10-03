@@ -29,6 +29,7 @@ import { QR_ORDER_READ_SCOPES } from '../../components/frontdesk/QrOrderAlert'
 import { useAuth } from '../../context/AuthContext'
 import { hasScope } from '../../utils/permissions'
 import CustomerPicker from '../../components/frontdesk/CustomerPicker'
+import CollectFlow from '../../components/frontdesk/CollectFlow'
 import {
   buildTableRounds, buildRoundIndex, formatRoundTime, itemLabel,
 } from '../../utils/posRounds'
@@ -186,6 +187,13 @@ const Billing = () => {
   const [branchMethods, setBranchMethods] = useState(null)
   const [tenders, setTenders] = useState([])
   const [settledInvoice, setSettledInvoice] = useState(null)
+  // Who owes the rest when a bill is paid short. A balance with no name on it
+  // is one nobody can chase, so the ledger refuses a partial settle without
+  // one — unless a guest is already on the table.
+  const [debtorName, setDebtorName] = useState('')
+  const [debtorMobile, setDebtorMobile] = useState('')
+  // The invoice the Collect sheet is open on, from the confirmation screen.
+  const [collectNow, setCollectNow] = useState(null)
   // The moment the customer is standing at the counter with their money out.
   // Until now this screen minted an invoice number and offered only "Done".
   const [printBranchId, setPrintBranchId] = useState(null)
@@ -867,6 +875,9 @@ const Billing = () => {
   // Everything downstream — the bill, the settle modal, the discounts — reads
   // this one list and does not care which kind of sale produced it.
   const sessionRounds = counterMode ? counterRounds : tableRounds
+  // A guest attached to any round of this session already names who owes a
+  // balance; the ledger takes their name, so the till does not ask again.
+  const sessionHasGuest = sessionRounds.some((r) => r.order?.CustomerId)
 
   // Whole-session bill (pre-discount) from the priced snapshots on each round.
   const sessionSummary = useMemo(
@@ -1207,6 +1218,8 @@ const Billing = () => {
     return !!(m && (m.RequiresReference ?? m.requiresReference))
   }
   const missingRef = tenders.some((t) => needsRef(t.paymentModeId) && !String(t.refNo || '').trim())
+  // Paid short with nobody named as owing the rest.
+  const missingDebtor = balanceDue > 0 && tenders.length > 0 && !sessionHasGuest && !debtorName.trim()
 
   const addTender = (amount) => {
     const first = paymentModes[0]
@@ -1228,6 +1241,12 @@ const Billing = () => {
         : t
     )))
   const removeTender = (key) => setTenders((prev) => prev.filter((t) => t.key !== key))
+
+  // A fresh name for every bill — carrying the last debtor into the next table
+  // would put a stranger's name on someone else's balance.
+  useEffect(() => {
+    if (!settleOpen) { setDebtorName(''); setDebtorMobile('') }
+  }, [settleOpen])
 
   // Seed one tender for the full payable the moment the modal opens — the
   // common case is a single payment, and this makes it a one-tap settle.
@@ -1721,6 +1740,7 @@ const Billing = () => {
     // Which methods need one is the tenant's decision now, so the message no
     // longer names a fixed three.
     if (missingRef) { toast.warn('Enter a reference number for this payment method'); return }
+    if (missingDebtor) { toast.warn('Enter the name of the person who owes the balance'); return }
     setSettling(true)
     try {
       // The server recomputes the bill from every round it covers and applies
@@ -1757,16 +1777,21 @@ const Billing = () => {
         })),
         Discount: discount,
         LineDiscounts: activeLineDiscounts,
+        // Only when paid short. A guest on the table is named by the server.
+        ...(balanceDue > 0 && debtorName.trim()
+          ? { Debtor: { Name: debtorName.trim(), Mobile: debtorMobile.trim() || null } }
+          : {}),
       })
 
       const fullySettled = !(Number(settled?.BalanceDue) > 0)
-      if (fullySettled) {
-        // Close every round; free the table when there was one. A counter sale
-        // has none — the customer left with a token instead.
-        await Promise.all(sessionRounds.map((r) => posService.updateOrder(r.orderId, { Status: 'closed' })))
-        if (selectedTable) {
-          await posService.updateTable(selectedTable, { Status: 'free', CurrentOrderId: null })
-        }
+      // Close every round and free the table — paid in full OR part-paid. The
+      // meal is over either way: a part-paid bill is already invoiced, and the
+      // balance is collected from Money → Dues. Leaving the table open used to
+      // invite a second Settle, which invoiced the same food twice. A counter
+      // sale has no table — the customer left with a token instead.
+      await Promise.all(sessionRounds.map((r) => posService.updateOrder(r.orderId, { Status: 'closed' })))
+      if (selectedTable) {
+        await posService.updateTable(selectedTable, { Status: 'free', CurrentOrderId: null })
       }
 
       // Which branch's format this bill prints in. Taken from the cart the same
@@ -1796,6 +1821,12 @@ const Billing = () => {
         transactionNo: settled?.TransactionNo || null,
         total: Number(settled?.Total) || payable,
         balanceDue: Number(settled?.BalanceDue) || 0,
+        // Enough to open the Collect sheet on this invoice straight away.
+        paid: Math.max(0, Math.round(((Number(settled?.Total) || payable) - (Number(settled?.BalanceDue) || 0)) * 100) / 100),
+        debtor: debtorName.trim()
+          ? [debtorName.trim(), debtorMobile.trim()].filter(Boolean).join(' · ')
+          : null,
+        tableName: counterMode ? null : selectedTableName,
         tenders: tenders.map((t) => ({ mode: modeName(t.paymentModeId), amount: Number(t.amount) || 0, refNo: t.refNo })),
         // Minted by the server inside the settle transaction. It headlines the
         // confirmation because it is the only thing the customer walks away
@@ -1811,13 +1842,12 @@ const Billing = () => {
       setLineDiscounts({})
       setDiscountMode('bill')
       setTenders([])
-      if (fullySettled) {
-        setSelectedOrderId(null)
-        setSelectedTable('')
-        // The till STAYS on the counter — the next customer is already there.
-        // Only the finished order is let go of.
-        setCounterOrderId(null)
-      }
+      // The rounds are closed either way (see above), so the till lets go of
+      // them either way. The till STAYS on the counter — the next customer is
+      // already there. Only the finished order is let go of.
+      setSelectedOrderId(null)
+      setSelectedTable('')
+      setCounterOrderId(null)
       await load()
     } catch (e) {
       toast.error(e?.response?.data?.message || 'Failed to settle bill')
@@ -3221,9 +3251,37 @@ const Billing = () => {
               ))}
             </ul>
             {settledInvoice.balanceDue > 0 && (
-              <div className="fd-settle-warn" role="alert">
-                ₹{money(settledInvoice.balanceDue)} still outstanding on this bill.
-              </div>
+              <>
+                <div className="fd-settle-warn" role="alert">
+                  ₹{money(settledInvoice.balanceDue)} still due
+                  {settledInvoice.debtor ? ` from ${settledInvoice.debtor}` : ''}.
+                  It stays in Money → Dues until it is collected.
+                </div>
+                {/* Now — the guest is fetching a second card — or later. */}
+                {settledInvoice.logId && (
+                  <div className="fd-settle-collect">
+                    <button
+                      type="button"
+                      className="fd-btn fd-btn-success"
+                      onClick={() => setCollectNow({
+                        Id: settledInvoice.logId,
+                        TransactionNo: settledInvoice.transactionNo,
+                        GrossAmount: settledInvoice.total,
+                        Paid: settledInvoice.paid,
+                        Due: settledInvoice.balanceDue,
+                        CustomerName: settledInvoice.debtor,
+                        BranchId: settledInvoice.branchId,
+                        label: settledInvoice.tokenLabel || settledInvoice.tableName || null,
+                      })}
+                    >
+                      Collect ₹{money(settledInvoice.balanceDue)} now
+                    </button>
+                    <button type="button" className="fd-btn fd-btn-outline" onClick={() => setSettledInvoice(null)}>
+                      Collect later
+                    </button>
+                  </div>
+                )}
+              </>
             )}
             <div className="fd-invoice-print">
               <button
@@ -3247,6 +3305,14 @@ const Billing = () => {
           </div>
         </div>
       )}
+
+      {/* Collect the rest straight from the confirmation. On success the
+          confirmation closes: the bill is settled, or what remains is in Dues. */}
+      <CollectFlow
+        doc={collectNow}
+        onClose={() => setCollectNow(null)}
+        onChanged={() => { setSettledInvoice(null); load() }}
+      />
 
       {/* Settle Bill modal */}
       {settleOpen && (
@@ -3640,12 +3706,49 @@ const Billing = () => {
                 ₹{money(balanceDue)} still due — settling now records a partial payment.
               </div>
             )}
+            {/* Who owes the rest. Required, because a balance with no name on
+                it cannot be chased — unless a guest is already on the table. */}
+            {balanceDue > 0 && tenders.length > 0 && (
+              <div className="fd-settle-debtor">
+                <div className="fd-settle-debtor-title">Who owes ₹{money(balanceDue)}?</div>
+                {sessionHasGuest ? (
+                  <div className="fd-settle-debtor-hint">The guest on this table. They will appear in Money → Dues.</div>
+                ) : (
+                  <>
+                    <div className="fd-settle-debtor-fields">
+                      <label>
+                        <span>Name</span>
+                        <input
+                          value={debtorName}
+                          onChange={(e) => setDebtorName(e.target.value)}
+                          maxLength={150}
+                          autoComplete="off"
+                          aria-required="true"
+                          aria-invalid={missingDebtor}
+                        />
+                      </label>
+                      <label>
+                        <span>Mobile</span>
+                        <input
+                          value={debtorMobile}
+                          onChange={(e) => setDebtorMobile(e.target.value)}
+                          maxLength={50}
+                          inputMode="tel"
+                          autoComplete="off"
+                        />
+                      </label>
+                    </div>
+                    <div className="fd-settle-debtor-hint">Shown in Money → Dues so anyone on shift can follow up.</div>
+                  </>
+                )}
+              </div>
+            )}
 
             <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
               <button
                 className="fd-btn fd-btn-success"
                 onClick={handleSettleBill}
-                disabled={settling || tenders.length === 0 || missingRef}
+                disabled={settling || tenders.length === 0 || missingRef || missingDebtor}
               >
                 {settling
                   ? 'Settling...'

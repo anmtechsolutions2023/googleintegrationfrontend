@@ -211,3 +211,25 @@
    under the number rather than beside it, so a long invoice number cannot push
    the status chip off the row. */
 .fd-invoice-head .fd-link-btn { display: inline-block; margin-top: 4px; }
+
+/* ── Dues on the ledger ─────────────────────────────────────────────────────
+   A part-paid invoice has to be findable and collectable from the list itself:
+   a toggle to narrow to dues, a banner with the total owed, and a Due column
+   that carries its own Collect button. */
+.fd-ledger-dues-toggle {
+  border: 1px solid #d0d4da; background: #fff; border-radius: 999px; padding: 7px 13px;
+  font-size: 13px; font-weight: 600; color: #5a6c7d; cursor: pointer; display: inline-flex; gap: 6px;
+}
+.fd-ledger-dues-toggle em { font-style: normal; font-weight: 800; opacity: 0.75; }
+.fd-ledger-dues-toggle.is-on { background: #2c3e50; border-color: #2c3e50; color: #fff; }
+.fd-ledger-dues-toggle:focus-visible { outline: 2px solid #0f3460; outline-offset: 2px; }
+.fd-ledger-dues-banner {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;
+  background: #fff3cd; color: #856404; border-radius: 10px; padding: 10px 14px;
+  margin-bottom: 14px; font-size: 13px; font-weight: 600;
+}
+.fd-ledger-dues-banner b { font-weight: 800; }
+.fd-ledger-dues-banner a { color: #0f3460; font-weight: 700; text-decoration: none; }
+.fd-ledger-dues-banner a:hover { text-decoration: underline; }
+.fd-ledger-due-cell { display: inline-flex; align-items: center; gap: 8px; justify-content: flex-end; }
+.fd-ledger-due { color: #856404; font-weight: 800; white-space: nowrap; }

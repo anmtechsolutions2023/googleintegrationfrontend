@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import posService from '../../services/posService'
 import narrowOptions from '../../utils/optionsReport'
@@ -98,13 +98,20 @@ const LOADERS = {
   visits: posService.getVisitPatternReport,
 }
 
-const Kpi = ({ label, value, accent, hint }) => (
-  <div className={`fd-kpi-card ${accent || ''}`}>
-    <span className="kpi-label">{label}</span>
-    <span className="kpi-value">{value}</span>
-    {hint && <span className="kpi-hint">{hint}</span>}
-  </div>
-)
+const Kpi = ({ label, value, accent, hint, to }) => {
+  const body = (
+    <>
+      <span className="kpi-label">{label}</span>
+      <span className="kpi-value">{value}</span>
+      {hint && <span className="kpi-hint">{hint}</span>}
+    </>
+  )
+  // A figure that has a worklist behind it opens it. Outstanding is a number
+  // you read here and act on in Dues.
+  return to
+    ? <Link to={to} className={`fd-kpi-card is-link ${accent || ''}`}>{body}</Link>
+    : <div className={`fd-kpi-card ${accent || ''}`}>{body}</div>
+}
 
 const Empty = ({ children }) => <div className="fd-empty">{children}</div>
 
@@ -280,7 +287,7 @@ const OverviewTab = ({ data, range }) => {
         <Kpi label="Collected" value={money(s.Collected)} accent="accent-green"
              hint="What was actually taken" />
         <Kpi label="Outstanding" value={money(s.Outstanding)} accent="accent-orange"
-             hint="Invoiced but unpaid" />
+             hint="Invoiced but unpaid · Open Dues →" to="/money/dues" />
         <Kpi label="Spent" value={money(data.expenses?.total)} accent="accent-red"
              hint="Settled expenses" />
         <Kpi label="Net position" value={money(net)} accent={net < 0 ? 'accent-red' : 'accent-green'}
@@ -359,7 +366,14 @@ const SalesTab = ({ data, range }) => {
         <Kpi label="Invoiced" value={money(s.GrossAmount)} accent="accent-blue" />
         <Kpi label="Collected" value={money(s.Collected)} accent="accent-green" />
         <Kpi label="Outstanding" value={money(s.Outstanding)}
-             accent={Number(s.Outstanding) > 0 ? 'accent-red' : ''} />
+             accent={Number(s.Outstanding) > 0 ? 'accent-red' : ''}
+             hint={Number(s.Outstanding) > 0 ? 'Open Dues →' : null}
+             to={Number(s.Outstanding) > 0 ? '/money/dues' : undefined} />
+        {/* Balances given up on. Their own figure, never hidden in discount. */}
+        {Number(s.WrittenOff) > 0 && (
+          <Kpi label="Written off" value={money(s.WrittenOff)} accent="accent-red"
+               hint="Balances not collected" />
+        )}
         <Kpi label="Round off" value={money(s.RoundOff)} hint="Cash cannot pay paise" />
       </div>
       <TrendTable rows={data.trend} bucket={range.bucket} />
@@ -727,7 +741,7 @@ const PendingTab = ({ data }) => {
     <>
       <div className="fd-kpi-grid">
         <Kpi label="Unpaid (invoiced)" value={money(unpaid.totalOutstanding)} accent="accent-red"
-             hint={`${unpaid.documents?.length || 0} document(s)`} />
+             hint={`${unpaid.documents?.length || 0} document(s) · Collect in Dues →`} to="/money/dues" />
         <Kpi label="Unbilled (on the floor)" value={money(unbilled.totalValue)} accent="accent-orange"
              hint={`${unbilled.orders?.length || 0} open round(s)`} />
       </div>

@@ -31,6 +31,7 @@ import PaymentMethods from '../pages/frontdesk/PaymentMethods'
 import GstSettings from '../pages/frontdesk/GstSettings'
 import Finance from '../pages/frontdesk/Finance'
 import Ledger from '../pages/frontdesk/Ledger'
+import Dues from '../pages/frontdesk/Dues'
 import Returns from '../pages/frontdesk/Returns'
 import CashSessions from '../pages/frontdesk/CashSessions'
 import Expenses from '../pages/frontdesk/Expenses'
@@ -92,6 +93,7 @@ export const SCREENS = {
 
   'money.overview': <Finance />,
   'money.ledger': <Ledger />,
+  'money.dues': <Dues />,
   'money.returns': <Returns />,
   'money.cash': <CashSessions />,
   'money.expenses.expenses': <Expenses />,

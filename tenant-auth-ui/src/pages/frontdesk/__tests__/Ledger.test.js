@@ -16,6 +16,14 @@ jest.mock('../../../services/posService', () => ({
       { Id: 'r-1', Name: 'Wrong item served', Code: 'WRONG_ITEM', IsFault: 1 },
       { Id: 'r-2', Name: 'Customer changed mind', Code: 'CHANGED_MIND', IsFault: 0 },
     ])),
+    // Collecting a balance.
+    getDues: jest.fn(),
+    collectLedgerPayment: jest.fn(),
+    writeOffLedgerBalance: jest.fn(),
+    getBranchPaymentMethods: jest.fn(),
+    getPaymentModes: jest.fn(),
+    // A document with a branch reads that branch's receipt format.
+    getReceiptFormat: jest.fn(() => Promise.resolve({})),
   },
 }));
 jest.mock('react-toastify', () => ({
@@ -74,6 +82,18 @@ beforeEach(() => {
 });
 
 afterEach(() => jest.clearAllMocks());
+
+beforeEach(() => {
+  posService.getDues.mockResolvedValue({ summary: { outstanding: 0, count: 0, buckets: {} }, documents: [] });
+  posService.getBranchPaymentMethods.mockResolvedValue({
+    methods: [
+      { paymentModeId: 'pm-cash', type: 'Cash', accountName: 'Cash', enabled: true, active: true, requiresReference: false },
+      { paymentModeId: 'pm-upi', type: 'UPI', accountName: 'Bank', enabled: true, active: true, requiresReference: true },
+    ],
+  });
+  posService.getPaymentModes.mockResolvedValue([]);
+  posService.getReceiptFormat.mockResolvedValue({});
+});
 
 const renderLedger = async () => {
   render(<MemoryRouter><Ledger /></MemoryRouter>);
@@ -184,7 +204,9 @@ describe('Invoice view', () => {
 
   test('shows the tender with its reference', async () => {
     await openInvoice();
-    expect(screen.getByText(/Card · AUTH-1/)).toBeInTheDocument();
+    const dialog = screen.getByRole('dialog', { name: /Invoice/i });
+    expect(within(dialog).getByText('Card')).toBeInTheDocument();
+    expect(within(dialog).getByText(/ref AUTH-1/)).toBeInTheDocument();
   });
 
   test('shows the transition history — how it reached this status', async () => {
@@ -382,3 +404,124 @@ describe('options, add-ons and notes on the invoice', () => {
   });
 });
 
+
+
+// ── Collecting a balance ──────────────────────────────────────────────────────
+// INV-0002: ₹288.00, ₹200.00 paid at the till, ₹88.00 still owed.
+describe('Dues on the ledger', () => {
+  const PART_PAID = {
+    Id: 'l9', TransactionNo: 'INV-0002', TransactionDate: '2026-10-03', StatusName: 'PARTIALLY_PAID',
+    TypeName: 'POS Sale', NetAmount: 274.28, TaxAmount: 13.72, GrossAmount: 288,
+    Paid: 200, Due: 88, BranchId: 'b1', CustomerName: 'Rahul M.', CustomerMobile: '98765 43210',
+  };
+
+  test('shows what is still due on the row, with Collect', async () => {
+    posService.getLedgerDocuments.mockResolvedValue([PART_PAID, ...DOCS]);
+    render(<MemoryRouter><Ledger /></MemoryRouter>);
+    const row = (await screen.findByText('INV-0002')).closest('tr');
+    expect(within(row).getByText('₹88.00')).toBeInTheDocument();
+    expect(within(row).getByRole('button', { name: 'Collect' })).toBeInTheDocument();
+    // A paid-up sale offers nothing to collect.
+    const paid = screen.getByText('INV-0042').closest('tr');
+    expect(within(paid).queryByRole('button', { name: 'Collect' })).toBeNull();
+  });
+
+  test('a cashier can collect from the row without opening the invoice', async () => {
+    posService.getLedgerDocuments.mockResolvedValue([PART_PAID]);
+    posService.collectLedgerPayment.mockResolvedValue({
+      transactionNo: 'INV-0002', collected: 88, change: 0, due: 0, status: 'SETTLED',
+    });
+    render(<MemoryRouter><Ledger /></MemoryRouter>);
+    const row = (await screen.findByText('INV-0002')).closest('tr');
+    fireEvent.click(within(row).getByRole('button', { name: 'Collect' }));
+
+    const sheet = await screen.findByRole('dialog', { name: 'Collect payment' });
+    // Cash is picked first and the due is pre-filled.
+    await within(sheet).findByText('INV-0002 will be marked Settled.');
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Record ₹88.00 by Cash' }));
+
+    await waitFor(() => expect(posService.collectLedgerPayment).toHaveBeenCalledWith(
+      'l9', [{ paymentModeId: 'pm-cash', amount: 88, refNo: null }],
+    ));
+    // The row click did not open the invoice underneath.
+    expect(posService.getLedgerDocument).not.toHaveBeenCalled();
+  });
+
+  test('says what a smaller payment leaves owing, before anything is saved', async () => {
+    posService.getLedgerDocuments.mockResolvedValue([PART_PAID]);
+    render(<MemoryRouter><Ledger /></MemoryRouter>);
+    const row = (await screen.findByText('INV-0002')).closest('tr');
+    fireEvent.click(within(row).getByRole('button', { name: 'Collect' }));
+    const sheet = await screen.findByRole('dialog', { name: 'Collect payment' });
+    await within(sheet).findByText('INV-0002 will be marked Settled.');
+
+    fireEvent.change(within(sheet).getByLabelText('Amount received'), { target: { value: '50' } });
+    expect(within(sheet).getByText('₹38.00 will still be due. INV-0002 stays Partially paid.')).toBeInTheDocument();
+  });
+
+  test('refuses UPI above the due, and needs its reference', async () => {
+    posService.getLedgerDocuments.mockResolvedValue([PART_PAID]);
+    render(<MemoryRouter><Ledger /></MemoryRouter>);
+    const row = (await screen.findByText('INV-0002')).closest('tr');
+    fireEvent.click(within(row).getByRole('button', { name: 'Collect' }));
+    const sheet = await screen.findByRole('dialog', { name: 'Collect payment' });
+    fireEvent.click(await within(sheet).findByLabelText(/UPI/));
+
+    fireEvent.change(within(sheet).getByLabelText('Amount received'), { target: { value: '100' } });
+    expect(within(sheet).getByText("UPI can't be more than the ₹88.00 due.")).toBeInTheDocument();
+
+    fireEvent.change(within(sheet).getByLabelText('Amount received'), { target: { value: '88' } });
+    const record = within(sheet).getByRole('button', { name: 'Record ₹88.00 by UPI' });
+    expect(record).toBeDisabled();
+    fireEvent.change(within(sheet).getByLabelText('UPI reference'), { target: { value: '427199301185' } });
+    expect(record).toBeEnabled();
+  });
+
+  test('the Dues-only toggle asks the server for sales still owed money', async () => {
+    await renderLedger();
+    fireEvent.click(screen.getByRole('button', { name: /Dues only/ }));
+    await waitFor(() => expect(posService.getLedgerDocuments)
+      .toHaveBeenLastCalledWith(expect.objectContaining({ dues: true })));
+  });
+
+  test('a banner gives the total still owed', async () => {
+    posService.getDues.mockResolvedValue({ summary: { outstanding: 88, count: 1, buckets: {} }, documents: [] });
+    await renderLedger();
+    expect(await screen.findByText(/still due on/)).toHaveTextContent('₹88.00 still due on 1 invoice');
+  });
+
+  test('the invoice shows paid, due and a Collect button', async () => {
+    posService.getLedgerDocuments.mockResolvedValue([PART_PAID]);
+    posService.getLedgerDocument.mockResolvedValue({
+      ...DETAIL, ...PART_PAID,
+      Tenders: [{ Amount: 200, PaymentMode: 'Cash', Timestamp: '2026-10-03T15:34:32Z' }],
+    });
+    render(<MemoryRouter><Ledger /></MemoryRouter>);
+    fireEvent.click(await screen.findByText('INV-0002'));
+    const dialog = await screen.findByRole('dialog', { name: /Invoice/i });
+    expect(await within(dialog).findByText('₹88.00 due')).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Collect ₹88.00' })).toBeInTheDocument();
+    // A part-paid sale can still be returned against.
+    expect(within(dialog).getByRole('button', { name: 'Return items' })).toBeInTheDocument();
+  });
+
+  test('write-off is for admins only', async () => {
+    posService.getLedgerDocuments.mockResolvedValue([PART_PAID]);
+    posService.getLedgerDocument.mockResolvedValue({ ...DETAIL, ...PART_PAID });
+    render(<MemoryRouter><Ledger /></MemoryRouter>);
+    fireEvent.click(await screen.findByText('INV-0002'));
+    let dialog = await screen.findByRole('dialog', { name: /Invoice/i });
+    await within(dialog).findByText('₹88.00 due');
+    expect(within(dialog).queryByRole('button', { name: 'Write off' })).toBeNull();
+    cleanupAndRenderAsAdmin();
+    fireEvent.click(await screen.findByText('INV-0002'));
+    dialog = await screen.findByRole('dialog', { name: /Invoice/i });
+    expect(await within(dialog).findByRole('button', { name: 'Write off' })).toBeInTheDocument();
+  });
+
+  function cleanupAndRenderAsAdmin() {
+    document.body.innerHTML = '';
+    asUser(['TENANT:ADMIN']);
+    render(<MemoryRouter><Ledger /></MemoryRouter>);
+  }
+});

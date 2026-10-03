@@ -53,7 +53,9 @@ describe('the workspace rail', () => {
     const seen = wsNames(cashier);
     expect(seen).toEqual(expect.arrayContaining(['Service', 'Guests']));
     expect(seen).not.toContain('Admin');
-    expect(tabNames('money', cashier)).toEqual(['Cash Sessions']);
+    // Dues is theirs: collecting a balance is taking money at the till. The
+    // books themselves (Finance, Ledger, Returns) are not.
+    expect(tabNames('money', cashier)).toEqual(['Dues', 'Cash Sessions']);
     expect(tabNames('service', cashier)).not.toContain('Kitchen (KDS)');
   });
 

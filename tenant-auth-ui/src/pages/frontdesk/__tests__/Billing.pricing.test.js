@@ -1123,8 +1123,49 @@ describe('Billing — tenders (split payment)', () => {
     fireEvent.change(screen.getAllByLabelText(/^(Amount|Payment \d+ amount)$/)[0], { target: { value: '50' } });
 
     expect(screen.getByRole('alert')).toHaveTextContent(/still due/i);
-    // Not blocked — partial settlement is legitimate, just labelled honestly.
+    // Partial settlement is legitimate — but only once somebody is named as
+    // owing the rest. A balance with no name on it cannot be chased.
+    expect(screen.getByRole('button', { name: /Save Partial/i })).toBeDisabled();
+    expect(screen.getByText(/Who owes ₹/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Rahul M.' } });
     expect(screen.getByRole('button', { name: /Save Partial/i })).toBeEnabled();
+  });
+
+  test('sends who owes the balance with a partial settle', async () => {
+    await openSettle();
+    fireEvent.change(screen.getAllByLabelText(/^(Amount|Payment \d+ amount)$/)[0], { target: { value: '50' } });
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: ' Rahul M. ' } });
+    fireEvent.change(screen.getByLabelText('Mobile'), { target: { value: '98765 43210' } });
+    fireEvent.click(screen.getByRole('button', { name: /Save Partial/i }));
+
+    await waitFor(() => expect(posService.settleBill).toHaveBeenCalled());
+    const [, payload] = posService.settleBill.mock.calls[0];
+    expect(payload.Debtor).toEqual({ Name: 'Rahul M.', Mobile: '98765 43210' });
+  });
+
+  test('a partial settle closes the table and offers to collect the rest', async () => {
+    await openSettle();
+    posService.settleBill.mockResolvedValue({
+      TransactionDetailLogId: 'log-9', TransactionNo: 'INV-0002', Total: 118, BalanceDue: 68,
+    });
+    fireEvent.change(screen.getAllByLabelText(/^(Amount|Payment \d+ amount)$/)[0], { target: { value: '50' } });
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Rahul M.' } });
+    fireEvent.click(screen.getByRole('button', { name: /Save Partial/i }));
+
+    // The meal is over: the rounds close and the table frees, so a second
+    // Settle can never invoice the same food again.
+    await waitFor(() => expect(posService.updateOrder).toHaveBeenCalledWith(expect.anything(), { Status: 'closed' }));
+    expect(posService.updateTable).toHaveBeenCalledWith('t1', { Status: 'free', CurrentOrderId: null });
+    expect(await screen.findByText('Partial payment recorded')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Collect ₹68.00 now' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Collect later' })).toBeInTheDocument();
+  });
+
+  test('a full settle sends no debtor', async () => {
+    await openSettle();
+    fireEvent.click(screen.getByRole('button', { name: /Settle & Post/i }));
+    await waitFor(() => expect(posService.settleBill).toHaveBeenCalled());
+    expect(posService.settleBill.mock.calls[0][1].Debtor).toBeUndefined();
   });
 
   test('posts every tender to the settle endpoint', async () => {

@@ -642,6 +642,40 @@ export const refundLedgerDocument = async (id, Reason) => {
   return toObject(res.data)
 }
 
+// ── Collecting a balance ──────────────────────────────────────────────────────
+// A sale saved short is PARTIALLY_PAID. These take the rest, give it up, or say
+// who owes it. The server works out what is due under a lock — the client never
+// sends an amount to write off, only the tenders it took.
+//
+// @param {Array<{paymentModeId, amount, refNo?}>} tenders
+// @returns {{ collected, change, due, status, transactionNo }}
+export const collectLedgerPayment = async (id, tenders) => {
+  const res = await api.post(`/api/ledger/documents/${id}/payments`, { Tenders: tenders })
+  return toObject(res.data)
+}
+// Admins only. Reason is a code (CUSTOMER_LEFT | DISPUTED | STAFF_GUEST | OTHER);
+// OTHER needs a note.
+export const writeOffLedgerBalance = async (id, { Reason, Note }) => {
+  const res = await api.post(`/api/ledger/documents/${id}/write-off`, { Reason, Note })
+  return toObject(res.data)
+}
+// Names who owes a balance on a sale saved without a name.
+export const setLedgerDebtor = async (id, { Name, Mobile }) => {
+  const res = await api.put(`/api/ledger/documents/${id}/debtor`, { Name, Mobile })
+  return toObject(res.data)
+}
+// Every sale still owed money, oldest first. NOT toArray: the summary covers
+// every due whatever the filter, so the header does not change when the list
+// is narrowed.
+export const getDues = async (params = {}) => {
+  const res = await api.get('/api/ledger/dues', { params })
+  const data = toObject(res.data) || {}
+  return {
+    summary: data.summary || { outstanding: 0, count: 0, oldestDays: 0, buckets: {} },
+    documents: Array.isArray(data.documents) ? data.documents : [],
+  }
+}
+
 // ── Returns ───────────────────────────────────────────────────────────────────
 // A PARTIAL return: selected lines, in the quantities that actually came back.
 // Raises a credit note; the invoice itself is never mutated.
@@ -1044,6 +1078,7 @@ const posService = {
   getDailyStock, setDailyStock, clearDailyStock,
   getLedgerDocuments, getLedgerDocument, refundLedgerDocument,
   createLedgerReturn, getLedgerReturns, getReturnsRegister,
+  collectLedgerPayment, writeOffLedgerBalance, setLedgerDebtor, getDues,
   getRefundSettlementQueue, setRefundSettlement,
   getReturnReasonsReport, getReturnProductReport, getReturnReasons,
   getReceiptFormat, getReceiptFormatSchema, updateReceiptFormat, setReceiptTaxMode,

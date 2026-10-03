@@ -1,5 +1,9 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import useOrderDetail from '../../hooks/useOrderDetail'
+import { useCan } from '../../hooks/useCan'
+import { SCOPES } from '../../constants'
+import BalanceBlock from './BalanceBlock'
+import CollectFlow from './CollectFlow'
 import { statusLabel, normalizeStatus } from '../../utils/posStatus'
 import { itemLabel, itemQty } from '../../utils/posRounds'
 import LineOptions, { OrderInstructions } from './LineOptions'
@@ -16,24 +20,53 @@ const time = (v) => (v ? new Date(v).toLocaleString() : '—')
  * counter customer, a table for a seated one.
  */
 const OrderDetailModal = ({ orderId, onClose }) => {
-  const { detail, loading, error } = useOrderDetail(orderId)
+  const { detail, loading, error, reload } = useOrderDetail(orderId)
   const closeRef = useRef(null)
+  // Collecting a balance is taking money — the cashier's job as much as the
+  // accountant's. Write-off is decided inside CollectFlow (admins only).
+  const canCollect = useCan([SCOPES.POS_BILLING_WRITE, SCOPES.TRANSACTIONS_WRITE])
+  const canWriteOff = useCan(SCOPES.TENANT_SUPER_ADMIN)
+  const [collect, setCollect] = useState(null)
 
   // Escape closes, and focus lands on the dialog rather than staying behind it
   // on the list underneath.
   useEffect(() => {
     if (!orderId) return undefined
-    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    // The Collect sheet handles its own Escape; this one must not close the
+    // order underneath it at the same time.
+    const onKey = (e) => { if (e.key === 'Escape' && !collect) onClose() }
     document.addEventListener('keydown', onKey)
     closeRef.current?.focus()
     return () => document.removeEventListener('keydown', onKey)
-  }, [orderId, onClose])
+  }, [orderId, onClose, collect])
 
   if (!orderId) return null
 
   const order = detail?.Order
   const source = detail?.Source
   const token = detail?.Token
+  const bill = detail?.Bill
+  const invoiced = !!bill?.TransactionDetailLogId
+  const owing = invoiced && Number(bill.Due) > 0
+  // While money is owed the first payment's time is not a settlement — it is
+  // the last payment. Calling it "Settled" is what made a part-paid order look
+  // finished.
+  const lastPayment = (bill?.Payments || []).reduce(
+    (latest, p) => (!latest || new Date(p.Timestamp) > new Date(latest) ? p.Timestamp : latest), null,
+  )
+  const openCollect = (how) => setCollect({
+    how,
+    doc: {
+      Id: bill.TransactionDetailLogId,
+      TransactionNo: bill.TransactionNo,
+      GrossAmount: bill.InvoiceTotal,
+      Paid: bill.Paid,
+      Due: bill.Due,
+      CustomerName: bill.CustomerName,
+      BranchId: bill.BranchDetailId || order?.BranchDetailId,
+      label: source?.label || null,
+    },
+  })
 
   return (
     <div className="fd-modal-overlay" onClick={onClose}>
@@ -155,19 +188,52 @@ const OrderDetailModal = ({ orderId, onClose }) => {
             )}
 
             <div className="fd-section-title">Billing</div>
-            {detail.Bill ? (
-              <dl className="fd-order-meta">
-                <div><dt>Bill</dt><dd>{detail.Bill.BillNo}</dd></div>
-                <div><dt>Invoice</dt><dd>{detail.Bill.TransactionNo || <span className="muted">Not posted</span>}</dd></div>
-                <div><dt>Status</dt><dd>{statusLabel(detail.Bill.LedgerStatus || detail.Bill.BillStatus)}</dd></div>
-                <div><dt>Settled</dt><dd>{time(detail.Bill.SettledAt)}</dd></div>
-              </dl>
+            {bill ? (
+              <>
+                <dl className="fd-order-meta">
+                  <div><dt>Bill</dt><dd>{bill.BillNo}</dd></div>
+                  <div><dt>Invoice</dt><dd>{bill.TransactionNo || <span className="muted">Not posted</span>}</dd></div>
+                  <div><dt>Status</dt><dd>{statusLabel(bill.LedgerStatus || bill.BillStatus)}</dd></div>
+                  {owing ? (
+                    <div><dt>Last payment</dt><dd>{time(lastPayment || bill.SettledAt)}</dd></div>
+                  ) : (
+                    <div><dt>Settled</dt><dd>{time(bill.InvoiceSettledAt || bill.SettledAt)}</dd></div>
+                  )}
+                  {bill.CustomerName && (
+                    <div><dt>{owing ? 'Owed by' : 'Customer'}</dt><dd>{bill.CustomerName}{bill.CustomerMobile ? ` · ${bill.CustomerMobile}` : ''}</dd></div>
+                  )}
+                </dl>
+                {invoiced && (
+                  <BalanceBlock
+                    total={bill.InvoiceTotal}
+                    paid={bill.Paid}
+                    due={bill.Due}
+                    returned={bill.Returned}
+                    writtenOff={bill.WrittenOff}
+                    payments={bill.Payments}
+                    onCollect={canCollect ? () => openCollect('collect') : undefined}
+                    onWriteOff={canWriteOff ? () => openCollect('writeoff') : undefined}
+                  />
+                )}
+              </>
             ) : (
               <div className="fd-empty">Not billed yet — this round is still open.</div>
             )}
           </>
         )}
       </div>
+      {/* Outside the order dialog's click-stop so its backdrop works, and
+          stopped here so a click in it never closes the order underneath. */}
+      {collect && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <CollectFlow
+            doc={collect.doc}
+            start={collect.how}
+            onClose={() => setCollect(null)}
+            onChanged={reload}
+          />
+        </div>
+      )}
     </div>
   )
 }

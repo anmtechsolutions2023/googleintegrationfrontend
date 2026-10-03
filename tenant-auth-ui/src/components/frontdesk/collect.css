@@ -1,0 +1,141 @@
+/* Collecting a balance — the sheet, the write-off dialog, and the paid/due
+   block shared by the ledger drawer, the order detail and the Dues worklist.
+
+   Colours follow the front desk: ink #2c3e50, money in #1e8449, owed in the
+   amber the ledger already uses for PARTIALLY_PAID (#856404 on #fff3cd). */
+
+/* ── Paid / due block ───────────────────────────────────────────────────── */
+.fd-balance {
+  display: flex; flex-direction: column; gap: 10px;
+  background: #f8f9fa; border: 1px solid #e1e5eb; border-radius: 10px;
+  padding: 14px; margin: 4px 0 12px; text-align: left;
+}
+.fd-balance-top {
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: 10px; flex-wrap: wrap; font-size: 13px; color: #7f8c8d;
+}
+.fd-balance-top strong {
+  color: #2c3e50; font-size: 16px; font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.fd-balance-due { color: #856404; font-weight: 800; font-size: 16px; font-variant-numeric: tabular-nums; }
+.fd-balance-done { color: #1e8449; font-weight: 800; font-size: 14px; }
+.fd-balance-bar { height: 8px; background: #e1e5eb; border-radius: 99px; overflow: hidden; }
+.fd-balance-bar > span { display: block; height: 100%; background: #27ae60; border-radius: 99px; }
+.fd-balance-payments { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.fd-balance-payments li {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center;
+  background: #fff; border: 1px solid #e1e5eb; border-radius: 8px; padding: 7px 10px; font-size: 13px;
+}
+.fd-balance-mode {
+  font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 5px;
+  background: #f0f3f5; color: #2c3e50; border: 1px solid #e1e5eb; white-space: nowrap;
+}
+.fd-balance-when {
+  color: #7f8c8d; font-size: 11.5px; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.fd-balance-payments b { font-variant-numeric: tabular-nums; }
+.fd-balance-writeoff { font-size: 12px; color: #721c24; background: #f8d7da; border-radius: 8px; padding: 7px 10px; }
+.fd-balance-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.fd-balance-actions .fd-btn-success { font-weight: 700; }
+
+/* ── Collect sheet ──────────────────────────────────────────────────────── */
+.fd-collect {
+  background: #fff; border-radius: 12px; width: 100%; max-width: 440px;
+  max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px);
+  overflow-y: auto; box-sizing: border-box; padding: 20px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+  display: flex; flex-direction: column; gap: 14px; color: #2c3e50;
+}
+.fd-collect-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.fd-collect-head h3 { margin: 0; font-size: 18px; font-weight: 800; }
+.fd-collect-sub { display: block; font-size: 12.5px; color: #7f8c8d; margin-top: 2px; }
+.fd-collect-x { background: none; border: none; font-size: 22px; line-height: 1; cursor: pointer; color: #7f8c8d; padding: 0 2px; }
+
+.fd-collect-sum { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.fd-collect-sum > div {
+  background: #f8f9fa; border: 1px solid #e1e5eb; border-radius: 9px; padding: 8px 10px; min-width: 0;
+}
+.fd-collect-sum span {
+  display: block; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase;
+  color: #7f8c8d; font-weight: 700;
+}
+.fd-collect-sum b { font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.fd-collect-sum .is-due { background: #fff3cd; border-color: transparent; }
+.fd-collect-sum .is-due b { color: #856404; font-size: 18px; }
+
+.fd-collect-field { display: flex; flex-direction: column; gap: 6px; border: 0; padding: 0; margin: 0; min-width: 0; }
+.fd-collect-label { font-size: 12px; font-weight: 700; color: #2c3e50; padding: 0; }
+.fd-collect-modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: 6px; }
+.fd-collect-mode {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 1px;
+  border: 1px solid #d0d4da; border-radius: 9px; padding: 9px 6px; cursor: pointer;
+  font-weight: 700; font-size: 13px; background: #fff; text-align: center;
+}
+.fd-collect-mode small { font-weight: 500; font-size: 10.5px; color: #7f8c8d; }
+.fd-collect-mode input { position: absolute; opacity: 0; pointer-events: none; }
+.fd-collect-mode.is-on { border-color: #2c3e50; box-shadow: inset 0 0 0 1px #2c3e50; background: #f8f9fa; }
+.fd-collect-mode:focus-within { outline: 2px solid #0f3460; outline-offset: 2px; }
+
+.fd-collect-amount {
+  display: flex; align-items: center; border: 1px solid #d0d4da; border-radius: 9px; padding: 0 12px; background: #fff;
+}
+.fd-collect-amount span { color: #7f8c8d; font-weight: 700; font-size: 16px; }
+.fd-collect-amount input {
+  border: 0; outline: 0; background: transparent; width: 100%; min-width: 0;
+  font-size: 20px; font-weight: 800; color: #2c3e50; padding: 10px 8px;
+  font-variant-numeric: tabular-nums;
+}
+.fd-collect-amount:focus-within, .fd-collect-text:focus { border-color: #2c3e50; box-shadow: 0 0 0 3px rgba(15, 52, 96, 0.12); }
+.fd-collect-text {
+  border: 1px solid #d0d4da; border-radius: 9px; padding: 10px 12px; font-size: 14px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; outline: 0; width: 100%; box-sizing: border-box;
+}
+.fd-collect-quick { display: flex; gap: 6px; flex-wrap: wrap; }
+.fd-collect-quick button {
+  font-size: 12px; font-weight: 600; border: 1px solid #d0d4da; background: #fff;
+  border-radius: 999px; padding: 5px 11px; cursor: pointer; color: #2c3e50;
+}
+.fd-collect-quick button:hover { border-color: #2c3e50; }
+.fd-collect-hint { font-size: 11.5px; color: #7f8c8d; }
+
+.fd-collect-outcome { border-radius: 9px; padding: 9px 12px; font-weight: 600; font-size: 13px; }
+.fd-collect-outcome.is-ok { background: #e3f4ea; color: #1e8449; }
+.fd-collect-outcome.is-warn { background: #fff3cd; color: #856404; }
+.fd-collect-outcome.is-err { background: #fdecea; color: #c0392b; }
+.fd-collect-lands { font-size: 12px; color: #7f8c8d; }
+.fd-collect-lands b { color: #2c3e50; }
+
+.fd-collect-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.fd-collect-foot .fd-collect-btns { display: flex; gap: 8px; margin-left: auto; }
+.fd-collect-foot .fd-btn-success { font-weight: 700; padding: 10px 16px; }
+.fd-collect-link {
+  background: none; border: 0; padding: 0; cursor: pointer; font-size: 12px; color: #7f8c8d;
+  text-decoration: underline dotted; text-underline-offset: 3px;
+}
+.fd-collect-link:hover { color: #c0392b; }
+
+/* Write-off reasons */
+.fd-collect-reasons { display: flex; flex-direction: column; gap: 8px; }
+.fd-collect-reasons label { display: flex; gap: 9px; align-items: center; font-size: 14px; font-weight: 600; cursor: pointer; }
+.fd-collect textarea {
+  border: 1px solid #d0d4da; border-radius: 9px; padding: 10px 12px; font: inherit; font-size: 14px;
+  min-height: 64px; resize: vertical; width: 100%; box-sizing: border-box;
+}
+.fd-collect-explain { margin: 0; font-size: 13.5px; color: #5a6c7d; line-height: 1.5; }
+
+/* On a phone the sheet docks to the bottom, so the amount and the Record button
+   sit within thumb reach and the list it came from stays visible above. */
+@media (max-width: 600px) {
+  .fd-modal-backdrop.fd-collect-backdrop { align-items: flex-end; padding: 0; }
+  .fd-collect-backdrop .fd-collect {
+    max-width: 100%; border-radius: 18px 18px 0 0; max-height: 92vh; max-height: 92dvh;
+    padding: 14px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+  }
+  .fd-collect-backdrop .fd-collect::before {
+    content: ""; width: 38px; height: 4px; border-radius: 4px; background: #d0d4da; margin: 0 auto -4px;
+  }
+  .fd-collect-foot .fd-collect-btns { width: 100%; }
+  .fd-collect-foot .fd-collect-btns .fd-btn-success { flex: 1; padding-block: 13px; font-size: 15px; }
+}

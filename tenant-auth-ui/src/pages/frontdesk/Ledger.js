@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import posService from '../../services/posService'
 import { OrderNoLink } from '../../components/frontdesk/OrderLinkProvider'
@@ -9,6 +9,8 @@ import ReturnPicker from '../../components/frontdesk/ReturnPicker'
 import LineOptions from '../../components/frontdesk/LineOptions'
 import Receipt from '../../components/frontdesk/receipt/Receipt'
 import usePrintReceipt from '../../components/frontdesk/receipt/usePrintReceipt'
+import BalanceBlock from '../../components/frontdesk/BalanceBlock'
+import CollectFlow from '../../components/frontdesk/CollectFlow'
 import './ledger.css'
 
 const money = (n) => (Number(n) || 0).toFixed(2)
@@ -63,6 +65,9 @@ const Ledger = () => {
   // The ledger is offered on TRANSACTIONS:READ — anyone who may see the books.
   // A refund moves money back out of them, which is WRITE.
   const canRefund = useCan(SCOPES.TRANSACTIONS_WRITE)
+  // Collecting a balance is taking money, which cashiers do too.
+  const canCollect = useCan([SCOPES.POS_BILLING_WRITE, SCOPES.TRANSACTIONS_WRITE])
+  const canWriteOff = useCan(SCOPES.TENANT_SUPER_ADMIN)
   const [documents, setDocuments] = useState([])
   const [loading, setLoading] = useState(true)
   const [status, setStatus] = useState('')
@@ -82,6 +87,14 @@ const Ledger = () => {
   const [returnTarget, setReturnTarget] = useState(null)
   const [returning, setReturning] = useState(false)
   const [reasons, setReasons] = useState([])
+  // ── Collecting a balance ──────────────────────────────────────────────────
+  // Which invoice the Collect sheet (or write-off) is open on, and how it
+  // opened. `duesOnly` narrows the list to sales still owed money; the summary
+  // feeds the banner whatever the list is filtered to.
+  const [collectTarget, setCollectTarget] = useState(null)
+  const [collectStart, setCollectStart] = useState('collect')
+  const [duesOnly, setDuesOnly] = useState(false)
+  const [duesSummary, setDuesSummary] = useState(null)
   // Deep link. The Returns register links a credit note back to the invoice it
   // came off, and this is the receiving end — without it the link could only
   // drop somebody on the list with the number to search for themselves.
@@ -101,13 +114,19 @@ const Ledger = () => {
       if (refundStateFilter) params.refundState = refundStateFilter
       if (fromDate) params.fromDate = fromDate
       if (toDate) params.toDate = toDate
+      if (duesOnly) params.dues = true
       setDocuments(await posService.getLedgerDocuments(params))
     } catch {
       toast.error('Failed to load ledger')
     } finally {
       setLoading(false)
     }
-  }, [status, search, docType, refundStateFilter, fromDate, toDate])
+    // The banner. Its own call so a failure costs the banner, not the books.
+    Promise.resolve()
+      .then(() => posService.getDues())
+      .then((d) => setDuesSummary(d?.summary || null))
+      .catch(() => setDuesSummary(null))
+  }, [status, search, docType, refundStateFilter, fromDate, toDate, duesOnly])
 
   useEffect(() => { load() }, [load])
 
@@ -176,7 +195,33 @@ const Ledger = () => {
       isReprint: !isNote,
       tokenLabel: doc.Source?.kind === 'token' ? doc.Source.label : null,
       tableName: doc.Source?.kind === 'table' ? doc.Source.label : null,
+      // Every payment is already in Tenders; a part-paid sale also says what
+      // is still owed, so the paper never reads as paid in full.
+      balanceDue: isNote ? 0 : Number(doc.Due) || 0,
     })
+  }
+
+  /** Opens the Collect sheet (or the write-off) on one invoice. */
+  const openCollect = (doc, how = 'collect') => {
+    setCollectStart(how)
+    setCollectTarget({
+      Id: doc.Id,
+      TransactionNo: doc.TransactionNo,
+      GrossAmount: doc.GrossAmount,
+      Paid: doc.Paid,
+      Due: doc.Due,
+      CustomerName: doc.CustomerName,
+      BranchId: doc.BranchId,
+      label: doc.Source?.label || null,
+    })
+  }
+
+  // After a payment or write-off: refresh the list, and the open invoice so its
+  // status and payment history show what just happened.
+  const afterCollect = async () => {
+    const openId = selected?.Id
+    await load()
+    if (openId) await openDocument(openId)
   }
 
   const handleReturn = async (payload) => {
@@ -184,9 +229,13 @@ const Ledger = () => {
     setReturning(true)
     try {
       const result = await posService.createLedgerReturn(returnTarget.Id, payload)
-      toast.success(
-        `Return recorded as ${result.transactionNo} — ₹${money(result.grossAmount)} back`,
-      )
+      // On a part-paid invoice the return clears what was still owed first, so
+      // the money handed back can be less than the note — say both.
+      const back = Number(result.refundedAmount ?? result.grossAmount)
+      const cleared = Number(result.appliedToDue || 0)
+      toast.success(cleared > 0
+        ? `Return recorded as ${result.transactionNo} — ₹${money(cleared)} cleared from the balance due, ₹${money(back)} back`
+        : `Return recorded as ${result.transactionNo} — ₹${money(back)} back`)
       setReturnTarget(null)
       // Re-open the document rather than closing it: the operator almost always
       // wants to see what the invoice now says, and a screen that vanishes on
@@ -259,12 +308,20 @@ const Ledger = () => {
           type="date" value={toDate} onChange={(e) => setToDate(e.target.value)}
           aria-label="To date"
         />
-        {(status || search || docType || refundStateFilter || fromDate || toDate) && (
+        <button
+          type="button"
+          className={`fd-ledger-dues-toggle ${duesOnly ? 'is-on' : ''}`}
+          aria-pressed={duesOnly}
+          onClick={() => setDuesOnly((v) => !v)}
+        >
+          Dues only {duesSummary ? <em>{duesSummary.count}</em> : null}
+        </button>
+        {(status || search || docType || refundStateFilter || fromDate || toDate || duesOnly) && (
           <button
             className="fd-btn fd-btn-outline"
             onClick={() => {
               setStatus(''); setSearch(''); setDocType('')
-              setRefundStateFilter(''); setFromDate(''); setToDate('')
+              setRefundStateFilter(''); setFromDate(''); setToDate(''); setDuesOnly(false)
             }}
           >
             Clear
@@ -272,6 +329,16 @@ const Ledger = () => {
         )}
         <button className="fd-btn fd-btn-outline" onClick={load}>🔄 Refresh</button>
       </div>
+
+      {duesSummary?.count > 0 && (
+        <div className="fd-ledger-dues-banner" role="status">
+          <span>
+            <b>₹{money(duesSummary.outstanding)}</b> still due on <b>{duesSummary.count}</b>{' '}
+            {duesSummary.count === 1 ? 'invoice' : 'invoices'}
+          </span>
+          <Link to="/money/dues">Open Dues →</Link>
+        </div>
+      )}
 
       {loading ? (
         <div className="fd-loading">Loading ledger…</div>
@@ -287,6 +354,9 @@ const Ledger = () => {
                 <th>Invoice</th><th>Date</th><th>Token / Table</th><th>Customer</th>
                 <th className="num">Net</th><th className="num">Tax</th>
                 <th className="num">Total</th>
+                {/* Paid and owed, so a part-paid invoice can be spotted and
+                    collected without opening it. */}
+                <th className="num">Paid</th><th className="num">Due</th>
                 {/* Staff see "₹500 of ₹1,240 returned" without opening
                     anything. Total is NOT reduced — the original is what the
                     customer's printed bill says. */}
@@ -325,6 +395,26 @@ const Ledger = () => {
                   <td className="num">₹{money(d.NetAmount)}</td>
                   <td className="num">₹{money(d.TaxAmount)}</td>
                   <td className="num strong">₹{money(d.GrossAmount)}</td>
+                  <td className="num">
+                    {d.TypeName === 'POS Sale' ? `₹${money(d.Paid)}` : <span className="muted">—</span>}
+                  </td>
+                  <td className="num">
+                    {Number(d.Due) > 0 ? (
+                      <div className="fd-ledger-due-cell">
+                        <span className="fd-ledger-due">₹{money(d.Due)}</span>
+                        {canCollect && (
+                          <button
+                            type="button"
+                            className="fd-btn fd-btn-success fd-btn-sm"
+                            // The row opens the invoice; this must not.
+                            onClick={(e) => { e.stopPropagation(); openCollect(d) }}
+                          >
+                            Collect
+                          </button>
+                        )}
+                      </div>
+                    ) : <span className="muted">—</span>}
+                  </td>
                   <td className="num">
                     {Number(d.ReturnedAmount) > 0 ? (
                       <>
@@ -518,15 +608,35 @@ const Ledger = () => {
                 )}
 
                 <div className="fd-invoice-section">Payments</div>
-                <ul className="fd-invoice-tenders">
-                  {(selected.Tenders || []).length === 0 && <li className="muted">No payments recorded.</li>}
-                  {(selected.Tenders || []).map((t, i) => (
-                    <li key={i}>
-                      <span>{t.PaymentMode}{t.RefNo ? ` · ${t.RefNo}` : ''}</span>
-                      <span className={Number(t.Amount) < 0 ? 'refunded' : ''}>₹{money(t.Amount)}</span>
-                    </li>
-                  ))}
-                </ul>
+                {selected.TypeName === 'POS Sale' ? (
+                  // A sale: what has been paid, what is still owed, every payment
+                  // behind it — and Collect when something is due.
+                  <BalanceBlock
+                    total={selected.GrossAmount}
+                    paid={selected.Paid}
+                    due={selected.Due}
+                    returned={selected.ReturnedAmount}
+                    writtenOff={selected.WrittenOff}
+                    writeOffNote={[
+                      selected.WriteOffReasonLabel,
+                      selected.WriteOffNote,
+                      selected.WrittenOffBy,
+                    ].filter(Boolean).join(' · ')}
+                    payments={selected.Tenders}
+                    onCollect={canCollect ? () => openCollect(selected) : undefined}
+                    onWriteOff={canWriteOff ? () => openCollect(selected, 'writeoff') : undefined}
+                  />
+                ) : (
+                  <ul className="fd-invoice-tenders">
+                    {(selected.Tenders || []).length === 0 && <li className="muted">No payments recorded.</li>}
+                    {(selected.Tenders || []).map((t, i) => (
+                      <li key={i}>
+                        <span>{t.PaymentMode}{t.RefNo ? ` · ${t.RefNo}` : ''}</span>
+                        <span className={Number(t.Amount) < 0 ? 'refunded' : ''}>₹{money(t.Amount)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
 
                 {/* The audit trail — how this document reached its status. */}
                 <div className="fd-invoice-section">History</div>
@@ -547,8 +657,11 @@ const Ledger = () => {
                       left. The sale is no longer mutated by a refund, so a
                       partly-returned invoice is still SETTLED and can still be
                       returned against — which is the whole point. */}
+                  {/* A part-paid sale can be returned against too: the return
+                      clears what is still owed first, and only the rest goes
+                      back to the customer. */}
                   {selected.TypeName === 'POS Sale'
-                    && selected.StatusName === 'SETTLED'
+                    && (selected.StatusName === 'SETTLED' || selected.StatusName === 'PARTIALLY_PAID')
                     && selected.RefundState !== 'REFUNDED' && canRefund && (
                     <>
                       <button className="fd-btn fd-btn-warning" onClick={() => setReturnTarget(selected)}>
@@ -567,6 +680,13 @@ const Ledger = () => {
         </div>
       )}
 
+      <CollectFlow
+        doc={collectTarget}
+        start={collectStart}
+        onClose={() => setCollectTarget(null)}
+        onChanged={afterCollect}
+      />
+
       <ReturnPicker
         document={returnTarget}
         reasons={reasons}
@@ -583,6 +703,12 @@ const Ledger = () => {
               The whole document is reversed. Nothing is deleted — the original
               invoice stands and a reversing entry is recorded beside it.
             </p>
+            {Number(refundTarget.Due) > 0 && (
+              <p className="fd-variant-hint">
+                ₹{money(refundTarget.Due)} is still due on this invoice, so only the
+                ₹{money(refundTarget.Paid)} actually paid goes back to the customer.
+              </p>
+            )}
             <label htmlFor="refund-reason">Reason</label>
             <input
               id="refund-reason"

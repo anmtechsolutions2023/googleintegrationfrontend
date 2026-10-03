@@ -128,6 +128,9 @@ export const WORKSPACES = [
   { workspace: 'Money', key: 'money', hint: 'Money in, money out, and what is on hand.', tabs: [
     { key: 'overview', label: 'Finance', path: '/money/overview', scopes: [SCOPES.TRANSACTIONS_READ, SCOPES.TRANSACTIONS_WRITE, A], legacy: ['/frontdesk/finance'] },
     { key: 'ledger', label: 'Ledger', path: '/money/ledger', scopes: [SCOPES.TRANSACTIONS_READ, SCOPES.TRANSACTIONS_WRITE, A], legacy: ['/frontdesk/ledger'] },
+    // Money still owed on bills paid short. Offered to cashiers as well as the
+    // books' readers: collecting a balance is taking money at the till.
+    { key: 'dues', label: 'Dues', path: '/money/dues', scopes: [SCOPES.TRANSACTIONS_READ, SCOPES.TRANSACTIONS_WRITE, SCOPES.POS_BILLING_READ, SCOPES.POS_BILLING_WRITE, A] },
     { key: 'returns', label: 'Returns', path: '/money/returns', scopes: [SCOPES.TRANSACTIONS_READ, SCOPES.TRANSACTIONS_WRITE, A], legacy: ['/frontdesk/returns'] },
     { key: 'cash', label: 'Cash Sessions', path: '/money/cash', scopes: [SCOPES.POS_BILLING_READ, SCOPES.POS_BILLING_WRITE, A], legacy: ['/frontdesk/cash-sessions'] },
     { key: 'expenses', path: '/money/expenses', tabLabel: 'Expenses', sections: [

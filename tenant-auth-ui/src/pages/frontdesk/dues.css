@@ -1,0 +1,65 @@
+/* ── Dues ───────────────────────────────────────────────────────────────────
+   The worklist of money still owed. Summary first, then the list, oldest
+   first. A table on a desk, cards on a phone — the same rows either way. */
+
+.fd-dues { max-width: 1200px; padding-bottom: 40px; }
+.fd-dues-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.fd-dues h1 { font-size: 22px; color: #2c3e50; margin: 0 0 4px; }
+.fd-dues-lead { font-size: 13px; color: #7f8c8d; margin: 0 0 16px; max-width: 70ch; }
+
+.fd-dues-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+.fd-dues-kpi {
+  background: #fff; border: 1px solid #e1e5eb; border-radius: 10px; padding: 12px 16px;
+  display: flex; flex-direction: column; gap: 2px; min-width: 0;
+}
+.fd-dues-kpi span { font-size: 11px; font-weight: 700; color: #5a6c7d; text-transform: uppercase; letter-spacing: 0.5px; }
+.fd-dues-kpi b { font-size: 22px; font-weight: 800; color: #2c3e50; font-variant-numeric: tabular-nums; }
+.fd-dues-kpi b.is-due { color: #856404; }
+.fd-dues-kpi em { font-style: normal; font-size: 12px; color: #7f8c8d; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.fd-dues-filters { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+.fd-dues-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.fd-dues-chip {
+  border: 1px solid #d0d4da; background: #fff; border-radius: 999px; padding: 6px 12px;
+  font-size: 12.5px; font-weight: 600; color: #5a6c7d; cursor: pointer; display: inline-flex; gap: 6px;
+}
+.fd-dues-chip em { font-style: normal; font-weight: 800; opacity: 0.75; }
+.fd-dues-chip.is-on { background: #2c3e50; color: #fff; border-color: #2c3e50; }
+.fd-dues-chip:focus-visible { outline: 2px solid #0f3460; outline-offset: 2px; }
+.fd-dues-search { max-width: 280px; margin: 0 0 0 auto; }
+
+.fd-dues-table td { vertical-align: middle; }
+.fd-dues-due { color: #856404; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fd-dues-due.is-big { font-size: 20px; }
+.fd-dues-age {
+  display: inline-block; font-size: 11px; font-weight: 700; border-radius: 6px; padding: 2px 8px;
+  background: #f0f3f5; color: #5a6c7d; white-space: nowrap;
+}
+.fd-dues-age.is-old { background: #fff3cd; color: #856404; }
+.fd-dues-age.is-late { background: #f8d7da; color: #721c24; }
+.fd-dues-who { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.fd-dues-name { font-weight: 600; }
+.fd-dues-sub { font-size: 12px; color: #7f8c8d; }
+.fd-dues-link {
+  background: none; border: 0; padding: 0; color: #0f3460; font-weight: 600; font-size: 12px;
+  cursor: pointer; text-align: left; text-decoration: underline; text-underline-offset: 3px;
+}
+.fd-dues-actions { display: inline-flex; gap: 6px; }
+
+.fd-dues-cards { display: none; list-style: none; margin: 0; padding: 0; flex-direction: column; gap: 10px; }
+.fd-dues-card {
+  background: #fff; border: 1px solid #e1e5eb; border-radius: 12px; padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.fd-dues-card-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.fd-dues-card .fd-btn-sm { padding: 9px 16px; font-size: 14px; font-weight: 700; }
+
+@media (max-width: 720px) {
+  .fd-dues-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fd-dues-kpi:first-child { grid-column: 1 / -1; }
+  .fd-dues-search { max-width: none; width: 100%; margin-left: 0; }
+  .fd-dues-chips { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; }
+  .fd-dues-chip { white-space: nowrap; }
+  .fd-dues-table-wrap { display: none; }
+  .fd-dues-cards { display: flex; }
+}
