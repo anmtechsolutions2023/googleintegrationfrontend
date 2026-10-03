@@ -21,6 +21,12 @@ import posService from '../services/posService'
  * nothing, and the board reads "No orders yet" permanently — with no way back,
  * because the branch picker only renders when there is more than one branch.
  *
+ * Until that check has run, branchId reads ''. Handing out the stored id in the
+ * meantime let a screen that loads on any truthy id (Business Profile) ask for
+ * the previous tenant's branch on its first render and toast "Branch not
+ * found." on a new tenancy's first visit, before the right id arrived a tick
+ * later.
+ *
  * @param {string} storageKey - localStorage key for this screen's choice.
  * @returns {{branches: Array, branchId: string, setBranchId: Function, branchesLoaded: boolean}}
  */
@@ -60,7 +66,7 @@ export const usePosBranch = (storageKey) => {
     if (branchId) localStorage.setItem(storageKey, branchId)
   }, [branchId, storageKey])
 
-  return { branches, branchId, setBranchId, branchesLoaded }
+  return { branches, branchId: branchesLoaded ? branchId : '', setBranchId, branchesLoaded }
 }
 
 export default usePosBranch

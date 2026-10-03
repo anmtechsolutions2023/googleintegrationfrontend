@@ -44,6 +44,21 @@ describe('usePosBranch', () => {
     expect(localStorage.getItem(KEY)).toBe('branch-a')
   })
 
+  // The window before that check. Business Profile loads on any truthy id, so
+  // handing out the stored one here asked for the old tenant's branch first
+  // and toasted "Branch not found." on a new tenancy's first visit.
+  it('hands out no branch until the remembered one has been checked', async () => {
+    localStorage.setItem(KEY, 'branch-from-old-tenant')
+    let release
+    posService.getPosBranches.mockReturnValue(new Promise((r) => { release = r }))
+    const { result } = renderHook(() => usePosBranch(KEY))
+    expect(result.current.branchesLoaded).toBe(false)
+    expect(result.current.branchId).toBe('')
+
+    await act(async () => { release(BRANCHES) })
+    expect(result.current.branchId).toBe('branch-a')
+  })
+
   it('clears the stored key when the tenant has no branches at all', async () => {
     localStorage.setItem(KEY, 'branch-from-old-tenant')
     posService.getPosBranches.mockResolvedValue([])
