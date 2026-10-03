@@ -86,6 +86,11 @@ export const WORKSPACES = [
       { key: 'rejection-reasons', label: 'Rejection Reasons', scopes: [SCOPES.POS_CONFIG_READ, A], legacy: ['/frontdesk/rejection-reasons'] },
     ] },
     { key: 'stock', path: '/menu/stock', tabLabel: 'Stock & units', sections: [
+      // First in the tab because it is the only one here touched DAILY, and it
+      // is touched before service: a dish tracked with no count today is not
+      // sold. Open to the till scopes as well as config — the cashier is asked
+      // whether a dish is still on before the guest is.
+      { key: 'daily', label: "Today's Counts", scopes: [SCOPES.POS_CONFIG_READ, SCOPES.POS_OPS_READ, SCOPES.POS_BILLING_READ, A] },
       { key: 'inventory', label: 'Inventory', scopes: [SCOPES.INVENTORY_READ, A], legacy: ['/frontdesk/inventory'] },
       { key: 'units', label: 'Units of Measure', scopes: grid('uom'), grid: 'uom' },
       { key: 'uom-factors', label: 'UOM Factors', scopes: grid('uomFactors'), grid: 'uomFactors' },
@@ -101,6 +106,7 @@ export const WORKSPACES = [
     ] },
     { key: 'floors', path: '/outlet/floors', tabLabel: 'Floors & tables', sections: [
       { key: 'floors', label: 'Floors', scopes: [SCOPES.POS_CONFIG_READ, A], legacy: ['/frontdesk/floors'] },
+      { key: 'tables', label: 'Tables', scopes: [SCOPES.POS_CONFIG_READ, A] },
       { key: 'qr-codes', label: 'QR Codes', scopes: [SCOPES.POS_QR_READ, SCOPES.POS_QR_WRITE, A], legacy: ['/frontdesk/qr-codes'] },
     ] },
     { key: 'front-desk', label: 'POS Settings', path: '/outlet/front-desk', scopes: [SCOPES.POS_CONFIG_READ, A], legacy: ['/frontdesk/settings'] },
@@ -183,12 +189,18 @@ export const entryPathOf = (tab, user) => {
 // accountant who can also read the numbering series lands in Money, not Outlet.
 const HOME_ORDER = ['service', 'money', 'guests', 'menu', 'insights', 'outlet', 'org']
 
+// The tab Home opens within a workspace when it is not the first one. Service
+// lands on Floor (Billing & KOT first) — the till is what staff open the app
+// for. Someone who cannot open it falls back to the workspace's first tab.
+const HOME_TAB = { service: 'floor' }
+
 /** The first place this user may go — where Home sends them. */
 export const homePathFor = (user) => {
   const open = visibleWorkspaces(user)
   const ws = HOME_ORDER.map((k) => open.find((w) => w.key === k)).find(Boolean)
   if (!ws) return null
-  return entryPathOf(visibleTabs(ws, user)[0], user)
+  const tabs = visibleTabs(ws, user)
+  return entryPathOf(tabs.find((t) => t.key === HOME_TAB[ws.key]) || tabs[0], user)
 }
 
 /** Which workspace a path belongs to, for the rail's highlight. */

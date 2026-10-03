@@ -123,7 +123,7 @@ const PortalMenu = () => {
   return (
     <div className="fd-crud-page" style={{ maxWidth: 1400 }}>
       <div style={{ marginBottom: 16 }}>
-        <Link to="/frontdesk/portals" className="fd-link-btn" style={{ fontSize: 13 }}>
+        <Link to="/menu/channels/portals" className="fd-link-btn" style={{ fontSize: 13 }}>
           ← All portals
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 8 }}>

@@ -91,12 +91,22 @@ beforeEach(() => {
   posService.getReceiptFormat.mockResolvedValue(null);
 });
 
+// Unpaid counter sales are listed where a takeaway is taken: on the Takeaway
+// side of the till, before a new sale is started.
 const openPicker = async () => {
   render(<Billing />);
   await screen.findByText(/Pick a table to start/i);
+  fireEvent.click(screen.getByRole('button', { name: /Counter takeaway/i }));
+  await screen.findByRole('region', { name: /Unpaid counter sales/i });
 };
 
-describe('an unpaid counter sale is reachable from the floor plan', () => {
+describe('an unpaid counter sale is reachable from the takeaway side', () => {
+  it('is counted on the Takeaway switch, so a dine-in cashier sees it', async () => {
+    render(<Billing />);
+    await screen.findByText(/Pick a table to start/i);
+    expect(screen.getByRole('button', { name: /Counter takeaway, 1 unpaid/i })).toBeInTheDocument();
+  });
+
   it('lists it beside the counter, with what is owed', async () => {
     await openPicker();
 
@@ -141,12 +151,9 @@ describe('an unpaid counter sale is reachable from the floor plan', () => {
 
   it('a new sale is still a new sale', async () => {
     await openPicker();
-    fireEvent.click(screen.getByRole('button', { name: /New counter takeaway/i }));
-
-    await waitFor(() => {
-      expect(screen.queryByText(/Pick a table to start/i)).not.toBeInTheDocument();
-    });
-    // Nothing carried over from the unpaid order sitting next to the button.
-    expect(screen.queryByText('ORD-0003')).not.toBeInTheDocument();
+    // Takeaway opens on an empty sale: the unpaid order is offered, not opened.
+    expect(screen.queryByText(/Counter order/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Resume payment/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /ORD-0003/i })).toBeInTheDocument();
   });
 });

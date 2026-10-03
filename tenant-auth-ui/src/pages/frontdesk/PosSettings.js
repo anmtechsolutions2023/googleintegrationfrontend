@@ -23,8 +23,8 @@ const NUMBERING_OPTIONS = [
     label: 'Continuous series (TOK-0001)',
     hint: 'Never resets, so every token is unique for all time — useful if tokens '
         + 'are reconciled against paperwork later. The series is shared by every '
-        + 'branch in this tenant, and the format is editable under Master Data → '
-        + 'Transaction Type Config.',
+        + 'branch in this tenant, and the format is editable under Outlet → '
+        + 'Numbering.',
   },
 ]
 
@@ -211,7 +211,7 @@ const PosSettings = () => {
             they end up disagreeing. */}
         <p className="fd-setting-desc" style={{ marginTop: 12 }}>
           What the ticket says, and how many copies print, are set under{' '}
-          <strong>Receipt Format → Kitchen ticket</strong>. Set Copies to 2 there
+          <strong>Outlet → Receipt Format → Kitchen ticket</strong>. Set Copies to 2 there
           for a customer copy alongside the kitchen's.
         </p>
         {!canWrite && (

@@ -41,10 +41,10 @@ const MONTH_OPTIONS = (() => {
 const DEFAULT_PERIOD = MONTH_OPTIONS[1].value
 
 const ACTIONS = {
-  menu: { to: '/frontdesk/menu', label: 'Open Menu Master' },
-  portals: { to: '/frontdesk/portals', label: 'Open Portals' },
+  menu: { to: '/menu/items', label: 'Open Menu Master' },
+  portals: { to: '/menu/channels/portals', label: 'Open Portals' },
   // Only offered to someone who cannot fix it here — see FilingSection.
-  gstin: { to: '/frontdesk/settings', label: 'Open POS Settings' },
+  gstin: { to: '/outlet/tax/gst', label: 'Open GST Switch' },
 }
 
 const PACK_FILES = [

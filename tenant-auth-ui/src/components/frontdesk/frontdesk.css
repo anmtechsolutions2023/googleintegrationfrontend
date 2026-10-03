@@ -319,6 +319,8 @@
 .fd-table-chip.reserved .dot { background: #7f8c8d; }
 .fd-table-chip.free { border-left-color: #27ae60; }
 .fd-table-chip.free .dot { background: #27ae60; }
+.fd-table-chip.printed { border-left-color: #2563eb; }
+.fd-table-chip.printed .dot { background: #2563eb; }
 
 .fd-btn-sm { padding: 6px 12px; font-size: 12px; }
 
@@ -685,6 +687,21 @@
 /* Tags ON a menu card. Solid is set on the dish; dashed is inherited from its
    category. The distinction is on the card because otherwise "why does this say
    Chinese, I never set that?" has no answer on the screen where it is asked. */
+/* How many portions are left, on the ordering tile.
+   The cashier decides whether to promise a fourth tea HERE, not on the counts
+   screen — so the number has to be where the dish is tapped. Carried by a word
+   as well as a colour: a service counter is a bad place to rely on hue. */
+.fd-item-left {
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .02em;
+  color: #2e6b3e;
+}
+.fd-item-left.is-low   { color: #a76400; }
+.fd-item-left.is-out   { color: #b3261e; }
+.fd-item-left.is-unset { color: #a76400; }
+
 .fd-item-tags {
   display: flex;
   gap: 4px;
@@ -1224,6 +1241,7 @@
 .fd-floorplan-legend .dot.free { background: #27ae60; }
 .fd-floorplan-legend .dot.occupied { background: #e67e22; }
 .fd-floorplan-legend .dot.reserved { background: #7f8c8d; }
+.fd-floorplan-legend .dot.printed { background: #2563eb; }
 
 .fd-floorplan-group + .fd-floorplan-group { margin-top: 22px; }
 .fd-floorplan-group h3 {
@@ -1351,6 +1369,10 @@
 .fd-tablecard.occupied { border-left-color: #e67e22; background: #fffaf3; }
 .fd-tablecard.reserved { border-left-color: #7f8c8d; background: #f7f8f9; }
 .fd-tablecard.reserved .fd-tablecard-status { color: #7f8c8d; }
+/* Bill printed, waiting on payment. Blue, so it stands apart from a running
+   table at a glance: this one is about money, not food. */
+.fd-tablecard.printed { border-left-color: #2563eb; background: #f3f7ff; }
+.fd-tablecard.printed .fd-tablecard-session .rounds { color: #1d4ed8; }
 
 /* ── Kitchen (KDS) board ─────────────────── */
 .fd-kitchen {
@@ -3728,3 +3750,1021 @@ button.fd-printer-btn { cursor: pointer; }
   .fd-printer-actions .fd-btn { min-height: 40px; }
 }
 @media (pointer: coarse) { .fd-printer-btn { min-height: 40px; } }
+
+
+/* ══ Till layout: toolbar · category rail · menu · order ═══════════════════
+   Three panels, the way Petpooja and most Indian tills lay a billing screen
+   out: sections down the left, dishes in the middle, the order on the right
+   with its actions always in view. One toolbar above replaces the page
+   heading, the menu card heading and the clock row, which between them used
+   to push the first dish below the middle of a laptop screen. */
+
+.fd-billing { gap: 10px; }
+
+.fd-till-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  min-width: 0;
+  padding: 8px 10px;
+  background: #fff;
+  border: 1px solid var(--line, #e2e8f0);
+  border-radius: 10px;
+}
+.fd-till-search {
+  flex: 1 1 260px;
+  min-width: 0;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid #d0d4da;
+  border-radius: 8px;
+  font-size: 14px;
+  background: #f8fafc;
+}
+.fd-till-search:focus { outline: 2px solid var(--action, #2563eb); outline-offset: 1px; background: #fff; }
+.fd-till-tail { display: inline-flex; align-items: center; gap: 10px; margin-left: auto; }
+
+/* Dine-in | Takeaway. A segmented control: one of two, always. */
+.fd-seg {
+  display: inline-flex;
+  border: 1px solid #d0d4da;
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.fd-seg button {
+  border: 0;
+  border-left: 1px solid #d0d4da;
+  background: #fff;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 0 14px;
+  min-height: 40px;
+  cursor: pointer;
+}
+.fd-seg button:first-child { border-left: 0; }
+.fd-seg button.is-on { background: var(--ink, #0f3460); color: #fff; }
+.fd-seg button:focus-visible { outline: 2px solid var(--action, #2563eb); outline-offset: -2px; }
+
+/* The grid gains a first column when there is a rail to put in it. */
+.fd-billing-layout { gap: 12px; }
+.fd-billing-layout.has-rail {
+  grid-template-columns: 168px minmax(0, 1fr) clamp(320px, 28%, 440px);
+}
+
+.fd-cat-rail {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+.fd-menu-cats.is-rail {
+  flex: 1 1 auto;
+  /* Scrolls inside the rail rather than stretching it past the screen. */
+  min-height: 0;
+  flex-direction: column;
+  gap: 0;
+  margin: 0;
+  padding: 6px 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+.fd-menu-cats.is-rail .fd-chip,
+.fd-menu-diets.is-rail .fd-chip {
+  width: 100%;
+  justify-content: flex-start;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  min-height: 42px;
+  padding: 8px 12px 8px 14px;
+  white-space: normal;
+  text-align: left;
+}
+.fd-menu-cats.is-rail .fd-chip-name,
+.fd-menu-diets.is-rail .fd-chip-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.fd-menu-cats.is-rail .fd-chip:hover:not(.is-on) { background: #f1f5f9; }
+.fd-menu-cats.is-rail .fd-chip.is-on {
+  background: #eaf0ff;
+  color: var(--action, #1d4ed8);
+  box-shadow: inset 3px 0 0 var(--action, #1d4ed8);
+}
+.fd-menu-cats.is-rail .fd-chip.is-on .fd-chip-count { background: #fff; color: var(--action, #1d4ed8); }
+.fd-menu-cats.is-rail .fd-chip.is-on .fd-chip-clock { color: #e67e22; }
+
+.fd-menu-diets.is-rail {
+  flex-direction: column;
+  align-items: stretch;
+  flex-wrap: nowrap;
+  gap: 0;
+  margin: 0;
+  padding: 6px 0 8px;
+  border-top: 1px solid #eef1f5;
+  border-bottom: 0;
+}
+.fd-menu-diets.is-rail .fd-menu-filter-label { padding: 2px 14px 4px; text-transform: uppercase; font-size: 11px; letter-spacing: 0.04em; }
+.fd-menu-diets.is-rail .fd-chip { min-height: 36px; font-size: 12.5px; }
+.fd-menu-diets.is-rail .fd-chip.is-on { background: #eaf0ff; color: var(--action, #1d4ed8); }
+.fd-menu-diets.is-rail .fd-chip.is-on .fd-diet-dot { background: currentColor; }
+.fd-menu-diets.is-rail .fd-chip.is-on .fd-chip-count { background: #fff; color: var(--action, #1d4ed8); }
+
+/* The active chip's count was white on a pale fill on the old horizontal row
+   and could not be read. A solid count fixes it wherever the chip is drawn. */
+.fd-chip.is-on .fd-chip-count { background: #fff; color: var(--ink, #0f3460); }
+
+.fd-menu-panel { padding: 12px; }
+.fd-menu-panel .fd-menu-filters:empty { display: none; }
+
+/* ── Dish tiles ─────────────────────────────────────────────────────────── */
+.fd-menu-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.fd-menu-item-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-height: 72px;
+  padding: 10px 10px 9px;
+}
+.fd-menu-item-card .item-name { margin: 0; padding-right: 18px; line-height: 1.3; }
+.fd-menu-item-card .item-price {
+  color: var(--text, #1c2733);
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.fd-menu-item-card.in-cart {
+  border-color: var(--action, #2563eb);
+  box-shadow: 0 0 0 1px var(--action, #2563eb);
+}
+.fd-tile-qty {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 11px;
+  background: var(--action, #2563eb);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 22px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.25);
+}
+
+/* The FSSAI mark: a square outline with a dot (veg) or a triangle (non-veg). */
+.fd-diet-mark {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 13px;
+  height: 13px;
+  border: 1.5px solid #1e8449;
+  border-radius: 2px;
+  display: grid;
+  place-items: center;
+}
+.fd-diet-mark::after {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #1e8449;
+}
+.fd-diet-mark.is-nonveg { border-color: #b91c1c; }
+.fd-diet-mark.is-nonveg::after {
+  width: 0;
+  height: 0;
+  border-radius: 0;
+  background: none;
+  border-left: 3.5px solid transparent;
+  border-right: 3.5px solid transparent;
+  border-bottom: 6px solid #b91c1c;
+}
+/* Clear of the quantity badge that sits on the corner once it is ordered. */
+.fd-menu-item-card.in-cart .fd-diet-mark { right: 22px; }
+.fd-menu-item-card.in-cart .item-name { padding-right: 32px; }
+.fd-menu-item-card.is-unavailable .fd-diet-mark { opacity: 0.45; }
+
+.fd-item-window.is-out { color: #b91c1c; background: #fdecec; }
+
+/* ── Order panel header ─────────────────────────────────────────────────── */
+.fd-cart-head {
+  flex-shrink: 0;
+  display: grid;
+  gap: 6px;
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid #eef1f5;
+}
+.fd-cart-head-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+.fd-cart-head-name { font-size: 17px; color: var(--text, #1c2733); min-width: 0; overflow-wrap: anywhere; }
+.fd-cart-head-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 12.5px;
+  color: #475569;
+}
+.fd-head-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px dashed #cbd5e1;
+  background: #f8fafc;
+  color: #1e293b;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 12.5px;
+  cursor: pointer;
+  text-align: left;
+}
+.fd-head-field:hover { border-color: var(--action, #2563eb); }
+.fd-head-field-edit { color: var(--action, #2563eb); font-weight: 600; }
+
+.fd-round-pill {
+  flex-shrink: 0;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+.fd-round-pill.is-new { background: #f1f5f9; color: #475569; }
+.fd-round-pill.is-draft { background: #fff4e5; color: #9a4b00; }
+.fd-round-pill.is-sent { background: #e8f6ee; color: #12693c; }
+.fd-round-pill.is-printed { background: #eaf0ff; color: #1d4ed8; }
+.fd-round-pill.is-wait { background: #fdecec; color: #b42318; }
+
+/* Guests + waiter editor, in place of the summary line. */
+.fd-service-editor {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px 12px;
+  align-items: end;
+  padding: 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+.fd-service-field { display: grid; gap: 4px; min-width: 0; }
+.fd-service-field label { font-size: 11.5px; font-weight: 600; color: #475569; }
+.fd-service-field select { min-width: 0; height: 34px; border: 1px solid #d0d4da; border-radius: 6px; padding: 0 8px; font-size: 13px; }
+.fd-service-field .fd-link-btn { font-size: 11.5px; justify-self: start; }
+.fd-stepper { display: inline-flex; align-items: center; border: 1px solid #d0d4da; border-radius: 6px; overflow: hidden; background: #fff; }
+.fd-stepper button { width: 32px; height: 34px; border: 0; background: #f1f5f9; font-size: 16px; cursor: pointer; }
+.fd-stepper button:disabled { color: #cbd5e1; cursor: not-allowed; }
+.fd-stepper input {
+  width: 48px;
+  height: 34px;
+  border: 0;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  -moz-appearance: textfield;
+}
+.fd-stepper input::-webkit-outer-spin-button,
+.fd-stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.fd-service-error { grid-column: 1 / -1; margin: 0; font-size: 12px; color: #b42318; }
+.fd-service-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 8px; }
+
+/* ── Expected payment method ────────────────────────────────────────────── */
+.fd-paymode-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.fd-paymode {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid #d0d4da;
+  border-radius: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+  background: #fff;
+}
+.fd-paymode input { margin: 0; accent-color: var(--action, #2563eb); }
+.fd-paymode.is-on { border-color: var(--action, #2563eb); color: var(--action, #1d4ed8); background: #f3f7ff; }
+
+/* ── The four steps ─────────────────────────────────────────────────────── */
+.fd-cart-actions-grid { display: grid; gap: 6px; }
+.fd-btn.fd-act {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  min-height: 52px;
+  padding: 6px 4px;
+  line-height: 1.15;
+  min-width: 0;
+}
+.fd-btn.fd-act span { font-size: 14px; font-weight: 700; }
+.fd-btn.fd-act small {
+  font-size: 11px;
+  font-weight: 500;
+  opacity: 0.85;
+  font-variant-numeric: tabular-nums;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fd-cart-hint { margin: 0; font-size: 12px; color: #475569; text-align: center; line-height: 1.4; }
+
+/* ── Phone: summary bar ─────────────────────────────────────────────────── */
+.fd-cart-jump { display: none; }
+
+/* Laptop with the sidebar out: a narrower rail keeps three dish columns. */
+@media (max-width: 1180px) {
+  .fd-billing-layout.has-rail { grid-template-columns: 140px minmax(0, 1fr) clamp(300px, 32%, 380px); }
+}
+
+/* Portrait tablet and phone: one column. The rail folds back into two rows of
+   chips above the dishes, and the order follows the menu. */
+@media (max-width: 767px) {
+  .fd-billing-layout.has-rail { grid-template-columns: minmax(0, 1fr); }
+  .fd-cat-rail { box-shadow: none; background: transparent; overflow: visible; gap: 6px; }
+  .fd-menu-cats.is-rail,
+  .fd-menu-diets.is-rail {
+    flex-direction: row;
+    align-items: center;
+    overflow-x: auto;
+    overflow-y: visible;
+    padding: 0 0 4px;
+    gap: 6px;
+    border-top: 0;
+    scrollbar-width: thin;
+  }
+  .fd-menu-cats.is-rail .fd-chip,
+  .fd-menu-diets.is-rail .fd-chip {
+    width: auto;
+    flex: 0 0 auto;
+    white-space: nowrap;
+    border: 1px solid #d0d4da;
+    border-radius: 18px;
+    background: #fff;
+    min-height: 38px;
+    padding: 6px 12px;
+    box-shadow: none;
+  }
+  .fd-menu-cats.is-rail .fd-chip.is-on,
+  .fd-menu-diets.is-rail .fd-chip.is-on { background: var(--ink, #0f3460); border-color: var(--ink, #0f3460); color: #fff; box-shadow: none; }
+  .fd-menu-diets.is-rail .fd-menu-filter-label { padding: 0 4px 0 0; }
+  .fd-till-search { flex-basis: 100%; order: -1; }
+  .fd-till-tail { margin-left: 0; }
+  .fd-menu-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+  /* Room under the last dish for the bar, so it never covers one. */
+  .fd-billing { padding-bottom: 72px; }
+  .fd-cart-jump {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px 10px 16px;
+    border-radius: 12px;
+    background: var(--ink, #0b1220);
+    color: #fff;
+    font-weight: 600;
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+    box-shadow: 0 6px 20px rgba(11, 18, 32, 0.3);
+  }
+  .fd-cart-jump button {
+    border: 0;
+    border-radius: 8px;
+    background: var(--saffron, #ffb020);
+    color: #0b1220;
+    font-weight: 700;
+    font-size: 13px;
+    padding: 9px 12px;
+    cursor: pointer;
+  }
+  .fd-cart-actions-grid { gap: 6px; }
+}
+
+/* ══ Dine-in on the till screen ═══════════════════════════════════════════
+   Dine-in opens on the same three panels as takeaway. The order panel picks
+   the table, then becomes its order; on a phone it is a sheet raised from a
+   bar at the bottom. */
+
+/* The till fills the window below wherever it starts (--till-top is measured
+   in Billing), so the chrome above it is always accounted for. */
+@media (min-width: 768px) {
+  .fd-billing {
+    height: calc(100vh - var(--till-top, 160px) - 20px);
+    height: calc(100dvh - var(--till-top, 160px) - 20px);
+    min-height: 480px;
+  }
+}
+
+/* Unpaid counter sales, counted on the Takeaway switch. */
+.fd-seg-count {
+  display: inline-block;
+  margin-left: 6px;
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: #b42318;
+  color: #fff;
+  font-size: 11px;
+  line-height: 18px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.fd-table-chip.is-none {
+  border-style: dashed;
+  border-left: 1px dashed #cbd5e1;
+  box-shadow: none;
+}
+.fd-table-chip.is-none .name { font-size: 13px; color: #64748b; font-weight: 600; }
+
+/* Dishes tapped before a table was chosen. */
+.fd-waiting {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 11px;
+  border-radius: 8px;
+  background: #eaf0ff;
+  color: var(--action, #1d4ed8);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.fd-waiting .fd-waiting-amt { margin-left: auto; font-variant-numeric: tabular-nums; }
+.fd-waiting .fd-link-btn { font-size: 12px; }
+
+/* Section heading inside the order panel (unpaid counter sales). */
+.fd-tpick-sect {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin: 10px 0 0;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+.fd-tpick-sect em { font-style: normal; font-weight: 600; letter-spacing: 0; text-transform: none; }
+
+/* ── Unpaid counter sales, in the takeaway panel ───────────────────────── */
+.fd-unpaid { display: grid; gap: 6px; margin-bottom: 12px; }
+.fd-unpaid-list { display: grid; gap: 6px; }
+.fd-unpaid-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 8px 11px;
+  border: 1px solid #f3d9b8;
+  border-left: 4px solid #e67e22;
+  border-radius: 8px;
+  background: #fffaf3;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+.fd-unpaid-row:hover { border-color: #e67e22; }
+.fd-unpaid-row:focus-visible { outline: 2px solid var(--action, #2563eb); outline-offset: 2px; }
+.fd-unpaid-row .no { font-weight: 700; color: #1c2733; }
+.fd-unpaid-row .st { font-size: 12px; color: #a0682a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fd-unpaid-row .amt { font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* Phone-only pieces stay out of the way on wider screens. */
+.fd-sheet-close, .fd-sheet-scrim { display: none; }
+.fd-cart-jump-text { display: grid; gap: 1px; min-width: 0; }
+.fd-cart-jump-text b { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fd-cart-jump-text small { font-size: 11.5px; font-weight: 500; opacity: 0.75; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── Tablet, portrait (768–1023px) ─────────────────────────────────────────
+   Two columns. The category rail folds into two rows of chips above the
+   dishes, so the dishes keep two columns beside a 300px order panel. Search
+   takes the toolbar's whole first row. */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .fd-till-search { flex-basis: 100%; }
+  .fd-till-tail { margin-left: auto; }
+  .fd-billing-layout,
+  .fd-billing-layout.has-rail {
+    grid-template-columns: minmax(0, 1fr) 300px;
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas: "rail cart" "menu cart";
+  }
+  .fd-billing-layout:not(.has-rail) { grid-template-areas: "menu cart" "menu cart"; }
+  .fd-billing-layout > .fd-cat-rail { grid-area: rail; }
+  .fd-billing-layout > .fd-menu-panel { grid-area: menu; }
+  .fd-billing-layout > .fd-cart-panel { grid-area: cart; }
+
+  .fd-cat-rail { flex-direction: column; gap: 6px; background: transparent; box-shadow: none; overflow: visible; }
+  .fd-menu-cats.is-rail,
+  .fd-menu-diets.is-rail {
+    flex-direction: row;
+    align-items: center;
+    overflow-x: auto;
+    overflow-y: visible;
+    padding: 0 0 2px;
+    gap: 6px;
+    border-top: 0;
+    scrollbar-width: thin;
+  }
+  .fd-menu-cats.is-rail .fd-chip,
+  .fd-menu-diets.is-rail .fd-chip {
+    width: auto;
+    flex: 0 0 auto;
+    white-space: nowrap;
+    border: 1px solid #d0d4da;
+    border-radius: 18px;
+    background: #fff;
+    min-height: 38px;
+    padding: 6px 12px;
+    box-shadow: none;
+  }
+  .fd-menu-cats.is-rail .fd-chip.is-on,
+  .fd-menu-diets.is-rail .fd-chip.is-on { background: var(--ink, #0f3460); border-color: var(--ink, #0f3460); color: #fff; box-shadow: none; }
+  .fd-menu-diets.is-rail .fd-menu-filter-label { padding: 0 4px 0 0; }
+  .fd-menu-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* Four actions in a 300px column: two by two, each still 52px tall. */
+  .fd-cart-actions-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+}
+
+/* Tablet landscape and small laptops: the desktop layout, narrower rail. */
+@media (min-width: 1024px) and (max-width: 1180px) {
+  .fd-billing-layout.has-rail { grid-template-columns: 132px minmax(0, 1fr) clamp(300px, 30%, 360px); }
+}
+
+/* ── Phone (≤767px): the order panel is a sheet ────────────────────────────
+   The menu takes the whole width. The bar at the bottom raises the order
+   panel as a sheet: the table picker until a table is chosen, then that
+   table's order. */
+@media (max-width: 767px) {
+  .fd-cart-panel {
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: 64px;
+    bottom: 0;
+    z-index: 60;
+    border-radius: 18px 18px 0 0;
+    padding: 12px 14px calc(14px + env(safe-area-inset-bottom, 0px));
+    box-shadow: 0 -10px 30px rgba(11, 18, 32, 0.25);
+    transform: translateY(105%);
+    visibility: hidden;
+    transition: transform 0.22s ease, visibility 0s linear 0.22s;
+  }
+  .fd-cart-panel.is-sheet-open {
+    transform: none;
+    visibility: visible;
+    transition: transform 0.22s ease;
+  }
+  .fd-cart-panel .fd-cart-scroll { overflow-y: auto; }
+  .fd-sheet-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 55;
+    background: rgba(11, 18, 32, 0.42);
+  }
+  .fd-sheet-close {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 34px;
+    height: 34px;
+    border: 0;
+    border-radius: 17px;
+    background: #f1f5f9;
+    color: #475569;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .fd-cart-head-top { gap: 10px; }
+  .fd-cart-head-name { margin-right: auto; }
+  .fd-cart-actions-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px; }
+  .fd-btn.fd-act { min-height: 54px; }
+  .fd-till-bar .fd-table-chip.is-none { display: none; }
+  .fd-cart-jump button { flex-shrink: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fd-cart-panel, .fd-cart-panel.is-sheet-open { transition: none; }
+}
+
+/* ══ The table board ═══════════════════════════════════════════════════════
+   Under the dish search, above the categories and the menu. Open in step 1
+   (every table, the counts and the seated meter); folded to one row once a
+   table is being served. */
+
+.fd-tboard-wrap { min-width: 0; position: relative; z-index: 2; }
+.fd-tboard {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px 12px 12px;
+  background: #fff;
+  border: 1px solid var(--line, #e2e8f0);
+  border-radius: 12px;
+}
+.fd-tboard.is-picking { border-color: #c7d2fe; box-shadow: 0 0 0 3px #eef2ff; }
+.fd-tboard-line { display: flex; align-items: center; gap: 10px; min-width: 0; white-space: nowrap; }
+.fd-tboard-line.is-wrap { flex-wrap: wrap; row-gap: 8px; }
+.fd-tboard-gap { flex: 1; }
+.fd-tboard-phone-open { display: none; }
+
+.fd-tboard-steps { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; flex-shrink: 0; }
+.fd-tboard-step { display: inline-flex; align-items: center; gap: 7px; color: #0b1220; }
+.fd-tboard-step b {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 11px;
+  background: var(--ink, #0b1220);
+  color: #fff;
+  font-size: 11px;
+}
+.fd-tboard-step.is-dim { color: #94a3b8; }
+.fd-tboard-step.is-dim b { background: #e2e8f0; color: #64748b; }
+.fd-tboard-step.is-done b { background: #16a34a; }
+.fd-tboard-arrow { color: #cbd5e1; }
+
+.fd-tboard-meter { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; margin-left: 6px; }
+.fd-tboard-meter-bar { display: flex; flex: 1; min-width: 80px; height: 8px; border-radius: 4px; overflow: hidden; background: #eef1f5; }
+.fd-tboard-meter-bar i { display: block; height: 100%; }
+.fd-tboard-meter-bar i.is-occ { background: #d97706; }
+.fd-tboard-meter-bar i.is-bill { background: #2563eb; }
+.fd-tboard-meter-bar i.is-res { background: #94a3b8; }
+.fd-tboard-meter-bar i.is-free { background: #16a34a; }
+.fd-tboard-meter-text { font-size: 11.5px; color: #64748b; font-variant-numeric: tabular-nums; }
+.fd-tboard-meter-text b { color: #0b1220; }
+
+.fd-tboard-find {
+  width: 160px;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid #d0d4da;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 12.5px;
+  flex-shrink: 0;
+}
+.fd-tboard-find:focus { outline: 2px solid var(--action, #2563eb); outline-offset: 1px; }
+.fd-tboard-toggle {
+  flex-shrink: 0;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid #d0d4da;
+  border-radius: 8px;
+  background: #fff;
+  color: #0b1220;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* Counts: filters when open, shortcuts into the board when folded. */
+.fd-tboard-counts, .fd-tboard-mini { display: flex; gap: 6px; min-width: 0; }
+.fd-tboard-mini { flex-shrink: 1; overflow: hidden; }
+.fd-tboard-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: 0 0 auto;
+  min-height: 32px;
+  padding: 0 11px;
+  border: 1px solid #d5dbe4;
+  border-radius: 16px;
+  background: #fff;
+  color: #475569;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.fd-tboard-mini .fd-tboard-count { min-height: 28px; padding: 0 9px; font-size: 12px; }
+.fd-tboard-count i { width: 9px; height: 9px; border-radius: 50%; }
+.fd-tboard-count.is-free i { background: #16a34a; }
+.fd-tboard-count.is-occ i { background: #d97706; }
+.fd-tboard-count.is-bill i { background: #2563eb; }
+.fd-tboard-count.is-res i { background: #94a3b8; }
+.fd-tboard-count b { color: #0b1220; font-variant-numeric: tabular-nums; }
+.fd-tboard-count.is-on { background: var(--ink, #0b1220); border-color: var(--ink, #0b1220); color: #fff; }
+.fd-tboard-count.is-on b { color: #fff; }
+.fd-tboard-count:focus-visible { outline: 2px solid var(--action, #2563eb); outline-offset: 2px; }
+
+.fd-tboard-floors {
+  display: flex;
+  gap: 2px;
+  min-width: 0;
+  padding: 3px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  background: #f1f4f8;
+  border-radius: 9px;
+}
+.fd-tboard-floors::-webkit-scrollbar { display: none; }
+.fd-tboard-floors button {
+  flex: 0 0 auto;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #475569;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.fd-tboard-floors small { font-size: 10.5px; color: #94a3b8; }
+.fd-tboard-floors button.is-on { background: var(--ink, #0b1220); color: #fff; }
+.fd-tboard-floors button.is-on small { color: #cbd5e1; }
+
+/* Open: one line per floor, scrolling inside itself on a big floor. */
+.fd-tboard-body {
+  display: grid;
+  gap: 8px;
+  max-height: min(360px, 44vh);
+  overflow-y: auto;
+  padding-right: 2px;
+}
+.fd-tboard-floor { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 10px; align-items: start; }
+.fd-tboard-floor-label { display: grid; gap: 2px; padding-top: 8px; }
+.fd-tboard-floor-label b { font-size: 12.5px; font-weight: 800; color: #0b1220; }
+.fd-tboard-floor-label span { font-size: 11px; color: #64748b; }
+.fd-tboard-floor-label em { font-style: normal; font-weight: 700; color: #16a34a; }
+.fd-tboard-tiles { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 6px 0 0; }
+.fd-tboard-empty { margin: 4px 0; font-size: 12.5px; color: #64748b; }
+
+/* Folded: one row. */
+.fd-tboard-lane { position: relative; min-width: 0; }
+.fd-tboard-row {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  padding: 6px 6px 2px 2px;
+}
+.fd-tboard-row::-webkit-scrollbar { display: none; }
+.fd-tboard-divider {
+  flex: 0 0 auto;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  padding: 0 3px;
+  border-left: 1px dashed #d5dbe4;
+  color: #94a3b8;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+}
+.fd-tboard-arrow {
+  position: absolute;
+  top: 6px;
+  bottom: 2px;
+  z-index: 2;
+  width: 54px;
+  border: 0;
+  color: #334155;
+  font-size: 20px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.fd-tboard-arrow.is-right { right: 0; text-align: right; padding-right: 6px; background: linear-gradient(90deg, rgba(255,255,255,0), #fff 60%); }
+.fd-tboard-arrow.is-left { left: 0; text-align: left; padding-left: 6px; background: linear-gradient(270deg, rgba(255,255,255,0), #fff 60%); }
+
+/* ── A table tile ───────────────────────────────────────────────────────── */
+.fd-ttile {
+  position: relative;
+  flex: 0 0 auto;
+  width: 86px;
+  height: 58px;
+  display: grid;
+  align-content: space-between;
+  padding: 7px 8px 6px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  color: #0b1220;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.15s ease;
+}
+.fd-tboard-row .fd-ttile { width: 80px; height: 50px; padding: 6px 8px 5px; }
+.fd-ttile:hover { box-shadow: 0 2px 8px rgba(11, 18, 32, 0.12); }
+.fd-ttile:active { transform: scale(0.97); }
+.fd-ttile:focus-visible { outline: 2px solid var(--action, #2563eb); outline-offset: 2px; }
+.fd-ttile-r1 { display: flex; justify-content: space-between; align-items: baseline; gap: 4px; min-width: 0; }
+.fd-ttile-nm { font-size: 14px; font-weight: 800; letter-spacing: -0.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fd-ttile-cn { flex-shrink: 0; font-size: 10px; font-weight: 600; color: #94a3b8; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.fd-ttile-ln { font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.fd-ttile.is-free { border-color: #bbf7d0; box-shadow: inset 3px 0 0 #16a34a; }
+.fd-ttile.is-free .fd-ttile-ln { color: #16a34a; }
+.fd-ttile.is-occ { background: #fff7ed; border-color: #f5cf9f; box-shadow: inset 0 3px 0 #d97706; }
+.fd-ttile.is-occ .fd-ttile-ln { color: #9a5a12; }
+.fd-ttile.is-occ .fd-ttile-cn { color: #d97706; font-weight: 700; }
+.fd-ttile.is-late .fd-ttile-cn { color: #b42318; }
+.fd-ttile.is-late .fd-ttile-cn::before {
+  content: '';
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-right: 3px;
+  border-radius: 50%;
+  background: #b42318;
+  vertical-align: 1px;
+}
+.fd-ttile.is-bill { background: #eff5ff; border-color: #bfd3fb; box-shadow: inset 0 3px 0 #2563eb; }
+.fd-ttile.is-bill .fd-ttile-ln, .fd-ttile.is-bill .fd-ttile-cn { color: #1d4ed8; }
+.fd-ttile.is-res { background: repeating-linear-gradient(135deg, #f8fafc 0 6px, #eef2f6 6px 12px); border-style: dashed; border-color: #cbd5e1; }
+.fd-ttile.is-res .fd-ttile-nm, .fd-ttile.is-res .fd-ttile-ln { color: #64748b; }
+.fd-ttile.is-suggest { outline: 2px dashed #16a34a; outline-offset: 2px; }
+.fd-ttile.is-sel {
+  background: var(--ink, #0b1220);
+  border-color: var(--ink, #0b1220);
+  box-shadow: inset 0 3px 0 var(--saffron, #ffb020), 0 4px 12px rgba(11, 18, 32, 0.25);
+}
+.fd-ttile.is-sel .fd-ttile-nm { color: #fff; }
+.fd-ttile.is-sel .fd-ttile-cn { color: var(--saffron, #ffb020); }
+.fd-ttile.is-sel .fd-ttile-ln { color: #cbd5e1; }
+.fd-ttile.is-faded { opacity: 0.3; }
+.fd-ttile.is-faded:hover, .fd-ttile.is-faded:focus-visible { opacity: 0.8; }
+.fd-ttile-qr {
+  position: absolute;
+  top: -6px;
+  right: -5px;
+  height: 16px;
+  padding: 0 5px;
+  border-radius: 8px;
+  background: var(--saffron, #ffb020);
+  color: #0b1220;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 16px;
+  box-shadow: 0 0 0 2px #fff;
+}
+
+/* Step 1: the menu waits, at half strength, until a table is chosen. It
+   still works — dishes tapped first wait for the table. */
+.fd-billing-layout.is-picking > .fd-menu-panel,
+.fd-billing-layout.is-picking > .fd-cat-rail { opacity: 0.55; transition: opacity 0.15s ease; }
+.fd-billing-layout.is-picking > .fd-menu-panel:hover,
+.fd-billing-layout.is-picking > .fd-cat-rail:hover { opacity: 1; }
+
+/* ── The empty order panel: seat a walk-in ─────────────────────────────── */
+.fd-tstart { display: grid; gap: 12px; padding-top: 4px; }
+.fd-tstart-lede { margin: 0; font-size: 13px; line-height: 1.5; color: #334155; }
+.fd-tstart-empty { margin: 8px 0; font-size: 13px; line-height: 1.5; color: #64748b; }
+.fd-tstart-walkin {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #bbf7d0;
+  border-radius: 12px;
+  background: #f0fdf4;
+}
+.fd-tstart-walkin > b { font-size: 13.5px; }
+.fd-tstart-guests { display: flex; align-items: center; gap: 10px; }
+.fd-tstart-guests > span { font-size: 12.5px; color: #334155; }
+.fd-tstart-seat {
+  min-height: 44px;
+  border: 0;
+  border-radius: 9px;
+  background: #16a34a;
+  color: #fff;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.fd-tstart-seat:focus-visible { outline: 2px solid #0b1220; outline-offset: 2px; }
+.fd-tstart-squeeze { font-size: 11.5px; color: #9a5a12; }
+.fd-tstart-attn { display: grid; gap: 6px; }
+.fd-tstart-attn h4 {
+  margin: 0;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+.fd-tstart-attn button {
+  min-height: 38px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: #f8fafc;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+.fd-tstart-attn button.is-bill { color: #1d4ed8; }
+.fd-tstart-attn button.is-late { color: #b42318; }
+.fd-tstart-attn button:hover { background: #eef2f6; }
+.fd-tstart-takeaway { justify-self: start; font-size: 12.5px; }
+
+/* ── Where the board sits ───────────────────────────────────────────────── */
+/* Desktop and landscape tablet: across the rail and menu, beside the order. */
+@media (min-width: 1024px) {
+  .fd-billing-layout.has-board { grid-template-rows: auto minmax(0, 1fr); }
+  .fd-billing-layout.has-board.has-rail { grid-template-areas: "board board cart" "rail menu cart"; }
+  .fd-billing-layout.has-board:not(.has-rail) { grid-template-areas: "board cart" "menu cart"; }
+  .fd-billing-layout.has-board > .fd-tboard-wrap { grid-area: board; }
+  .fd-billing-layout.has-board > .fd-cat-rail { grid-area: rail; }
+  .fd-billing-layout.has-board > .fd-menu-panel { grid-area: menu; }
+  .fd-billing-layout.has-board > .fd-cart-panel { grid-area: cart; }
+}
+
+/* Portrait tablet: the full width, over both columns. */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .fd-billing-layout.has-board.has-rail {
+    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-areas: "board board" "rail cart" "menu cart";
+  }
+  .fd-billing-layout.has-board:not(.has-rail) {
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas: "board board" "menu cart";
+  }
+  .fd-billing-layout.has-board > .fd-tboard-wrap { grid-area: board; }
+  .fd-tboard-floor { grid-template-columns: 72px minmax(0, 1fr); }
+  .fd-tboard.is-folded .fd-tboard-floors,
+  .fd-tboard.is-folded .fd-tboard-find { display: none; }
+}
+
+/* Phone: the open board comes first on the page; folded, it is one row
+   behind a "Tables" button. */
+@media (max-width: 767px) {
+  .fd-tboard { padding: 10px; }
+  .fd-tboard.is-open .fd-tboard-line { flex-wrap: wrap; row-gap: 8px; }
+  .fd-tboard.is-open .fd-tboard-meter { flex-basis: 100%; order: 3; margin-left: 0; }
+  .fd-tboard.is-open .fd-tboard-find { flex: 1; width: auto; height: 38px; }
+  .fd-tboard-counts, .fd-tboard-floors { overflow-x: auto; flex-wrap: nowrap; max-width: 100%; }
+  .fd-tboard-counts { scrollbar-width: none; }
+  .fd-tboard-body { max-height: none; overflow: visible; }
+  .fd-tboard-floor { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .fd-tboard-floor-label { display: flex; align-items: baseline; gap: 8px; padding-top: 0; }
+  .fd-tboard-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
+  .fd-tboard-tiles .fd-ttile { width: auto; height: 58px; }
+
+  .fd-tboard.is-folded { padding: 6px; gap: 0; grid-template-columns: auto minmax(0, 1fr); column-gap: 6px; }
+  .fd-tboard.is-folded > .fd-tboard-line { display: contents; }
+  .fd-tboard.is-folded .fd-tboard-steps,
+  .fd-tboard.is-folded .fd-tboard-mini,
+  .fd-tboard.is-folded .fd-tboard-gap,
+  .fd-tboard.is-folded .fd-tboard-floors,
+  .fd-tboard.is-folded .fd-tboard-find,
+  .fd-tboard.is-folded .fd-tboard-toggle { display: none; }
+  .fd-tboard-phone-open {
+    display: grid;
+    align-content: center;
+    justify-items: center;
+    gap: 1px;
+    width: 64px;
+    margin: 6px 0 2px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--ink, #0b1220);
+    color: #fff;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+  }
+  .fd-tboard-phone-open small { font-size: 10px; color: #86efac; }
+  .fd-tboard-row .fd-ttile { width: 70px; height: 48px; padding: 6px 7px 5px; }
+  .fd-tboard-arrow { width: 36px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fd-ttile, .fd-tboard-row { transition: none; scroll-behavior: auto; }
+}

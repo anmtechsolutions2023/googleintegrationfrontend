@@ -126,7 +126,7 @@ const KitchenNotePresets = ({ value = [], disabled = false, onSave }) => {
       <p className="fd-setting-desc fd-preset-foot">
         The first few show without scrolling on a phone, so put the most used at
         the top. Whether a note also prints on the guest&apos;s bill is set in
-        Receipt Format → Modifiers &amp; notes.
+        Outlet → Receipt Format → Modifiers &amp; notes.
         {!sameList(value, DEFAULT_NOTE_PRESETS) && (
           <>
             {' '}

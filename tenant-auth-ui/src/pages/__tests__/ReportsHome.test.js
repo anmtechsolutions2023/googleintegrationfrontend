@@ -51,7 +51,7 @@ describe('what a user is offered', () => {
     asUser([SCOPES.TENANT_ADMIN])
     show()
     const link = screen.getByText('Tenders (Z-report)').closest('a')
-    expect(link).toHaveAttribute('href', '/frontdesk/finance?tab=tenders')
+    expect(link).toHaveAttribute('href', '/money/overview?tab=tenders')
   })
 
   test('a cashier sees only what their scopes reach', () => {

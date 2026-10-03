@@ -284,7 +284,7 @@ const Portals = () => {
                 </div>
 
                 <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <Link className="fd-btn fd-btn-outline" to={`/frontdesk/portals/${id}/menu`}>
+                  <Link className="fd-btn fd-btn-outline" to={`/menu/channels/portals/${id}/menu`}>
                     Menu
                   </Link>
                   <button type="button" className="fd-btn fd-btn-outline" onClick={() => toggleExpand(portal)}>

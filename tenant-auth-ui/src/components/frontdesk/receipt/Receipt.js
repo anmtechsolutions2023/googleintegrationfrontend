@@ -31,8 +31,8 @@ import './receipt.css'
 // Bluetooth receipt (utils/escposReceipt) so screen and paper agree.
 
 // ── Paper primitives ─────────────────────────────────────────────────────────
-const Row = ({ label, value, strong }) => (
-  <div className={`rc-row${strong ? ' rc-strong' : ''}`}>
+const Row = ({ label, value, strong, strongValue }) => (
+  <div className={`rc-row${strong ? ' rc-strong' : ''}${strongValue ? ' rc-strong-value' : ''}`}>
     <span>{label}</span><span>{value}</span>
   </div>
 )
@@ -172,7 +172,7 @@ const Items = ({ format, lines }) => {
     if (layout === 'single_line') {
       return (
         <div className="rc-item" key={l.Id || i}>
-          <div className="rc-row">
+          <div className="rc-row rc-itemname">
             <span>{name}{shows(format, 'itemCode', code) ? ` (${code})` : ''}</span>
             <span>{money(amount)}</span>
           </div>
@@ -185,9 +185,9 @@ const Items = ({ format, lines }) => {
     }
     return (
       <div className="rc-item" key={l.Id || i}>
-        <div>{name}{shows(format, 'itemCode', code) ? ` (${code})` : ''}</div>
+        <div className="rc-itemname">{name}{shows(format, 'itemCode', code) ? ` (${code})` : ''}</div>
         <div className="rc-row rc-qty">
-          <span>{qty(q)} x {money(rate)}</span><span>{money(amount)}</span>
+          <span>{qty(q)} x {money(rate)}</span><span className="rc-amount">{money(amount)}</span>
         </div>
         <OptionLines format={format} l={l} />
         {present(format, 'itemNotes', note) && <div className="rc-qty rc-note">Note: {note}</div>}
@@ -204,7 +204,12 @@ const Items = ({ format, lines }) => {
 // ── Bill ─────────────────────────────────────────────────────────────────────
 const Bill = ({ format, shop, data }) => {
   const dateMode = choice(format, 'dateTime', 'datetime')
-  const title = data.taxMode === 'gst' ? 'TAX INVOICE' : 'BILL OF SUPPLY'
+  // A bill printed for the guest to check BEFORE they pay is not the invoice:
+  // no number has been issued and nothing is posted. It must not call itself
+  // one, or the guest holds a "tax invoice" that the books never raised.
+  const title = data.provisional
+    ? 'BILL'
+    : (data.taxMode === 'gst' ? 'TAX INVOICE' : 'BILL OF SUPPLY')
   const returned = Number(data.ReturnedAmount || 0)
 
   return (
@@ -212,6 +217,9 @@ const Bill = ({ format, shop, data }) => {
       <Head format={format} shop={shop} />
       <Rule />
       <Centre className="rc-title">{title}</Centre>
+      {data.provisional && (
+        <Centre className="rc-sub">Not a tax invoice · issued on payment</Centre>
+      )}
       {data.isReprint && <Centre className="rc-sub">** REPRINT **</Centre>}
       <Rule />
 
@@ -229,7 +237,7 @@ const Bill = ({ format, shop, data }) => {
         <Row label="Order" value={data.portalOrderNo} />
       )}
       {shows(format, 'customer', data.CustomerName || data.CustomerMobile) && (
-        <Row label="Customer" value={[data.CustomerName, data.CustomerMobile].filter(Boolean).join(' ')} />
+        <Row label="Customer" value={[data.CustomerName, data.CustomerMobile].filter(Boolean).join(' ')} strongValue />
       )}
       {shows(format, 'cashier', data.CreatedBy) && <Row label="Cashier" value={data.CreatedBy} />}
 

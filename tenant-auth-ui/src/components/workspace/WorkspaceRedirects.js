@@ -19,8 +19,8 @@ export const LegacyRedirect = () => {
 
 /**
  * Home. Mid-setup it is the home page (the only one reachable then); after
- * that it is the first workspace this person can open — Service › Today for
- * floor staff, Money for an accountant who holds nothing else.
+ * that it is the first workspace this person can open — Service › Floor › Billing &
+ * KOT for floor staff, Money for an accountant who holds nothing else.
  */
 export const HomeRedirect = ({ fallback }) => {
   const { user } = useAuth()

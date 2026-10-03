@@ -290,7 +290,7 @@ const Returns = () => {
                         <td className="fd-doc-no">{n.TransactionNo}</td>
                         <td>
                           {n.SaleId ? (
-                            <Link to={`/frontdesk/ledger?doc=${n.SaleId}`} className="fd-link">
+                            <Link to={`/money/ledger?doc=${n.SaleId}`} className="fd-link">
                               {n.SaleNo || 'View'}
                             </Link>
                           ) : <span className="muted">—</span>}
@@ -537,7 +537,7 @@ const Returns = () => {
                               <button
                                 type="button"
                                 className="fd-link-btn"
-                                onClick={() => navigate(`/frontdesk/ledger?doc=${n.SaleId}`)}
+                                onClick={() => navigate(`/money/ledger?doc=${n.SaleId}`)}
                               >
                                 {n.SaleNo || 'View invoice'}
                               </button>

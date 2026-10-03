@@ -139,7 +139,7 @@ describe('the campaign list', () => {
     expect(payload.Status).toBe('DRAFT');
     expect(payload.Code).toBe('DIWALI26');
     // …and it drops you straight into adding the offers.
-    expect(mockNavigate).toHaveBeenCalledWith('/frontdesk/campaigns/camp-2');
+    expect(mockNavigate).toHaveBeenCalledWith('/guests/offers/camp-2');
   });
 });
 
@@ -242,7 +242,7 @@ describe('campaign performance', () => {
   test('one click from a redemption to the invoice that gave it away', async () => {
     await openReport();
     fireEvent.click(screen.getByRole('button', { name: 'INV-0418' }));
-    expect(mockNavigate).toHaveBeenCalledWith('/frontdesk/ledger?doc=log-1');
+    expect(mockNavigate).toHaveBeenCalledWith('/money/ledger?doc=log-1');
   });
 });
 

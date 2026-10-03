@@ -119,7 +119,7 @@ const ImportDrawer = ({ onClose, onImported }) => {
         <div className="imp-head">
           <div>
             <h3>Import items</h3>
-            <p>Master Data → Items</p>
+            <p>Admin → Data tables → Items</p>
           </div>
           {state !== STATE.RUN && (
             <button className="imp-x" onClick={onClose} aria-label="Close">×</button>
@@ -275,7 +275,7 @@ const ImportDrawer = ({ onClose, onImported }) => {
                   <span aria-hidden="true">✓</span>
                   <span>
                     <strong>{result.menu.summary.created} published to the menu.</strong> They are on
-                    the till now. Open one in Master Data → Items to re-price it, or in Menu Master
+                    the till now. Open one in Admin → Data tables → Items to re-price it, or in Menu Master
                     to change its channels and variants — an imported item behaves exactly like one
                     typed in by hand.
                   </span>

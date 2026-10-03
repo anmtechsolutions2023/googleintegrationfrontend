@@ -136,7 +136,7 @@ const QrCodes = () => {
     return (
       <div className="fd-crud-page">
         <h1>QR Codes</h1>
-        <div className="fd-empty">Add a branch under Organization → Branch Details first.</div>
+        <div className="fd-empty">Add a branch under Outlet → Business & branches → Branches first.</div>
       </div>
     )
   }

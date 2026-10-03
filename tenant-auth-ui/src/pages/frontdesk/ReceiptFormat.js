@@ -306,7 +306,7 @@ const ReceiptFormat = () => {
           <span className="rf-mode-label">How this branch charges tax</span>
           {gstOff && (
             <span className="rf-mode-note">
-              GST is switched off in POS Settings → GST, so every branch prints a bill of
+              GST is switched off in Outlet → Tax & GST → GST Switch, so every branch prints a bill of
               supply. Change it there.
             </span>
           )}

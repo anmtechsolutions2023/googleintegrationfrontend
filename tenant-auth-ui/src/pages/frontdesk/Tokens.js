@@ -233,7 +233,7 @@ const Tokens = () => {
         <div className="fd-loading">Loading tokens...</div>
       ) : tokens.length === 0 ? (
         <div className="fd-empty">
-          No tokens issued today. Take a counter order from Billing → Counter.
+          No tokens issued today. Take a counter order from Service → Floor → Billing & KOT (Counter).
         </div>
       ) : (
         <div className="fd-table-scroll">

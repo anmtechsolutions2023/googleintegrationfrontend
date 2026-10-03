@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react'
+import React, { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { toast } from 'react-toastify'
 import posService from '../../services/posService'
 import Receipt from '../../components/frontdesk/receipt/Receipt'
@@ -6,7 +6,8 @@ import usePrintReceipt from '../../components/frontdesk/receipt/usePrintReceipt'
 import PrinterButton from '../../components/frontdesk/PrinterButton'
 import { buildKotPrintData } from '../../utils/kotPrint'
 import useMenuFilters from '../../hooks/useMenuFilters'
-import MenuFilterBar from '../../components/frontdesk/MenuFilterBar'
+import MenuFilterBar, { CategoryChips, DietChips } from '../../components/frontdesk/MenuFilterBar'
+import TableServiceEditor from '../../components/frontdesk/TableServiceEditor'
 import LineOptions, { NoteIcon } from '../../components/frontdesk/LineOptions'
 import KitchenNoteEditor from '../../components/frontdesk/KitchenNoteEditor'
 import {
@@ -14,14 +15,19 @@ import {
 } from '../../utils/lineOptions'
 import {
   effectiveTags, isAvailable, isOnSale, openLabel, categoryNameOf,
+  remainingOf, isSoldOut, isUnsetToday,
 } from '../../utils/menuFilters'
 import { APP_CONFIG, SCOPES } from '../../constants'
 import { useCan } from '../../hooks/useCan'
 import RoundsTimeline from '../../components/frontdesk/RoundsTimeline'
 import BillSummary from '../../components/frontdesk/BillSummary'
 import TransferSheet from '../../components/frontdesk/TransferSheet'
-import { tableStatusMeta } from '../../components/frontdesk/TableSelect'
-import FloorPlanPicker from '../../components/frontdesk/FloorPlanPicker'
+import TableBoard from '../../components/frontdesk/TableBoard'
+import TableStartPanel from '../../components/frontdesk/TableStartPanel'
+import { tableInfo, suggestTable } from '../../utils/tableSessions'
+import { QR_ORDER_READ_SCOPES } from '../../components/frontdesk/QrOrderAlert'
+import { useAuth } from '../../context/AuthContext'
+import { hasScope } from '../../utils/permissions'
 import CustomerPicker from '../../components/frontdesk/CustomerPicker'
 import {
   buildTableRounds, buildRoundIndex, formatRoundTime, itemLabel,
@@ -229,6 +235,38 @@ const Billing = () => {
   const [deletingRound, setDeletingRound] = useState(false)
   const [kots, setKots] = useState([])
 
+  // Guests and waiter. Before a table's first round they are only a draft —
+  // there is no order yet to write them to — and they ride on that round when
+  // it is saved. After it, the rounds themselves are the record.
+  const [waiters, setWaiters] = useState([])
+  const [serviceDraft, setServiceDraft] = useState({ guests: null, waiterId: null })
+  const [serviceEditOpen, setServiceEditOpen] = useState(false)
+  const [serviceSaving, setServiceSaving] = useState(false)
+  // The tender the cashier expects, picked in the order panel before Settle so
+  // the payment sheet opens on it. Null is "the outlet's first method".
+  const [payModeId, setPayModeId] = useState(null)
+  const [billPrinting, setBillPrinting] = useState(false)
+  const searchRef = useRef(null)
+  const cartRef = useRef(null)
+  const billingRef = useRef(null)
+  const boardFindRef = useRef(null)
+  // The table board under the search: open while no table is chosen (step 1),
+  // folded to one row once one is (step 2) unless the cashier opens it again.
+  const [boardOpen, setBoardOpen] = useState(false)
+  // The walk-in party size typed in the empty order panel. It picks the table
+  // the board suggests, and becomes the order's guests when they are seated.
+  const [walkInGuests, setWalkInGuests] = useState(2)
+  // Tables with a guest's QR order waiting for review, for the tag on the
+  // strip. Read on the same scopes as the QR inbox and refreshed on the same
+  // beat as the floor's QR banner.
+  const { user } = useAuth()
+  const canSeeQr = hasScope(user, QR_ORDER_READ_SCOPES)
+  const [qrTableIds, setQrTableIds] = useState(() => new Set())
+  // On a phone the order panel is a sheet over the menu; this is whether it is up.
+  const [sheetOpen, setSheetOpen] = useState(false)
+  // Bumped by F4 so the board's finder takes focus once the board is drawn.
+  const [findFocusTick, setFindFocusTick] = useState(0)
+
   const load = useCallback(async () => {
     setLoading(true)
     try {
@@ -240,7 +278,7 @@ const Billing = () => {
       // came back. Variants and payment modes are gated on scopes a given role
       // may not hold, and losing the whole till because the tender list was
       // refused is a worse answer than a till without that one dropdown.
-      const [t, f, m, orders, v, k, modes, ag, ao] = (await Promise.allSettled([
+      const [t, f, m, orders, v, k, modes, ag, ao, w] = (await Promise.allSettled([
         posService.getTables({ limit: MAX_LIMIT }),
         posService.getFloors({ limit: MAX_LIMIT }),
         posService.getItemMeta({ limit: MAX_LIMIT }),
@@ -250,6 +288,9 @@ const Billing = () => {
         posService.getPaymentModes(),
         posService.getAddonGroups(),
         posService.getAddons(),
+        // Inside a promise so a backend without this route — or a call that
+        // throws before it returns one — costs the waiter picker, not the till.
+        Promise.resolve().then(() => posService.getWaiters()),
       ])).map((r) => (r.status === 'fulfilled' ? r.value : null))
 
       // The menu is what the screen is FOR, so its absence is reported rather
@@ -262,6 +303,7 @@ const Billing = () => {
       setVariants(v || [])
       setAddonGroups(ag || [])
       setAddons(ao || [])
+      setWaiters(Array.isArray(w) ? w : [])
       // The tenant-wide catalogue. Only ever used before a branch is known; see
       // the derivation below.
       setPaymentCatalogue(modes || [])
@@ -328,6 +370,9 @@ const Billing = () => {
   const menuFilters = useMenuFilters(menu, nameOf)
   const filteredMenu = menuFilters.filtered
   const menuFiltered = menuFilters.isFiltered
+  // The side rail exists when it has something to hold: more than one
+  // category, or more than one food type.
+  const showRail = menuFilters.catChips.length > 2 || menuFilters.dtChips.length > 2
 
   // The till's clock, ticking. Half a minute is enough for a label that only
   // has to explain a greyed card; a per-second timer would re-render the whole
@@ -338,6 +383,38 @@ const Billing = () => {
     return () => clearInterval(t)
   }, [])
   const clockLabel = tillNow.toTimeString().slice(0, 5)
+
+  useEffect(() => {
+    if (!canSeeQr) return undefined
+    let alive = true
+    const read = () => Promise.resolve()
+      .then(() => posService.getPendingQrOrders())
+      .then((list) => {
+        if (!alive) return
+        const ids = (Array.isArray(list) ? list : []).map((o) => o.tableId || o.TableId).filter(Boolean)
+        setQrTableIds((prev) => {
+          // Same tables as before: keep the same Set, so the strip does not redraw.
+          if (prev.size === ids.length && ids.every((id) => prev.has(id))) return prev
+          return new Set(ids)
+        })
+      })
+      // A missing tag is not worth an error on a till; the QR banner still shows.
+      .catch(() => {})
+    read()
+    const t = setInterval(read, 15000)
+    return () => { alive = false; clearInterval(t) }
+  }, [canSeeQr])
+
+  // What every table is doing, for the board and the empty order panel — one
+  // reading, so the tiles, the counts and "needs attention" always agree.
+  const boardInfo = useMemo(
+    () => tableInfo(tables, activeOrders, tillNow, qrTableIds),
+    [tables, activeOrders, tillNow, qrTableIds],
+  )
+  const walkInSuggestion = useMemo(
+    () => suggestTable(boardInfo, walkInGuests),
+    [boardInfo, walkInGuests],
+  )
 
   // Variants offered by a menu row, resolved against the master for name+price.
   const variantsFor = (meta) => {
@@ -416,15 +493,14 @@ const Billing = () => {
     return null
   }
 
-  // The menu is inert until a table is chosen. Enforced here as well as in the
-  // markup: the visual lock is the explanation, this is the rule. Without it a
-  // stray keyboard activation could still build a cart with nowhere to send it.
-  const menuLocked = !selectedTable && !counterMode
+  // Dine-in with no table chosen yet. The menu is NOT locked: dishes can go in
+  // first and wait in the cart, and the order panel asks which table they are
+  // for. Nothing can be saved or sent until one is picked — Save needs a table.
+  const pickingTable = !selectedTable && !counterMode
 
-  // The selected table, for the header bar. Falls back to a neutral chip if the
-  // table has since been retired from the floor plan mid-session.
+  // The selected table, for the order panel and the print-outs. Falls back to a
+  // neutral name if the table has since been retired from the floor plan.
   const selectedTableRow = tables.find((t) => (t.id || t.Id) === selectedTable) || null
-  const selectedTableMeta = tableStatusMeta(selectedTableRow)
   const selectedTableName = selectedTableRow
     ? (selectedTableRow.Name || selectedTableRow.name)
     : 'Table'
@@ -433,7 +509,6 @@ const Billing = () => {
   // choose, in which case the sheet opens first. A dish with neither variants
   // nor groups must never cost the cashier an extra tap.
   const handleMenuClick = (meta) => {
-    if (menuLocked) { toast.warn('Pick a table or the counter before adding items'); return }
     const hasVariants = variantsFor(meta).length > 0
     const hasGroups = addonGroupsFor(meta).length > 0
     if (!hasVariants && !hasGroups) { addToCart(meta, [], []); return }
@@ -551,6 +626,13 @@ const Billing = () => {
   const [quoteFailed, setQuoteFailed] = useState(false)
 
   const subTotal = cartItems.reduce((s, c) => s + c.price * c.qty, 0)
+
+  // Quantity in the cart per menu entry, for the badge on its tile.
+  const cartQtyByMeta = useMemo(() => {
+    const out = {}
+    cartItems.forEach((c) => { out[c.id] = (out[c.id] || 0) + c.qty })
+    return out
+  }, [cartItems])
 
   // ── Offers, live ──────────────────────────────────────────────────────────
   // Debounced: a cashier adding a round taps + six times, and six round trips
@@ -791,6 +873,91 @@ const Billing = () => {
     () => summarizeSession(sessionRounds),
     [sessionRounds],
   )
+
+  const waiterNameOf = useCallback(
+    (id) => (id ? waiters.find((w) => w.Id === id)?.Name || null : null),
+    [waiters],
+  )
+
+  // Guests and waiter for the table being served. Once a round exists the
+  // rounds are the record, and the latest one that says wins: a party that
+  // grew is written on every open round, and a round placed later carries the
+  // grown number. Before the first round, the draft.
+  const sessionService = useMemo(() => {
+    if (tableRounds.length === 0) {
+      return {
+        guests: serviceDraft.guests,
+        waiterId: serviceDraft.waiterId,
+        waiterName: waiterNameOf(serviceDraft.waiterId),
+      }
+    }
+    const latestFirst = [...tableRounds].reverse().map((r) => r.order || {})
+    const g = latestFirst.find((o) => o.GuestCount != null)
+    const w = latestFirst.find((o) => o.WaiterId)
+    return {
+      guests: g ? Number(g.GuestCount) : null,
+      waiterId: w ? w.WaiterId : null,
+      waiterName: w ? (w.WaiterName || waiterNameOf(w.WaiterId)) : null,
+    }
+  }, [tableRounds, serviceDraft, waiterNameOf])
+
+  // A bill was printed and nothing has been added since: the table is waiting
+  // on payment. A round placed after printing carries no stamp, which puts the
+  // table back to running until the bill is printed again.
+  const billPrintedAt = useMemo(() => {
+    if (sessionRounds.length === 0) return null
+    const stamps = sessionRounds.map((r) => r.order?.BillPrintedAt)
+    if (stamps.some((x) => !x)) return null
+    return [...stamps].sort().slice(-1)[0]
+  }, [sessionRounds])
+
+  // F2 puts the cursor in the dish search from anywhere on the till, the key
+  // Petpooja-trained cashiers already reach for. F4 opens the table picker with
+  // its finder focused, so "F4, G1, Enter" switches tables without the mouse.
+  // Read through a ref so the listener, bound once, always calls today's
+  // handler rather than the one from the first render.
+  const onTillKey = useRef(null)
+  onTillKey.current = (e) => {
+    if (e.key === 'F2' && searchRef.current) {
+      e.preventDefault()
+      searchRef.current.focus()
+      searchRef.current.select()
+    } else if (e.key === 'F4') {
+      e.preventDefault()
+      // The board's finder, from anywhere — from takeaway too, which it
+      // leaves for dine-in. A table being served stays served until another
+      // is picked.
+      if (counterMode) handleTableChange('')
+      setFindFocusTick((n) => n + 1)
+    }
+  }
+  useEffect(() => {
+    const onKey = (e) => onTillKey.current?.(e)
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+  useEffect(() => {
+    if (findFocusTick === 0 || !boardFindRef.current) return
+    boardFindRef.current.focus()
+    boardFindRef.current.select()
+  }, [findFocusTick])
+
+  // The till fills the window below wherever it starts. It used to subtract a
+  // fixed 96px of chrome, but the workspace tabs and the Billing / Tables / QR
+  // switcher above it were never counted, so the till ran ~100px past the
+  // window and the foot of the category rail was cut off. Measured instead,
+  // so whatever sits above it is accounted for.
+  useLayoutEffect(() => {
+    const el = billingRef.current
+    if (!el) return undefined
+    const measure = () => {
+      const top = el.getBoundingClientRect().top + (window.scrollY || 0)
+      el.style.setProperty('--till-top', `${Math.max(0, Math.round(top))}px`)
+    }
+    measure()
+    window.addEventListener('resize', measure)
+    return () => window.removeEventListener('resize', measure)
+  }, [loading])
 
   // Each round's KOT status: 'pending' unless a later stage (ready/…) exists.
   // A round is only deletable while its kitchen ticket is still pending.
@@ -1070,7 +1237,9 @@ const Billing = () => {
 
     setTenders((prev) => {
       if (prev.length === 0) {
-        const first = paymentModes[0]
+        // The method picked in the order panel, if the outlet still offers it.
+        const picked = paymentModes.find((m) => (m.id || m.Id) === payModeId)
+        const first = picked || paymentModes[0]
         return [{ key: 't0', paymentModeId: first.id || first.Id, amount: payable, refNo: '', auto: true }]
       }
       // Keep a single untouched row in step with the payable — otherwise
@@ -1082,7 +1251,7 @@ const Billing = () => {
     })
     // Deliberately not keyed on `tenders`: re-seeding on every edit would fight
     // the cashier mid-entry.
-  }, [settleOpen, paymentModes, payable])
+  }, [settleOpen, paymentModes, payable, payModeId])
 
   // Picking a table targets its latest round for KOT firing / context.
   useEffect(() => {
@@ -1127,12 +1296,21 @@ const Billing = () => {
     return () => { cancelled = true }
   }, [selectedTable])
 
-  // The cart belongs to the table it was built for. Switching tables must not
-  // carry someone else's items across — that bills the wrong guest.
+  // Choosing, changing or leaving a table. Unsaved dishes are NOT cleared: they
+  // wait at the top of the table picker and go onto whichever table is picked
+  // next. That is how dishes tapped before a table was chosen reach it, and it
+  // means "Change table" can never silently throw away an order being taken.
+  // The waiting banner names them, so they cannot ride along unnoticed.
   const handleTableChange = (tableId) => {
-    if (tableId !== selectedTable && cartItems.length > 0) {
-      setCartItems([])
-      toast.info('Cart cleared — it belonged to the previous table')
+    if (tableId && tableId !== selectedTable && selectedTable && cartItems.length > 0) {
+      const n = cartItems.reduce((q, c) => q + c.qty, 0)
+      const to = tables.find((t) => (t.id || t.Id) === tableId)
+      toast.info(`${n} unsaved ${n === 1 ? 'dish' : 'dishes'} moved to ${to?.Name || to?.name || 'the new table'}`)
+    }
+    // Guests and waiter belong to the table they were typed for.
+    if (tableId !== selectedTable) {
+      setServiceDraft({ guests: null, waiterId: null })
+      setServiceEditOpen(false)
     }
     // Leaving the counter is the same kind of move: whatever was on it was for
     // the customer standing there, not for the table being opened.
@@ -1141,16 +1319,27 @@ const Billing = () => {
     setSelectedTable(tableId)
   }
 
-  // Switch the till to counter service for a NEW sale.
+  // Switch the till to counter service for a NEW sale. Unsaved dishes come
+  // along — switching how an order is sold is not starting a different one.
   const handlePickCounter = () => {
-    if (cartItems.length > 0) {
-      setCartItems([])
-      toast.info('Cart cleared — it belonged to the previous table')
-    }
     setSelectedTable('')
     setSelectedOrderId(null)
     setCounterOrderId(null)
     setCounterMode(true)
+    setServiceEditOpen(false)
+  }
+
+  // A table chosen on the board folds it back to one row: the menu is next.
+  const pickFromBoard = (tableId) => {
+    handleTableChange(tableId)
+    setBoardOpen(false)
+  }
+
+  // Seat the walk-in party at the table offered for them. Their number goes
+  // onto the order as its guests, so nobody types it twice.
+  const seatWalkIn = (tableId, guests) => {
+    pickFromBoard(tableId)
+    setServiceDraft({ guests, waiterId: null })
   }
 
   // Reopen a counter sale that was rung up but never paid for.
@@ -1224,6 +1413,10 @@ const Billing = () => {
         BranchDetailId: tableObj?.BranchDetailId || null,
         // Kept on the round until it is sent, then printed on its ticket.
         CookingInstructions: orderNote.trim() || null,
+        // Every round carries the table's guests and waiter, so a round moved
+        // to another table takes them along. Left out when nobody said.
+        ...(sessionService.guests != null ? { GuestCount: sessionService.guests } : {}),
+        ...(sessionService.waiterId ? { WaiterId: sessionService.waiterId } : {}),
       })
       const orderId = order.id || order.Id
       if (isFirst) {
@@ -1240,6 +1433,8 @@ const Billing = () => {
       resetKitchenNotes()
       setSelectedOrderId(orderId)
       await load()
+      // The round is the record now; the draft has done its job.
+      if (isFirst) setServiceDraft({ guests: null, waiterId: null })
     } catch (e) {
       toast.error(e?.response?.data?.message || 'Failed to add round')
     }
@@ -1364,6 +1559,7 @@ const Billing = () => {
             kot,
             round,
             tableName: selectedTableName,
+            waiter: sessionService.waiterName,
             orderInstructions: round?.order?.CookingInstructions || null,
             noCutlery: round?.order?.NoCutlery,
           }))
@@ -1372,6 +1568,149 @@ const Billing = () => {
       load()
     } catch (e) {
       toast.error(e?.response?.data?.message || 'Failed to send to the kitchen')
+    }
+  }
+
+  // Guests and waiter, from the editor in the order panel's header. Before the
+  // first round there is nothing to write to, so it is kept as the draft that
+  // round will carry; after it, every open round is updated at once.
+  const saveServiceDetails = async ({ guests, waiterId }) => {
+    const changes = {}
+    if (guests !== sessionService.guests) changes.GuestCount = guests
+    if ((waiterId || null) !== (sessionService.waiterId || null)) changes.WaiterId = waiterId
+    if (Object.keys(changes).length === 0) { setServiceEditOpen(false); return }
+
+    if (tableRounds.length === 0) {
+      setServiceDraft({ guests, waiterId })
+      setServiceEditOpen(false)
+      return
+    }
+
+    const orderIds = tableRounds.map((r) => r.orderId)
+    setServiceSaving(true)
+    try {
+      const res = await Promise.resolve().then(
+        () => posService.setOrderServiceDetails({ orderIds, ...changes }),
+      )
+      // Reflected in place rather than by a reload: nothing else on the table
+      // changed, and a reload would redraw the whole till for two fields.
+      const ids = new Set(orderIds)
+      setActiveOrders((prev) => prev.map((o) => (
+        ids.has(o.id || o.Id)
+          ? {
+            ...o,
+            ...('GuestCount' in changes ? { GuestCount: changes.GuestCount } : {}),
+            ...('WaiterId' in changes
+              ? { WaiterId: changes.WaiterId, WaiterName: res?.WaiterName ?? waiterNameOf(changes.WaiterId) }
+              : {}),
+          }
+          : o
+      )))
+      setServiceEditOpen(false)
+      toast.success(`${selectedTableName} updated`)
+    } catch (e) {
+      toast.error(e?.response?.data?.message || 'Could not update guests and waiter')
+    } finally {
+      setServiceSaving(false)
+    }
+  }
+
+  /**
+   * Print the bill for the guest to check, BEFORE they pay.
+   *
+   * Not the invoice. No number is issued and nothing is posted: the invoice is
+   * raised on settlement, and a guest who asks for one more coffee after reading
+   * this must still be able to have it. So the paper says so.
+   *
+   * Priced by the server exactly as Settle will price it — the same lines, the
+   * same campaign offers folded in — so the figure the guest checks is the
+   * figure they are then asked for. Falls back to the stored round snapshots
+   * when nothing on the table can be re-quoted.
+   */
+  const printProvisionalBill = async () => {
+    if (sessionRounds.length === 0) return
+    setBillPrinting(true)
+    try {
+      let doc = null
+      if (settleLines.length > 0) {
+        try {
+          const offers = await Promise.resolve()
+            .then(() => posService.previewOffers(settleOfferLines, activeBranchId, customer?.Id || null))
+            .catch(() => null)
+          const fromOffers = offers?.lineDiscounts || {}
+          const lines = settleLines.map((l) => (l.discount ? l : { ...l, discount: fromOffers[l.ref] || null }))
+          const q = await posService.quotePricing(lines)
+          const qtyByRef = new Map(lines.map((l) => [l.ref, l.quantity]))
+          const t = q?.totals || {}
+          const { payable: total, roundOff } = roundPayable(Number(t.grossAmount) || 0)
+          doc = {
+            Lines: (q?.lines || []).map((l) => {
+              const quantity = Number(l.quantity ?? qtyByRef.get(l.ref) ?? 1) || 1
+              const gross = Number(l.grossAmount) || 0
+              return {
+                ItemName: settleLineLabels[l.ref] || 'Item',
+                Quantity: quantity,
+                UnitPrice: Number(l.unitAmount ?? gross / quantity) || 0,
+                GrossAmount: gross,
+                variants: l.variants,
+                addons: l.addons,
+              }
+            }),
+            NetAmount: Number(t.netAmount) || 0,
+            DiscountAmount: Number(t.discountAmount) || 0,
+            TaxAmount: t.taxCharged === false ? 0 : Number(t.taxAmount) || 0,
+            TaxByComponent: t.taxCharged === false ? [] : (t.taxByComponent || []),
+            RoundOff: roundOff,
+            GrossAmount: total,
+          }
+        } catch {
+          doc = null
+        }
+      }
+      if (!doc) {
+        const { payable: total, roundOff } = roundPayable(sessionSummary.total)
+        doc = {
+          Lines: sessionSummary.items.map((i) => ({
+            ItemName: i.name,
+            Quantity: i.qty,
+            UnitPrice: i.qty ? i.gross / i.qty : i.gross,
+            GrossAmount: i.gross,
+            variants: i.line?.variants,
+            addons: i.line?.addons,
+          })),
+          NetAmount: sessionSummary.subTotal,
+          TaxAmount: sessionSummary.tax,
+          TaxByComponent: sessionSummary.taxByComponent,
+          RoundOff: roundOff,
+          GrossAmount: total,
+        }
+      }
+
+      print('bill', {
+        ...doc,
+        provisional: true,
+        taxMode,
+        TransactionDate: new Date().toISOString(),
+        tableName: counterMode ? null : selectedTableName,
+        waiter: sessionService.waiterName,
+        CustomerName: customer?.Name || customer?.name || null,
+        CustomerMobile: customer?.Phone || null,
+      })
+
+      // The stamp is what turns the table "waiting on payment" on the floor
+      // plan. The paper is already out, so a failed stamp is reported rather
+      // than treated as a failed print.
+      const orderIds = sessionRounds.map((r) => r.orderId)
+      try {
+        const res = await Promise.resolve().then(() => posService.markBillPrinted(orderIds))
+        const at = res?.BillPrintedAt || new Date().toISOString()
+        const ids = new Set(orderIds)
+        setActiveOrders((prev) => prev.map((o) => (ids.has(o.id || o.Id) ? { ...o, BillPrintedAt: at } : o)))
+      } catch {
+        toast.warn('Bill printed, but the table could not be marked as waiting on payment')
+      }
+    } finally {
+      setBillPrinting(false)
     }
   }
 
@@ -1580,80 +1919,198 @@ const Billing = () => {
     itemCount: settledInvoice.itemCount,
   })
 
+  // ── What the order panel says about where this table stands ──────────────
+  const nextRound = sessionRounds.length + 1
+  const roundPill = (() => {
+    if (counterMode) {
+      return sessionRounds.length > 0
+        ? { tone: 'is-wait', label: 'Unpaid' }
+        : { tone: 'is-new', label: 'New sale' }
+    }
+    if (pickingTable) return { tone: 'is-new', label: 'Dine-in' }
+    if (cartItems.length > 0) return { tone: 'is-draft', label: `Round ${nextRound} · not saved` }
+    if (sessionRounds.length === 0) return { tone: 'is-new', label: 'New order' }
+    if (billPrintedAt) {
+      const at = formatRoundTime(billPrintedAt)
+      return { tone: 'is-printed', label: `Bill printed${at ? ` ${at}` : ''}` }
+    }
+    const round = selectedRound || sessionRounds[sessionRounds.length - 1]
+    return isRoundSent(round)
+      ? { tone: 'is-sent', label: `Round ${round.round} · in kitchen` }
+      : { tone: 'is-draft', label: `Round ${round.round} · not sent` }
+  })()
+
+  const serviceSummary = [
+    sessionService.guests
+      ? `${sessionService.guests} ${sessionService.guests === 1 ? 'guest' : 'guests'}`
+      : 'Guests not set',
+    sessionService.waiterName ? `Waiter: ${sessionService.waiterName}` : 'No waiter',
+  ].join(' · ')
+
+  // The next thing to press, in words — so a greyed button is never the only
+  // explanation of why nothing happens.
+  const nextStepHint = (() => {
+    if (pickingTable) {
+      return cartItems.length > 0
+        ? 'Tap a table to put these dishes on it.'
+        : 'Tap a table to start, or tap dishes first.'
+    }
+    if (counterMode) return null
+    if (cartItems.length > 0) {
+      return canTakeOrders
+        ? `Save puts these on Round ${nextRound}. KOT then sends it to the kitchen.`
+        : null
+    }
+    if (sessionRounds.length === 0) return 'Tap dishes to start Round 1.'
+    if (selectedRound && !selectedSent) {
+      return `Round ${selectedRound.round} is saved but not in the kitchen yet. Press KOT to send it.`
+    }
+    if (billPrintedAt) return 'Bill printed. Settle when the guest pays.'
+    return 'Add dishes for another round, or print the bill when the guest asks.'
+  })()
+
+  const dineActionCount = [
+    canTakeOrders, canTakeOrders, canTakeOrders || canTakeMoney, canTakeMoney,
+  ].filter(Boolean).length || 1
+
+  const expectedModeId = paymentModes.some((m) => (m.id || m.Id) === payModeId)
+    ? payModeId
+    : (paymentModes[0] ? (paymentModes[0].id || paymentModes[0].Id) : null)
+  const showPayModes = canTakeMoney && !settleOpen && paymentModes.length > 1
+    && (sessionRounds.length > 0 || (counterMode && cartItems.length > 0))
+
+  // Counter sales rung up but never paid for. They used to be reachable only
+  // from the full-screen floor plan; now they are listed where a takeaway is
+  // taken, and counted on the Takeaway switch so a dine-in cashier sees them.
+  const unpaidCounterOrders = activeOrders
+    .filter((o) => !(o.TableId || o.tableId))
+    .filter((o) => !/closed|settled|cancelled/i.test(String(o.Status || o.status || '')))
+    .sort((a, b) => new Date(b.CreatedOn || 0) - new Date(a.CreatedOn || 0))
+
+  const showBoard = !counterMode && tables.length > 0
+
+  // ── The phone's bottom bar ─────────────────────────────────────────────────
+  // On a phone the order panel is a sheet. This bar is always in reach: what is
+  // waiting, for which table, and the button that brings the sheet up. Hidden
+  // on wider screens by CSS.
+  const cartCount = cartItems.reduce((n, c) => n + c.qty, 0)
+  const itemsLabel = `${cartCount} ${cartCount === 1 ? 'item' : 'items'}`
+  const barTitle = (() => {
+    if (pickingTable) return cartCount > 0 ? `${itemsLabel} · ₹${money(grandTotal)}` : 'Dine-in'
+    if (counterMode) return cartCount > 0 ? `${itemsLabel} · ₹${money(grandTotal)}` : 'Takeaway'
+    return `${selectedTableName} · Round ${nextRound}${cartCount > 0 ? ` · ${itemsLabel}` : ''}`
+  })()
+  const barDetail = (() => {
+    if (pickingTable) return 'No table yet'
+    if (counterMode) return roundPill.label
+    if (cartCount > 0) {
+      return `₹${money(grandTotal)} to save · table ₹${money(sessionSummary.total + grandTotal)}`
+    }
+    return sessionRounds.length > 0 ? `Table ₹${money(sessionSummary.total)}` : roundPill.label
+  })()
+
   return (
-    <div className="fd-billing">
-      {/* One bar, always in the same place: what this screen is, which table is
-          being served, and how to leave it. When nothing is selected the bar is
-          just the title — there is nothing to say yet. */}
-      <div className="fd-billing-bar">
-        <h1>🧾 Billing &amp; KOT</h1>
-        <PrinterButton />
-        {selectedTable && (
-          <div className="fd-billing-bar-table">
-            <span className={`fd-table-chip ${selectedTableMeta.key}`}>
-              <i className="dot" aria-hidden="true" />
-              <span className="name">{selectedTableName}</span>
-              {sessionRounds.length > 0 && (
-                <span className="rounds">
-                  Round {sessionRounds.length} · ₹{money(sessionSummary.total)}
-                </span>
-              )}
-            </span>
-            <button
-              type="button"
-              className="fd-btn fd-btn-outline fd-btn-sm"
-              onClick={() => handleTableChange('')}
-            >
-              Change table
-            </button>
-          </div>
-        )}
-        {counterMode && (
-          <div className="fd-billing-bar-table">
-            <span className="fd-table-chip free">
-              <i className="dot" aria-hidden="true" />
-              <span className="name">🎫 Counter</span>
-              <span className="rounds">Takeaway · pay first</span>
-            </span>
-            <button
-              type="button"
-              className="fd-btn fd-btn-outline fd-btn-sm"
-              onClick={() => handleTableChange('')}
-            >
-              Back to floor plan
-            </button>
-          </div>
-        )}
+    <div className="fd-billing" ref={billingRef}>
+      {/* ONE toolbar for the whole till: find a dish, how it is being sold,
+          who it is for, and the time the menu is being read against. It
+          replaces a page heading, a card heading and a clock that each took a
+          row of their own above the menu. */}
+      <div className="fd-till-bar">
+        <input
+          ref={searchRef}
+          type="search"
+          className="fd-till-search"
+          placeholder="Search dishes, cuisines, courses..."
+          aria-label="Search the menu"
+          title="Search the menu (F2)"
+          value={menuFilters.state.query}
+          onChange={(e) => menuFilters.setQuery(e.target.value)}
+        />
+
+        {/* How this order is being sold. Both open the same screen; only the
+            order panel differs — a table for dine-in, the counter for takeaway.
+            Unpaid counter sales are counted on Takeaway so a cashier serving
+            tables still sees money waiting at the counter. */}
+        <div className="fd-seg" role="group" aria-label="Order type">
+          <button
+            type="button"
+            aria-pressed={!counterMode}
+            className={!counterMode ? 'is-on' : ''}
+            onClick={() => { if (counterMode) handleTableChange('') }}
+            title="Dine-in (F4 picks a table)"
+          >
+            Dine-in
+          </button>
+          <button
+            type="button"
+            aria-pressed={counterMode}
+            aria-label={`Counter takeaway${unpaidCounterOrders.length ? `, ${unpaidCounterOrders.length} unpaid` : ''}`}
+            className={counterMode ? 'is-on' : ''}
+            onClick={() => { if (!counterMode) handlePickCounter() }}
+          >
+            Takeaway
+            {unpaidCounterOrders.length > 0 && (
+              <span className="fd-seg-count" aria-hidden="true">{unpaidCounterOrders.length}</span>
+            )}
+          </button>
+        </div>
+
+        {/* Which table is being served is said by the table board below, so
+            the toolbar no longer repeats it. */}
+
+        <span className="fd-till-tail">
+          {/* The till's clock. The menu depends on the time — a greyed card
+              and "Opens 07:00" have nothing to be read against without it.
+              Local to this device: a till standing in the outlet reads the
+              outlet's time. */}
+          <span className="fd-menu-clock" title="Used by the kitchen schedule">
+            {clockLabel}
+          </span>
+          <PrinterButton />
+        </span>
       </div>
 
-      {/* Choosing a table IS the first screen, not an empty state pointing at a
-          control elsewhere. One tap instead of open-list-then-pick, and the room
-          answers "who is free / who is running / how big is their bill" while
-          you look at it. */}
-      {menuLocked ? (
-        <FloorPlanPicker
-          floors={floors}
-          tables={tables}
-          orders={activeOrders}
-          onPick={handleTableChange}
-          onPickCounter={handlePickCounter}
-          onPickCounterOrder={handleResumeCounter}
-        />
-      ) : (
-      <div className="fd-billing-layout">
-        <div className="fd-menu-panel">
-          <div className="fd-menu-panel-head">
-            <span className="fd-menu-panel-title">Menu Items</span>
-            {/* The till's clock. Here because the menu now depends on the time:
-                without it a greyed card is a mystery, and "Opens 07:00" has
-                nothing to be read against. Local to this device — a till
-                standing in the outlet reads the outlet's time. */}
-            <span className="fd-menu-clock" title="Used by the kitchen schedule">
-              {clockLabel}
-            </span>
+      {/* ONE layout for dine-in and takeaway. Dine-in used to open on a
+          full-screen floor plan and only then show the till, so the screen
+          jumped every time a cashier switched between the two. Now the menu is
+          always here and only the order panel changes: it picks the table, then
+          becomes that table's order. */}
+      <div className={`fd-billing-layout${showRail ? ' has-rail' : ''}${showBoard ? ' has-board' : ''}${pickingTable && showBoard ? ' is-picking' : ''}`}>
+        {/* THE TABLE BOARD, under the dish search: table first, then dishes.
+            Open in step 1 — every table, with how many are free, occupied,
+            waiting on a bill or reserved — and folded to one row once a table
+            is being served, so the menu gets the room back. */}
+        {showBoard && (
+          <div className="fd-tboard-wrap">
+            <TableBoard
+              info={boardInfo}
+              floors={floors}
+              selectedTableId={selectedTable}
+              open={pickingTable || boardOpen}
+              onToggle={setBoardOpen}
+              onPick={pickFromBoard}
+              suggestId={pickingTable ? walkInSuggestion?.table.id : null}
+              suggestGuests={walkInGuests}
+              findRef={boardFindRef}
+            />
           </div>
-          {/* Search, category, diet and tags — the same panel Menu Master uses. */}
-          <MenuFilterBar filters={menuFilters} menu={menu} />
+        )}
+        {/* CATEGORIES DOWN THE SIDE, the way every Indian till lays them out.
+            A rail holds twenty sections without wrapping or scrolling them out
+            of sight, and it gives the menu back the rows the chips took. Diet
+            sits at its foot: a second axis, used less. On a phone the rail
+            folds back into a row of chips above the dishes. */}
+        {showRail && (
+          <nav className="fd-cat-rail" aria-label="Menu sections">
+            <CategoryChips filters={menuFilters} className="is-rail" />
+            <DietChips filters={menuFilters} menu={menu} className="is-rail" />
+          </nav>
+        )}
+
+        <div className="fd-menu-panel">
+          {/* What else the search matched, the filters in force, and tags —
+              the search box itself is in the toolbar, the rest in the rail. */}
+          <MenuFilterBar filters={menuFilters} menu={menu} hideSearch hideCategories hideDiets />
 
           {filteredMenu.length === 0 ? (
             <div className="fd-empty">
@@ -1689,21 +2146,35 @@ const Billing = () => {
                 const onSale = isOnSale(meta)
                 const backAt = openLabel(meta)
                 const tags = effectiveTags(meta)
-                const refuse = () => toast.info(onSale
-                  ? `${name} is off the menu right now${backAt ? ` — ${backAt.toLowerCase()}` : ''}.`
-                  : `${name} is not on sale. Turn it on in Menu Master.`)
+                // Today's portion count, where the dish keeps one. `left` is
+                // null for an untracked dish, which is most of the menu.
+                const left = remainingOf(meta)
+                const refuse = () => {
+                  if (!onSale) {
+                    toast.info(`${name} is not on sale. Turn it on in Menu Master.`)
+                  } else if (isSoldOut(meta)) {
+                    toast.info(`${name} is sold out. Add more under Today's Counts.`)
+                  } else if (isUnsetToday(meta)) {
+                    toast.info(`${name} has no count for today. Set one under Today's Counts.`)
+                  } else {
+                    toast.info(`${name} is off the menu right now${backAt ? ` — ${backAt.toLowerCase()}` : ''}.`)
+                  }
+                }
+                // How many of this dish are already in the cart, across every
+                // line it is on (one plain, one "less spicy" — still two).
+                const inCart = cartQtyByMeta[id] || 0
+                const excl = itemTaxRate(meta) > 0 && !meta?.TaxBreakdown?.isTaxIncluded
                 return (
                   <div
                     key={id}
-                    className={`fd-menu-item-card${onMenu ? '' : ' is-unavailable'}${onSale ? '' : ' is-off'}`}
+                    className={`fd-menu-item-card${onMenu ? '' : ' is-unavailable'}${onSale ? '' : ' is-off'}${inCart ? ' in-cart' : ''}`}
                     role="button"
                     tabIndex={0}
                     aria-disabled={!onMenu}
                     // A real name, rather than whatever the card's text nodes
-                    // concatenate to — which is now the veg badge, the tags and
-                    // the tax flag run together. Availability belongs in it:
-                    // aria-disabled says a control is inert, not why.
-                    aria-label={`${name || 'Unnamed item'}, ₹${money(price)}${onMenu ? '' : `, ${backAt}`}`}
+                    // concatenate to. Availability belongs in it: aria-disabled
+                    // says a control is inert, not why.
+                    aria-label={`${name || 'Unnamed item'}, ₹${money(price)}${inCart ? `, ${inCart} in this order` : ''}${onMenu ? '' : `, ${backAt}`}`}
                     onClick={() => (onMenu ? handleMenuClick(meta) : refuse())}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
@@ -1712,27 +2183,42 @@ const Billing = () => {
                       }
                     }}
                   >
+                    {inCart > 0 && <span className="fd-tile-qty" aria-hidden="true">{inCart}</span>}
+                    {/* The FSSAI square: green dot veg, red triangle non-veg.
+                        Staff read the mark, not the word, and it costs a corner
+                        rather than a line. The food type is its tooltip. */}
                     {meta.FoodTypeName && (
-                      <span className={`food-type-badge ${isVeg ? 'veg' : 'nonveg'}`}>
-                        {meta.FoodTypeName}
-                      </span>
+                      <span
+                        className={`fd-diet-mark ${isVeg ? 'is-veg' : 'is-nonveg'}`}
+                        title={meta.FoodTypeName}
+                        aria-hidden="true"
+                      />
                     )}
                     <div className="item-name">{name || '(unnamed)'}</div>
                     {price > 0 && (
                       <div className="item-price">
                         ₹{money(price)}
-                        {/* Whether the printed price already contains tax, and
-                            at what rate. Colour-coded so staff can tell at a
-                            glance whether the total will grow at the till. */}
-                        {itemTaxRate(meta) > 0 && (
-                          <span className={`tax-flag ${meta?.TaxBreakdown?.isTaxIncluded ? 'incl' : 'excl'}`}>
-                            {meta?.TaxBreakdown?.isTaxIncluded
-                              ? `incl. ${itemTaxRate(meta)}% tax`
-                              : `+ ${itemTaxRate(meta)}% tax`}
-                          </span>
+                        {/* Only a price that GROWS at the till is flagged. An
+                            inclusive price is what the guest pays, so it needs
+                            no label; the tax shows once, in the order totals. */}
+                        {excl && (
+                          <span className="tax-flag excl">+ {itemTaxRate(meta)}% tax</span>
                         )}
                       </div>
                     )}
+                    {/* ONE status line. Unavailable says why (sold out, no count
+                        today, off sale, opens later); otherwise a counted dish
+                        says how many are left. Two lines for one fact read as
+                        two problems. */}
+                    {!onMenu && backAt ? (
+                      <div className={`fd-item-window${onSale ? '' : ' is-off'}${isSoldOut(meta) ? ' is-out' : ''}`}>
+                        {backAt}
+                      </div>
+                    ) : (onMenu && left !== null && (
+                      <div className={`fd-item-left${left > 0 && left <= 3 ? ' is-low' : ''}`}>
+                        {left} left
+                      </div>
+                    ))}
                     {tags.length > 0 && (
                       <div className="fd-item-tags">
                         {tags.map((t) => (
@@ -1747,9 +2233,6 @@ const Billing = () => {
                           </span>
                         ))}
                       </div>
-                    )}
-                    {!onMenu && backAt && (
-                      <div className={`fd-item-window${onSale ? '' : ' is-off'}`}>{backAt}</div>
                     )}
                     {/* Says whether the next tap opens a sheet, and whether it
                         can be dismissed. A required group changes the wording:
@@ -1774,9 +2257,96 @@ const Billing = () => {
 
         {/* Cart / order panel — the till's working surface. Scrolls internally
             so the totals and actions stay pinned no matter how long the order
-            gets. The table lives in the header bar now, not here. */}
-        <div className="fd-cart-panel">
+            gets. */}
+        <div className={`fd-cart-panel${sheetOpen ? ' is-sheet-open' : ''}`} ref={cartRef}>
+          {/* WHO AND WHERE, pinned above the scroll: the table, where its
+              order stands, and the guests and waiter on it. Everything a
+              Petpooja order header answers before the first line. */}
+          <div className="fd-cart-head">
+            <div className="fd-cart-head-top">
+              <strong className="fd-cart-head-name">
+                {pickingTable
+                  ? 'No table yet'
+                  : (counterMode ? 'Counter' : `Table ${selectedTableName}`)}
+              </strong>
+              <span className={`fd-round-pill ${roundPill.tone}`}>{roundPill.label}</span>
+              {/* Phone only (CSS): the sheet's way down. */}
+              <button
+                type="button"
+                className="fd-sheet-close"
+                onClick={() => setSheetOpen(false)}
+                aria-label="Close the order panel"
+              >
+                ✕
+              </button>
+            </div>
+            {/* Dishes tapped before a table was picked. Named, with their
+                value, so they cannot ride onto a table unnoticed. */}
+            {pickingTable && cartItems.length > 0 && (
+              <div className="fd-waiting" role="status">
+                <span>
+                  {cartCount} {cartCount === 1 ? 'dish' : 'dishes'} waiting for a table
+                </span>
+                <span className="fd-waiting-amt">₹{money(grandTotal)}</span>
+                <button
+                  type="button"
+                  className="fd-link-btn"
+                  onClick={() => { setCartItems([]); resetKitchenNotes() }}
+                >
+                  Clear
+                </button>
+              </div>
+            )}
+            {counterMode && (
+              <div className="fd-cart-head-meta">Takeaway · pay first, token on payment</div>
+            )}
+            {selectedTable && !serviceEditOpen && (
+              <div className="fd-cart-head-meta">
+                <span>Dine-in</span>
+                {canTakeOrders ? (
+                  <button
+                    type="button"
+                    className="fd-head-field"
+                    onClick={() => setServiceEditOpen(true)}
+                    aria-label={`Guests and waiter: ${serviceSummary}. Change`}
+                  >
+                    {serviceSummary}
+                    <span className="fd-head-field-edit" aria-hidden="true">Edit</span>
+                  </button>
+                ) : (
+                  <span>{serviceSummary}</span>
+                )}
+              </div>
+            )}
+            {selectedTable && serviceEditOpen && (
+              <TableServiceEditor
+                guests={sessionService.guests}
+                waiterId={sessionService.waiterId}
+                waiters={waiters}
+                // A fresh table has no cart or round to say which outlet it is
+                // at yet; the table itself does.
+                branchId={activeBranchId || selectedTableRow?.BranchDetailId || null}
+                capacity={Number(selectedTableRow?.Capacity || selectedTableRow?.capacity) || null}
+                busy={serviceSaving}
+                onSave={saveServiceDetails}
+                onCancel={() => setServiceEditOpen(false)}
+              />
+            )}
+          </div>
+
           <div className="fd-cart-scroll">
+          {pickingTable ? (
+            <TableStartPanel
+              info={boardInfo}
+              floors={floors}
+              guests={walkInGuests}
+              onGuests={setWalkInGuests}
+              onSeat={seatWalkIn}
+              onPick={pickFromBoard}
+              onTakeaway={handlePickCounter}
+            />
+          ) : (
+          <>
 
           {/* Resuming an occupied table is a state change worth announcing —
               the items below are someone else's order, not a fresh one. */}
@@ -1835,11 +2405,42 @@ const Billing = () => {
                     grand total with its CGST/SGST breakup. */}
                 <BillSummary rounds={sessionRounds} />
               </div>
-            ) : (
-              <div className="fd-empty" style={{ padding: '10px 0' }}>
-                No active order — the next items will start Round 1.
+            ) : null
+          )}
+
+          {/* Counter sales rung up and not paid for, one tap from being settled.
+              Shown while no sale is open, so they never sit under a cart being
+              built for the next customer. */}
+          {counterMode && !counterOrderId && cartItems.length === 0 && unpaidCounterOrders.length > 0 && (
+            <section className="fd-unpaid" aria-label="Unpaid counter sales">
+              <h4 className="fd-tpick-sect">
+                <span>Unpaid counter sales</span>
+                <em>{unpaidCounterOrders.length}</em>
+              </h4>
+              <div className="fd-unpaid-list">
+                {unpaidCounterOrders.map((o) => {
+                  const id = o.Id || o.id
+                  const no = o.OrderNo || o.orderNo || 'Order'
+                  const status = String(o.Status || o.status || 'open').toLowerCase()
+                  const placed = formatRoundTime(o.CreatedOn)
+                  return (
+                    <button
+                      type="button"
+                      key={id}
+                      className="fd-unpaid-row"
+                      onClick={() => handleResumeCounter(id)}
+                      aria-label={`${no}, takeaway, ${status}, ₹${money(o.Total)} unpaid${
+                        placed ? `, placed ${placed}` : ''
+                      }. Open it to take payment.`}
+                    >
+                      <span className="no">{no}</span>
+                      <span className="st">{status === 'fired' ? 'In kitchen' : 'Unpaid'}{placed ? ` · ${placed}` : ''}</span>
+                      <span className="amt">₹{money(o.Total)}</span>
+                    </button>
+                  )
+                })}
               </div>
-            )
+            </section>
           )}
 
           {/* Who this is for. Above the cart because it is asked at the start
@@ -2012,6 +2613,8 @@ const Billing = () => {
             </div>
           )}
 
+          </>
+          )}
           </div>{/* /fd-cart-scroll */}
 
           {/* Actions are PINNED below the scroll area and ranked, rather than
@@ -2019,6 +2622,31 @@ const Billing = () => {
               of them every time; one obvious next step and a row of follow-ups
               can be hit without looking. */}
           <div className="fd-cart-actions">
+            {/* HOW THEY WILL PAY, chosen before Settle so the payment sheet
+                opens on it — Petpooja's Cash / Card / UPI row. The outlet's own
+                methods, nothing else. Hidden while that sheet is open: it has
+                the same choice, and two sets of the same radios is one too
+                many. */}
+            {showPayModes && (
+              <div className="fd-paymode-row" role="radiogroup" aria-label="Expected payment method">
+                {paymentModes.map((m) => {
+                  const mid = m.id || m.Id
+                  const on = expectedModeId === mid
+                  return (
+                    <label key={mid} className={`fd-paymode${on ? ' is-on' : ''}`}>
+                      <input
+                        type="radio"
+                        name="fd-expected-paymode"
+                        checked={on}
+                        onChange={() => setPayModeId(mid)}
+                      />
+                      {m.Type || m.type}
+                    </label>
+                  )
+                })}
+              </div>
+            )}
+
             {/* Counter service collapses order → kitchen → payment into one
                 press. There is no second visit to add a round to, and the food
                 is being made now, so nothing is left for the cashier to
@@ -2058,61 +2686,88 @@ const Billing = () => {
               </>
             ) : (
               <>
-                {canTakeOrders && (
-                  <button
-                    className="fd-btn fd-btn-primary fd-btn-lg"
-                    onClick={handleAddRound}
-                    disabled={!selectedTable || cartItems.length === 0}
-                  >
-                    {sessionRounds.length > 0 ? `Add Round ${sessionRounds.length + 1}` : 'Start Order'}
-                  </button>
-                )}
-
-                <div className="fd-cart-actions-row">
-                  {/* Send-once on the server, so this stays enabled: pressing it on a
-                      round that is already cooking reports that rather than
+                {/* Four steps, left to right, in the order a table goes through
+                    them: save the round, send it to the kitchen, print the bill
+                    for the guest, settle. Each says what it acts on underneath,
+                    so a cashier never has to wonder which round KOT will send. */}
+                <div
+                  className="fd-cart-actions-grid"
+                  style={{ gridTemplateColumns: `repeat(${dineActionCount}, minmax(0, 1fr))` }}
+                >
+                  {canTakeOrders && (
+                    <button
+                      className="fd-btn fd-btn-primary fd-act"
+                      onClick={handleAddRound}
+                      disabled={!selectedTable || cartItems.length === 0}
+                      aria-label={`Save Round ${sessionRounds.length + 1}`}
+                      title="Saves the cart as a round. It is not sent to the kitchen until you press KOT."
+                    >
+                      <span>Save</span>
+                      <small>Round {sessionRounds.length + 1}</small>
+                    </button>
+                  )}
+                  {/* Send-once on the server, so this stays enabled: pressing it
+                      on a round that is already cooking reports that rather than
                       duplicating the ticket. */}
                   {canTakeOrders && (
                     <button
-                      className="fd-btn fd-btn-warning"
+                      className="fd-btn fd-btn-warning fd-act"
                       onClick={handleSendKot}
                       disabled={!selectedOrderId}
+                      aria-label={selectedSent ? 'Sent to the kitchen' : 'Send KOT'}
                       title={selectedSent
                         ? 'This round is already in the kitchen'
                         : 'Send this round to the kitchen'}
                     >
-                      {selectedSent ? 'Sent ✓' : 'Send KOT'}
+                      <span>{selectedSent ? 'Sent ✓' : 'KOT'}</span>
+                      <small>{selectedRound ? `Round ${selectedRound.round}` : 'Save first'}</small>
                     </button>
                   )}
-                  {/* The safety net: what the campaigns would do to this cart,
-                      before anybody takes money. */}
-                  {cartItems.length > 0 && (
+                  {(canTakeOrders || canTakeMoney) && (
                     <button
-                      className="fd-btn fd-btn-outline"
-                      onClick={checkOffers}
-                      disabled={checkingOffers}
+                      className="fd-btn fd-btn-outline fd-act"
+                      onClick={printProvisionalBill}
+                      disabled={sessionRounds.length === 0 || billPrinting}
+                      aria-label="Print bill"
+                      title="Prints the bill for the guest to check. The tax invoice is issued when it is settled."
                     >
-                      {checkingOffers ? 'Checking…' : '🎁 Check offers'}
+                      <span>{billPrinting ? 'Printing…' : 'Print bill'}</span>
+                      <small>{billPrintedAt ? 'Print again' : 'Before payment'}</small>
                     </button>
                   )}
                   {canTakeMoney && (
                     <button
-                      className="fd-btn fd-btn-success"
+                      className="fd-btn fd-btn-success fd-act"
                       onClick={() => setSettleOpen(true)}
                       disabled={sessionRounds.length === 0}
+                      aria-label="Settle bill"
                     >
-                      Settle Bill
+                      <span>Settle</span>
+                      <small>{`₹${money(sessionSummary.total)} due`}</small>
                     </button>
                   )}
                 </div>
+                {nextStepHint && <p className="fd-cart-hint">{nextStepHint}</p>}
               </>
             )}
 
             {/* Rarely used and never urgent, so it stays out of the way of the
                 two buttons a cashier presses all shift. */}
             <div className="fd-cart-actions-minor">
+              {/* The safety net: what the campaigns would do to this cart,
+                  before anybody takes money. */}
+              {!counterMode && cartItems.length > 0 && (
+                <button
+                  type="button"
+                  className="fd-link-btn"
+                  onClick={checkOffers}
+                  disabled={checkingOffers}
+                >
+                  {checkingOffers ? 'Checking…' : '🎁 Check offers'}
+                </button>
+              )}
               {/* Transferring needs a table to transfer between. */}
-              {!counterMode && canTakeOrders && (
+              {selectedTable && canTakeOrders && (
                 <button
                   type="button"
                   className="fd-link-btn"
@@ -2131,6 +2786,22 @@ const Billing = () => {
           </div>
         </div>
       </div>
+
+      {/* Phone only (CSS): the bar that brings the order panel up as a sheet,
+          and the scrim behind it. */}
+      {sheetOpen && (
+        <div className="fd-sheet-scrim" aria-hidden="true" onClick={() => setSheetOpen(false)} />
+      )}
+      {!sheetOpen && (
+        <div className="fd-cart-jump">
+          <span className="fd-cart-jump-text">
+            <b>{barTitle}</b>
+            <small>{barDetail}</small>
+          </span>
+          <button type="button" onClick={() => setSheetOpen(true)}>
+            {pickingTable ? 'Seat walk-in' : 'View order'}
+          </button>
+        </div>
       )}
 
       {/* Customise sheet — the one place a dish's choices are made.
@@ -2611,7 +3282,7 @@ const Billing = () => {
                 {paymentModes.length === 0 ? (
                   <div className="fd-tender-empty fd-tender-nomodes" role="alert">
                     No payment methods are switched on for this outlet. Turn one on
-                    under <b>Front Desk → Payment Methods</b>, then reopen Settle.
+                    under <b>Outlet → Payment methods</b>, then reopen Settle.
                   </div>
                 ) : tenders.length === 0 ? (
                   <div className="fd-tender-empty">No payment added yet.</div>

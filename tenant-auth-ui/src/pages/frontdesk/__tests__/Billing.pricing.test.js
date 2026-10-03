@@ -25,6 +25,7 @@ jest.mock('react-toastify', () => ({
 // Settling is billing work, so the default user here can take money.
 jest.mock('../../../context/AuthContext', () => ({ useAuth: jest.fn() }));
 const { useAuth } = require('../../../context/AuthContext');
+const { toast } = require('react-toastify');
 const asUser = (scopes) => useAuth.mockReturnValue({
   user: { tid: 't1', onboardingStatus: 'APPROVED', scopes },
 });
@@ -122,11 +123,10 @@ const DEFAULT_TABLE = { Id: 'tbl-default', Name: 'T-1', Status: 'free' };
 
 const renderBilling = async ({ table } = {}) => {
   render(<Billing />);
-  // Billing opens on the floor plan — picking a table is step one, and the rest
-  // of the screen does not exist until it happens.
+  // Dine-in opens with the table picker in the order panel.
   await screen.findByText(/Pick a table to start/i);
 
-  if (table === null) return; // stay on the floor plan
+  if (table === null) return; // stay on the picker
 
   selectTable(table);
   await waitFor(() =>
@@ -149,21 +149,15 @@ const addDosaToCart = () => {
   fireEvent.click(screen.getByRole('button', { name: /Skip Options/i }));
 };
 
-// Tables are buttons on the floor plan — one tap, no dropdown. Their accessible
+// Tables are buttons in the order panel's picker — one tap, no dropdown. Their accessible
 // name carries the status and running total, so match on the visible name node.
 const selectTable = (label) => {
-  const cards = screen.getAllByRole('button').filter((b) => b.classList.contains('fd-tablecard'));
+  const cards = screen.getAllByRole('button').filter((b) => b.classList.contains('fd-ttile'));
   const card = label
     ? cards.find((b) => within(b).queryByText(label))
     : cards[0];
   if (!card) throw new Error(`No table card for ${label || '(first)'}`);
   fireEvent.click(card);
-};
-
-// Once a table is chosen the floor plan is gone; going back is the header's
-// "Change table".
-const changeTable = () => {
-  fireEvent.click(screen.getByRole('button', { name: /Change table/i }));
 };
 
 beforeEach(() => {
@@ -201,7 +195,9 @@ describe('Billing — menu grid', () => {
     expect(flag).toHaveClass('tax-flag', 'excl');
   });
 
-  test('flags an inclusive price differently', async () => {
+  test('leaves an inclusive price unflagged — it is what the guest pays', async () => {
+    // Only a price that grows at the till is worth a label on the tile. The
+    // tax on an inclusive dish is shown once, in the order totals.
     posService.getItemMeta.mockResolvedValue([
       menuRow('m9', 'Combo', CI_DOSA, 100, 18, { isTaxIncluded: true }),
     ]);
@@ -209,8 +205,7 @@ describe('Billing — menu grid', () => {
     await renderBilling();
     await screen.findByText('Combo');
 
-    const flag = screen.getByText('incl. 18% tax');
-    expect(flag).toHaveClass('tax-flag', 'incl');
+    expect(screen.queryByText(/18% tax/)).not.toBeInTheDocument();
   });
 
   test('omits the flag for a zero-rated item', async () => {
@@ -1008,7 +1003,7 @@ describe('Billing — order snapshot', () => {
     addDosaToCart();
     await waitFor(() => expect(posService.quotePricing).toHaveBeenCalled());
 
-    fireEvent.click(screen.getByRole('button', { name: /Start Order|Add Round/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Save Round/i }));
 
     await waitFor(() => expect(posService.createOrder).toHaveBeenCalled());
     const [payload] = posService.createOrder.mock.calls[0];
@@ -1031,7 +1026,7 @@ describe('Billing — order snapshot', () => {
     await renderBilling({ table: 'T1' });
     addDosaToCart();
     await waitFor(() => expect(posService.quotePricing).toHaveBeenCalled());
-    fireEvent.click(screen.getByRole('button', { name: /Start Order|Add Round/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Save Round/i }));
 
     await waitFor(() => expect(posService.createOrder).toHaveBeenCalled());
     const [payload] = posService.createOrder.mock.calls[0];
@@ -1051,7 +1046,7 @@ describe('Billing — order snapshot', () => {
     await renderBilling({ table: 'T1' });
     addDosaToCart();
     await waitFor(() => expect(posService.quotePricing).toHaveBeenCalled());
-    fireEvent.click(screen.getByRole('button', { name: /Start Order|Add Round/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Save Round/i }));
 
     await waitFor(() => expect(posService.createOrder).toHaveBeenCalled());
     const [payload] = posService.createOrder.mock.calls[0];
@@ -1157,33 +1152,70 @@ describe('Billing — tenders (split payment)', () => {
 
 // An order with no table is not a thing this system can represent, so the menu
 // says so up front rather than letting a cart accumulate and failing at the end.
-describe('Billing — the menu is gated on a table', () => {
-  test('hides the menu and explains what to do first', async () => {
+// Dine-in opens on the same till as takeaway. The menu is live before a table
+// is chosen; the order panel asks for the table, and nothing can be saved or
+// sent until one is picked.
+describe('Billing — dine-in before a table is picked', () => {
+  test('shows the menu beside the table picker', async () => {
     await renderBilling({ table: null });
 
     expect(screen.getByText(/Pick a table to start/i)).toBeInTheDocument();
-    // Not merely dimmed — the items are gone, so nothing invites a tap.
-    expect(screen.queryByText('Masala Dosa')).not.toBeInTheDocument();
+    expect(screen.getByText('Masala Dosa')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/Search dishes/i)).toBeInTheDocument();
   });
 
-  test('does not render the menu panel at all until a table is picked', async () => {
+  test('dishes can go in first, but nothing is saved until a table is picked', async () => {
     await renderBilling({ table: null });
-    // Not a disabled menu — no menu. Nothing to search, nothing to tap.
-    expect(screen.queryByPlaceholderText(/Search dishes/i)).not.toBeInTheDocument();
+    addDosaToCart();
+
+    expect(await screen.findByText(/1 dish waiting for a table/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Save Round 1/i })).toBeDisabled();
   });
 
   test('shows the room, so picking is one tap and tells you who is busy', async () => {
     await renderBilling({ table: null });
-    const cards = screen.getAllByRole('button').filter((b) => b.classList.contains('fd-tablecard'));
+    const cards = screen.getAllByRole('button').filter((b) => b.classList.contains('fd-ttile'));
     expect(cards.length).toBeGreaterThan(0);
   });
 
-  test('reveals the menu once a table is chosen', async () => {
+  test('picking a table puts the waiting dishes on it', async () => {
     await renderBilling({ table: null });
+    addDosaToCart();
+    await screen.findByText(/1 dish waiting for a table/i);
+
     selectTable('T-1');
 
-    await waitFor(() => expect(screen.getByText('Masala Dosa')).toBeInTheDocument());
-    expect(screen.queryByText(/Pick a table to start/i)).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText(/Pick a table to start/i)).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('button', { name: /Save Round 1/i })).toBeEnabled());
+  });
+
+  test('F4 focuses the board\'s table finder', async () => {
+    await renderBilling({ table: null });
+    fireEvent.keyDown(window, { key: 'F4' });
+
+    await waitFor(() => expect(screen.getByRole('searchbox', { name: 'Find table' })).toHaveFocus());
+  });
+
+  test('F4 with a table open focuses the finder without leaving the table', async () => {
+    await renderBilling({ table: 'T-1' });
+    fireEvent.keyDown(window, { key: 'F4' });
+
+    await waitFor(() => expect(screen.getByRole('searchbox', { name: 'Find table' })).toHaveFocus());
+    expect(screen.getByText('Table T-1')).toBeInTheDocument();
+  });
+
+  test('typing in the finder narrows the tables, ignoring the dash', async () => {
+    posService.getTables.mockResolvedValue([
+      { Id: 't1', Name: 'G-1', Status: 'free' },
+      { Id: 't2', Name: 'T-2', Status: 'free' },
+    ]);
+    await renderBilling({ table: null });
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Find table' }), { target: { value: 'g1' } });
+
+    const names = screen.getAllByRole('button')
+      .filter((b) => b.classList.contains('fd-ttile'))
+      .map((b) => b.querySelector('.fd-ttile-nm').textContent);
+    expect(names).toEqual(['G-1']);
   });
 });
 
@@ -1232,7 +1264,7 @@ describe('Billing — resuming an occupied table', () => {
     await waitFor(() => expect(screen.getByText(/Resuming a running order/i)).toBeInTheDocument());
 
     addDosaToCart();
-    expect(screen.getByRole('button', { name: /Add Round 2/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Save Round 2/i })).toBeInTheDocument();
   });
 
   test('keeps the last known order when the refresh fails', async () => {
@@ -1248,28 +1280,38 @@ describe('Billing — resuming an occupied table', () => {
   });
 });
 
-describe('Billing — the cart belongs to its table', () => {
-  test('clears items when switching tables', async () => {
-    // Carrying them across would bill the wrong guest.
+describe('Billing — unsaved dishes when the table changes', () => {
+  test('move with the cashier to the table tapped in the strip, who is told', async () => {
+    // Named on screen and in a toast, so they cannot reach the wrong guest
+    // unnoticed.
     posService.getTables.mockResolvedValue([
       { Id: 't1', Name: 'T1', Status: 'free' },
       { Id: 't2', Name: 'T2', Status: 'free' },
     ]);
     await renderBilling({ table: 'T1' });
     addDosaToCart();
-    await waitFor(() => expect(screen.getByRole('button', { name: /Start Order/i })).toBeEnabled());
+    await waitFor(() => expect(screen.getByRole('button', { name: /Save Round 1/i })).toBeEnabled());
 
-    changeTable();
-    selectTable('T2');
+    fireEvent.click(screen.getByRole('button', { name: /^T2, / }));
 
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: /Start Order/i })).toBeDisabled());
+    await waitFor(() => expect(screen.getByText('Table T2')).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: /Save Round 1/i })).toBeEnabled();
+    expect(toast.info).toHaveBeenCalledWith(expect.stringMatching(/1 unsaved dish moved to T2/));
+  });
+
+  test('can be cleared from the waiting banner', async () => {
+    await renderBilling({ table: null });
+    addDosaToCart();
+    await screen.findByText(/1 dish waiting for a table/i);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+    expect(screen.queryByText(/waiting for a table/i)).not.toBeInTheDocument();
   });
 });
 
-// The floor plan is the first screen, so it has to answer the questions a
-// cashier walks up with — not just list names.
-describe('Billing — the floor plan', () => {
+// The table picker has to answer the questions a cashier walks up with — not
+// just list names.
+describe('Billing — the table picker', () => {
   const dosa = {
     name: 'Masala Dosa', costInfoId: CI_DOSA, qty: 2, taxPct: 18,
     netAmount: 200, taxAmount: 36, grossAmount: 236, variantIds: [], taxComponents: [],
@@ -1292,25 +1334,40 @@ describe('Billing — the floor plan', () => {
     await renderBilling({ table: null });
   };
 
-  test('groups tables under their floor', async () => {
+  test('groups tables under their floor, with how many are free', async () => {
     await setup();
-    expect(screen.getByText('Ground Floor')).toBeInTheDocument();
-    expect(screen.getByText('Roof Top')).toBeInTheDocument();
+    const ground = screen.getByRole('group', { name: 'Ground Floor tables' });
+    expect(within(ground).getByText('G-01')).toBeInTheDocument();
+    expect(within(ground).getByText('G-02')).toBeInTheDocument();
+    expect(ground).toHaveTextContent(/1 free of 2/);
+    expect(within(screen.getByRole('group', { name: 'Roof Top tables' })).getByText('RF-01')).toBeInTheDocument();
   });
 
   test('shows a running table’s bill without opening it', async () => {
     // "Which table wants to pay" should be answerable by looking.
     await setup();
     const busy = screen.getAllByRole('button').find((b) => within(b).queryByText('G-02'));
-    expect(busy).toHaveTextContent('1 round');
-    expect(busy).toHaveTextContent('236.00');
+    expect(busy).toHaveTextContent('₹236');
+    expect(busy.getAttribute('aria-label')).toMatch(/^G-02, occupied, ₹236/);
+  });
+
+  test('counts free and occupied tables, and the counts filter the board', async () => {
+    await setup();
+    const counts = screen.getByRole('group', { name: 'Show tables' });
+    expect(within(counts).getByRole('button', { name: /Free 2/ })).toBeInTheDocument();
+    expect(within(counts).getByRole('button', { name: /Occupied 1/ })).toBeInTheDocument();
+
+    fireEvent.click(within(counts).getByRole('button', { name: /Occupied 1/ }));
+    const g01 = screen.getAllByRole('button').find((b) => within(b).queryByText('G-01'));
+    expect(g01).toHaveClass('is-faded');
   });
 
   test('marks free tables as free', async () => {
     await setup();
     const free = screen.getAllByRole('button').find((b) => within(b).queryByText('G-01'));
-    expect(free).toHaveTextContent(/free/i);
+    expect(free.getAttribute('aria-label')).toMatch(/free/i);
     expect(free.className).toMatch(/free/);
+    expect(free).toHaveTextContent('4 seats');
   });
 
   test('does not rely on colour alone to convey status', async () => {
@@ -1327,15 +1384,15 @@ describe('Billing — the floor plan', () => {
     expect(screen.getByText('RF-01')).toBeInTheDocument();
   });
 
-  test('Change table goes back to the plan', async () => {
+  test('once a table is open, the strip above the dishes switches tables in place', async () => {
     await setup();
     selectTable('G-01');
-    await waitFor(() => expect(screen.getByText('Masala Dosa')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Table G-01')).toBeInTheDocument());
 
-    changeTable();
+    fireEvent.click(screen.getByRole('button', { name: /^RF-01, / }));
 
-    await waitFor(() =>
-      expect(screen.getByText(/Pick a table to start/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Table RF-01')).toBeInTheDocument());
+    expect(screen.queryByText(/Pick a table to start/i)).not.toBeInTheDocument();
   });
 
   test('says so when no tables are configured, instead of showing an empty room', async () => {

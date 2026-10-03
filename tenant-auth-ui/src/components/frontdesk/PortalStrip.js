@@ -98,7 +98,7 @@ const PortalStrip = ({ mappings = [], openCounts = {}, busyId, canWrite, onToggl
       }}
       >
         No portals are mapped to this branch yet. Map one under{' '}
-        <strong style={{ color: '#5a6c7d' }}>POS Config → Portals</strong> so its orders
+        <strong style={{ color: '#5a6c7d' }}>Menu → Channels & portals → Portals</strong> so its orders
         can find their way here.
       </div>
     )

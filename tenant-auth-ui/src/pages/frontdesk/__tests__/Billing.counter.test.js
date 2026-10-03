@@ -131,13 +131,16 @@ describe('Counter mode — getting into it', () => {
     expect(screen.getByText(/No tables set up yet/i)).toBeInTheDocument();
   });
 
-  it('leaves the cart behind when going back to the floor plan', async () => {
+  it('takes unsaved dishes along to dine-in, waiting for a table', async () => {
+    // Switching how an order is sold is not starting a different one: the
+    // dishes wait, named, until a table is picked for them.
     await openCounter();
     addDosa();
     await waitFor(() => expect(posService.quotePricing).toHaveBeenCalled());
 
-    fireEvent.click(screen.getByRole('button', { name: /Back to floor plan/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Dine-in$/ }));
     expect(await screen.findByText(/Pick a table to start/i)).toBeInTheDocument();
+    expect(screen.getByText(/1 dish waiting for a table/i)).toBeInTheDocument();
   });
 });
 

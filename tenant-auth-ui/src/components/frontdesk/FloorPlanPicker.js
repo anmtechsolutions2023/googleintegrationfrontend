@@ -36,7 +36,14 @@ const FloorPlanPicker = ({
       const id = t.id || t.Id
       const rounds = buildTableRounds(orders, id)
       map[id] = rounds.length > 0
-        ? { rounds: rounds.length, total: summarizeSession(rounds).total }
+        ? {
+          rounds: rounds.length,
+          total: summarizeSession(rounds).total,
+          // Every open round has had its bill printed: the guests have the
+          // bill and the table is waiting on payment. A round added since has
+          // no stamp, so the table reads as running again.
+          printed: rounds.every((r) => !!r.order?.BillPrintedAt),
+        }
         : null
     })
     return map
@@ -88,7 +95,7 @@ const FloorPlanPicker = ({
       <div className="fd-floorplan is-empty">
         <span className="fd-floorplan-icon" aria-hidden="true">🪑</span>
         <strong>No tables set up yet</strong>
-        <span>Add tables under Front Desk → Tables before taking an order.</span>
+        <span>Add tables under Service → Floor → Tables before taking an order.</span>
       </div>
     )
   }
@@ -149,6 +156,7 @@ const FloorPlanPicker = ({
         <div className="fd-floorplan-legend" aria-hidden="true">
           <span><i className="dot free" /> Free</span>
           <span><i className="dot occupied" /> Running</span>
+          <span><i className="dot printed" /> Bill printed</span>
           <span><i className="dot reserved" /> Reserved</span>
         </div>
       </div>
@@ -163,15 +171,17 @@ const FloorPlanPicker = ({
               const meta = tableStatusMeta(t)
               const session = sessionByTable[id]
               const seats = t.Capacity || t.capacity
+              const statusKey = session?.printed ? 'printed' : meta.key
+              const statusLabel = session?.printed ? 'Bill printed' : meta.label
               return (
                 <button
                   type="button"
                   key={id}
-                  className={`fd-tablecard ${meta.key}`}
+                  className={`fd-tablecard ${statusKey}`}
                   onClick={() => onPick(id)}
                   // The status is colour-coded, and colour alone is not an
                   // answer for everyone — so it is in the label too.
-                  aria-label={`${t.Name || t.name}, ${meta.label}${
+                  aria-label={`${t.Name || t.name}, ${statusLabel}${
                     session ? `, ${session.rounds} rounds, ₹${money(session.total)} running` : ''
                   }`}
                 >
@@ -179,7 +189,9 @@ const FloorPlanPicker = ({
                   {session ? (
                     <span className="fd-tablecard-session">
                       <span className="rounds">
-                        {session.rounds} {session.rounds === 1 ? 'round' : 'rounds'}
+                        {session.printed
+                          ? 'Bill printed'
+                          : `${session.rounds} ${session.rounds === 1 ? 'round' : 'rounds'}`}
                       </span>
                       <span className="total">₹{money(session.total)}</span>
                     </span>
@@ -200,7 +212,7 @@ const FloorPlanPicker = ({
           only thing they can sell through. */}
       {tables.length === 0 && (
         <div className="fd-floorplan-note">
-          No tables set up yet — add them under Front Desk → Tables to take a
+          No tables set up yet — add them under Service → Floor → Tables to take a
           dine-in order.
         </div>
       )}

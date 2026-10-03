@@ -78,7 +78,7 @@ const Campaigns = () => {
       toast.success('Campaign created — add its offers next')
       setCreating(false)
       // Straight into the thing they actually came to do.
-      navigate(`/frontdesk/campaigns/${id}`)
+      navigate(`/guests/offers/${id}`)
     } catch (e) {
       toast.error(e?.response?.data?.message || 'Failed to create the campaign')
     } finally {
@@ -192,7 +192,7 @@ const Campaigns = () => {
                 return (
                   <tr
                     key={c.Id} className="is-clickable"
-                    onClick={() => navigate(`/frontdesk/campaigns/${c.Id}`)}
+                    onClick={() => navigate(`/guests/offers/${c.Id}`)}
                   >
                     <td>
                       <strong>{c.Name}</strong>

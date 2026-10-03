@@ -64,6 +64,13 @@ describe('the workspace rail', () => {
     expect(homePathFor(accountant)).toBe('/money/overview');
   });
 
+  it('sends floor staff Home to Billing & KOT, and others to their first screen', () => {
+    expect(homePathFor(userWith(['TENANT:ADMIN']))).toBe('/service/floor/order');
+    expect(homePathFor(userWith(['POS_ORDER:READ']))).toBe('/service/floor/order');
+    // Service is open through Kitchen alone, but Floor is not — first tab wins.
+    expect(homePathFor(userWith(['POS_KITCHEN:READ']))).toBe('/service/today');
+  });
+
   it('offers nothing to somebody who holds nothing', () => {
     expect(visibleWorkspaces(userWith([]))).toEqual([]);
     expect(homePathFor(userWith([]))).toBeNull();
@@ -81,7 +88,7 @@ describe('the workspace rail', () => {
   it('lets POS_QR alone manage codes, and not menu setup', () => {
     const outlet = WORKSPACES.find((w) => w.key === 'outlet');
     const floors = outlet.tabs.find((t) => t.key === 'floors');
-    expect(visibleSections(floors, userWith(['POS_CONFIG:READ'])).map((s) => s.key)).toEqual(['floors']);
+    expect(visibleSections(floors, userWith(['POS_CONFIG:READ'])).map((s) => s.key)).toEqual(['floors', 'tables']);
     expect(visibleSections(floors, userWith(['POS_QR:READ'])).map((s) => s.key)).toEqual(['qr-codes']);
   });
 

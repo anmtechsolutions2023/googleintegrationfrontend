@@ -1,0 +1,159 @@
+/* ──────────────────────────────────────────────────────────────────────────
+   Bold theme.
+
+   Heavier type, solid ink chrome, one saffron highlight for "where am I" and
+   one vivid blue for "do this" — built for a busy counter: readable at arm's
+   length, tappable with a thumb.
+
+   One file, loaded after index.css, restyling the SHARED pieces only: the
+   navbar, the workspace rail / tabs / sections, buttons, inputs, data tables,
+   badges and modals. Every selector is prefixed with `html` so it outranks the
+   component's own single-class rule whatever order the stylesheets load in
+   (component CSS arrives with lazily-loaded screens, after this file).
+
+   Screen-specific CSS is untouched. Delete the import in index.js and the app
+   is back to the previous look.
+   ────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  --ink: #0B1220;
+  --ink-2: #1B2537;
+  --action: #2347F5;
+  --action-hover: #1A35C2;
+  --saffron: #FFB020;
+  --success: #0E9F6E;
+  --danger: #D92D20;
+  --ground: #EEF1F6;
+  --line: #E2E8F0;
+  --text: #0B1220;
+  --text-2: #334155;
+  --muted: #475569;
+  --font-ui: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+html body {
+  font-family: var(--font-ui);
+  color: var(--text);
+}
+/* Form controls do not inherit the font by default. */
+html button, html input, html select, html textarea { font-family: inherit; }
+
+/* ── Navbar ───────────────────────────────────────────────────────────────── */
+html .navbar { background-color: var(--ink); box-shadow: none; border-bottom: 2px solid var(--ink); }
+html .nav-logo { color: #ffffff; font-weight: 800; letter-spacing: -0.01em; }
+html .nav-links a { color: #E2E8F0; font-weight: 700; }
+html .nav-links a:hover { color: var(--saffron); }
+
+/* ── Workspace shell ─────────────────────────────────────────────────────── */
+html .ws-layout { background: var(--ground); }
+html .ws-rail { background: var(--ink); }
+html .ws-rail-item { color: #CBD5E1; font-weight: 700; font-size: 12px; border-radius: 12px; }
+html .ws-rail-item:hover { background: var(--ink-2); color: #ffffff; }
+html .ws-rail-item.is-active { background: var(--saffron); color: var(--ink); font-weight: 800; }
+html .ws-rail-item:focus-visible { outline: 3px solid var(--saffron); outline-offset: 2px; }
+
+html .ws-header { border-bottom: 2px solid var(--ink); padding-top: 18px; }
+html .ws-title h1 { font-size: 30px; font-weight: 800; letter-spacing: -0.02em; color: var(--ink); }
+html .ws-title span { font-size: 14px; font-weight: 600; color: var(--muted); }
+html .ws-tab { height: 46px; font-size: 15px; font-weight: 700; color: var(--text-2); border-bottom-width: 4px; }
+html .ws-tab:hover { color: var(--ink); }
+html .ws-tab.is-active { border-bottom-color: var(--action); color: var(--ink); font-weight: 800; }
+
+html .ws-sections { background: #DCE2EC; border-radius: 12px; padding: 5px; }
+html .ws-section { height: 38px; padding: 0 16px; border-radius: 9px; font-size: 14.5px; font-weight: 700; color: var(--text-2); }
+html .ws-section:hover { color: var(--ink); }
+html .ws-section.is-active { background: var(--ink); color: #ffffff; font-weight: 800; box-shadow: none; }
+
+/* ── Page headings ───────────────────────────────────────────────────────── */
+html .content-header h1 { font-size: 26px; font-weight: 800; letter-spacing: -0.01em; color: var(--ink); }
+
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+html .btn {
+  min-height: 44px;
+  border-radius: 10px;
+  font-weight: 800;
+  border: 2px solid var(--ink);
+  justify-content: center;
+}
+html .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+html .btn-primary { background: var(--action); color: #ffffff; box-shadow: 0 3px 0 var(--ink); }
+html .btn-primary:hover { background: var(--action-hover); }
+html .btn-primary:active { box-shadow: 0 1px 0 var(--ink); transform: translateY(2px); }
+html .btn-secondary { background: #ffffff; color: var(--ink); }
+html .btn-secondary:hover { background: #F1F4F9; }
+html .btn-danger { background: var(--danger); color: #ffffff; }
+html .btn-danger:hover { background: #B42318; }
+html .btn-success { background: var(--success); color: #ffffff; }
+html .btn-success:hover { background: #0B8A5F; }
+html .btn-sm { min-height: 36px; font-size: 13px; padding: 4px 12px; }
+html .btn-icon { min-width: 40px; }
+
+/* ── Inputs ──────────────────────────────────────────────────────────────── */
+html .search-input,
+html .form-input {
+  border: 2px solid #CBD5E1;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+  min-height: 44px;
+}
+html .search-input:focus,
+html .form-input:focus {
+  border-color: var(--action);
+  box-shadow: 0 0 0 3px rgba(35, 71, 245, 0.18);
+}
+
+/* ── Data tables (Master Data grids and POS lists) ───────────────────────── */
+html .data-table-container {
+  border: 2px solid var(--ink);
+  border-radius: 14px;
+  box-shadow: none;
+}
+html .data-table th,
+html .data-table th:last-child,
+html .fd-table th {
+  background: var(--ink);
+  color: #ffffff;
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  border-bottom: 0;
+}
+html .data-table th:hover { background: var(--ink-2); }
+html .data-table th.sorted { background: var(--ink-2); color: var(--saffron); }
+html .data-table th .sort-indicator { color: #94A3B8; }
+html .data-table th.sorted .sort-indicator { color: var(--saffron); }
+html .data-table td { font-size: 15px; font-weight: 600; color: var(--ink); border-bottom: 2px solid var(--line); }
+html .data-table tr:hover td { background-color: #F6F8FB; }
+html .data-table td:first-child { font-weight: 800; }
+
+html .fd-table { font-size: 14.5px; }
+html .fd-table th { padding: 12px 14px; }
+html .fd-table td { padding: 12px 14px; font-weight: 600; color: var(--ink); border-bottom: 2px solid var(--line); }
+html .fd-table td:first-child { font-weight: 800; }
+
+/* ── Badges ──────────────────────────────────────────────────────────────── */
+html .status-badge,
+html .fd-badge { font-weight: 800; }
+
+/* ── Floor chips (Tables screens) ────────────────────────────────────────── */
+html .fd-floor-tab {
+  min-height: 42px;
+  padding: 6px 18px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  color: var(--ink);
+  font-size: 14.5px;
+  font-weight: 800;
+}
+html .fd-floor-tab.active { background: var(--saffron); color: var(--ink); border-color: var(--ink); }
+
+html .fd-empty { font-weight: 600; color: var(--muted); }
+
+/* ── Modals ──────────────────────────────────────────────────────────────── */
+html .modal,
+html .fd-modal { border: 2px solid var(--ink); border-radius: 16px; }
+html .modal-header h2,
+html .modal-header h3,
+html .fd-modal-header h3 { font-weight: 800; color: var(--ink); }

@@ -105,19 +105,25 @@ export const createEncoder = ({ columns = 48 } = {}) => {
      * A label on the left and a value flush right — the shape of every total.
      * A long label wraps and the value sits on its last line.
      */
-    row(left, right = '', { strong = false } = {}) {
+    row(left, right = '', { strong = false, strongValue = false } = {}) {
       const w = width()
       const value = toPrintable(right)
+      // strongValue bolds the value alone — an item's amount, not its qty x rate.
+      const emit = (v) => {
+        if (strongValue && !strong) { api.bold(true); text(v); api.bold(false) } else text(v)
+      }
       if (strong) api.bold(true)
       if (value.length + 2 > w) {
         api.line(left)
-        text(' '.repeat(Math.max(0, w - value.length)) + value.slice(0, w))
+        text(' '.repeat(Math.max(0, w - value.length)))
+        emit(value.slice(0, w))
         push(LF)
       } else {
         const lines = wrap(left, w - value.length - 1)
         lines.forEach((l, i) => {
           if (i < lines.length - 1) { text(l); push(LF); return }
-          text(l + ' '.repeat(Math.max(1, w - l.length - value.length)) + value)
+          text(l + ' '.repeat(Math.max(1, w - l.length - value.length)))
+          emit(value)
           push(LF)
         })
       }

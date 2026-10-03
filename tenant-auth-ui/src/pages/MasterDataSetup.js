@@ -51,7 +51,7 @@ const STEPS = [
           name: 'Name', label: 'Legal / group name', required: true,
           limitKey: 'organizationdetail.Name',
           hint: 'Your registered company or group name.',
-          tip: 'Not printed on bills unless you switch it on. Change later at Front Desk → Business Profile → Business.',
+          tip: 'Not printed on bills unless you switch it on. Change later at Outlet → Business & branches → Business Profile → Business.',
         },
       ] },
     ],
@@ -65,7 +65,7 @@ const STEPS = [
           name: 'Name', label: 'Outlet name', required: true,
           limitKey: 'branchdetail.BranchName',
           hint: 'This is what prints at the top of every bill.',
-          tip: 'Change later at Front Desk → Business Profile → Business.',
+          tip: 'Change later at Outlet → Business & branches → Business Profile → Business.',
         },
         // Optional, but kept in the main group rather than behind the panel: it is
         // short, it decides whether bills are tax invoices at all, and a restaurant
@@ -73,7 +73,7 @@ const STEPS = [
         {
           name: 'GSTIN', label: 'GSTIN (optional)', maxLength: 15, upper: true,
           hint: 'Printed on tax invoices and used for GST returns.',
-          tip: 'Change later at Front Desk → Business Profile → Tax & Compliance. Each invoice keeps the GSTIN it was issued under.',
+          tip: 'Change later at Outlet → Business & branches → Business Profile → Tax & Compliance. Each invoice keeps the GSTIN it was issued under.',
           validate: gstinProblem,
           describe: (v) => (stateOfGstin(v) ? `Registered in ${stateOfGstin(v)}` : null),
         },
@@ -108,7 +108,7 @@ const STEPS = [
         title: 'More business details',
         optional: true,
         path: 'branch',
-        blurb: 'All optional. Everything here can also be set later at Front Desk → Business Profile.',
+        blurb: 'All optional. Everything here can also be set later at Outlet → Business & branches → Business Profile.',
         fields: [
           {
             name: 'PAN', label: 'PAN', limitKey: 'branchdetail.PAN', upper: true,
@@ -530,7 +530,7 @@ const MasterDataSetup = () => {
         setPhase((p) => ({ ...p, items: 'failed' }));
         toast.warn(
           err.response?.data?.message
-          || 'Your tenancy was created, but the items could not be imported. You can import them from Master Data → Items.',
+          || 'Your tenancy was created, but the items could not be imported. You can import them from Admin → Data tables → Items.',
         );
       }
     }
@@ -865,7 +865,7 @@ const MasterDataSetup = () => {
                   />
                 </div>
                 <p className="mds-hint">
-                  Both start switched off on bills. Turn them on at Front Desk →
+                  Both start switched off on bills. Turn them on at Outlet →
                   Receipt Format once you are set up.
                 </p>
               </OptionalPanel>
@@ -907,7 +907,7 @@ const MasterDataSetup = () => {
               <>
                 <p className="mds-skip-note">Item creation skipped — only the Organization and Branch will be created.</p>
                 <div className="mds-note">
-                  You can import a whole menu at any time from <strong>Master Data → Items</strong>.
+                  You can import a whole menu at any time from <strong>Admin → Data tables → Items</strong>.
                   Nothing here is a one-off.
                 </div>
               </>
@@ -1034,7 +1034,7 @@ const GST_OPTIONS = [
   {
     value: null,
     label: 'Decide later',
-    note: 'Bills charge GST, as they do for every new tenancy. Change it any time at POS Settings → GST.',
+    note: 'Bills charge GST, as they do for every new tenancy. Change it any time at Outlet → Tax & GST → GST Switch.',
   },
 ];
 
@@ -1439,7 +1439,7 @@ const ImportResult = ({ items, menu, fileName }) => {
       {menu && (
         <div className="mds-next">
           <strong>{menu.summary?.created || 0} published to the menu.</strong> They are on the
-          till now. Open one in Master Data → Items to re-price it, or in Menu Master to change
+          till now. Open one in Admin → Data tables → Items to re-price it, or in Menu Master to change
           its channels and variants.
         </div>
       )}
@@ -1461,7 +1461,7 @@ const ImportResult = ({ items, menu, fileName }) => {
           </div>
           <p className="mds-hint">
             These changed nothing. Fix them in a spreadsheet and import again from
-            Master Data → Items.
+            Admin → Data tables → Items.
           </p>
           <button
             type="button" className="mds-btn mds-btn-ghost mds-btn-sm"

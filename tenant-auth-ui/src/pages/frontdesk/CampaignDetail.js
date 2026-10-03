@@ -177,7 +177,7 @@ const CampaignDetail = () => {
     <div className="cmp-page">
       <div className="cmp-head">
         <div>
-          <Link to="/frontdesk/campaigns" className="cmp-back">← Campaigns</Link>
+          <Link to="/guests/offers" className="cmp-back">← Campaigns</Link>
           <h1>{campaign.Name}</h1>
           <p className="cmp-lead">
             <span className={`cmp-pill is-${String(campaign.LiveState).toLowerCase()}`}>
@@ -346,7 +346,7 @@ const CampaignDetail = () => {
                             {r.transactionDetailLogId ? (
                               <button
                                 type="button" className="fd-link-btn"
-                                onClick={() => navigate(`/frontdesk/ledger?doc=${r.transactionDetailLogId}`)}
+                                onClick={() => navigate(`/money/ledger?doc=${r.transactionDetailLogId}`)}
                               >
                                 {r.transactionNo || 'View'}
                               </button>

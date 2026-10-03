@@ -28,7 +28,7 @@ const LEDGER = [SCOPES.TRANSACTIONS_READ, T]
 const POS = [SCOPES.POS_REPORTS_READ, T]
 
 /** A Finance tab, opened with its range already applied. */
-const finance = (tab) => `/frontdesk/finance?tab=${tab}`
+const finance = (tab) => `/money/overview?tab=${tab}`
 
 export const REPORT_GROUPS = [
   {
@@ -53,7 +53,7 @@ export const REPORT_GROUPS = [
       { key: 'cashflow', name: 'Cash flow', answers: 'Money in and money out, per account', to: finance('cashflow'), scopes: LEDGER },
       { key: 'pending', name: 'Outstanding', answers: 'Invoiced but not yet collected', to: finance('pending'), scopes: LEDGER },
       { key: 'expenses', name: 'Expenses', answers: 'Spend by category over the range', to: finance('expenses'), scopes: LEDGER },
-      { key: 'cash-sessions', name: 'Cash sessions', answers: 'Counted against expected, per cashier shift, and the variance', to: '/frontdesk/cash-sessions', scopes: [SCOPES.POS_BILLING_READ, T] },
+      { key: 'cash-sessions', name: 'Cash sessions', answers: 'Counted against expected, per cashier shift, and the variance', to: '/money/cash', scopes: [SCOPES.POS_BILLING_READ, T] },
     ],
   },
   {
@@ -61,8 +61,8 @@ export const REPORT_GROUPS = [
     name: 'Returns & quality',
     blurb: 'What came back, and whose fault it was',
     reports: [
-      { key: 'return-reasons', name: 'Return reasons', answers: 'Why goods came back and were refunded, and how much of it was our fault', to: '/frontdesk/returns', scopes: LEDGER },
-      { key: 'return-products', name: 'Returned products', answers: 'Which dishes are returned and refunded most, as a rate of what sold', to: '/frontdesk/returns', scopes: LEDGER },
+      { key: 'return-reasons', name: 'Return reasons', answers: 'Why goods came back and were refunded, and how much of it was our fault', to: '/money/returns', scopes: LEDGER },
+      { key: 'return-products', name: 'Returned products', answers: 'Which dishes are returned and refunded most, as a rate of what sold', to: '/money/returns', scopes: LEDGER },
     ],
   },
   {
@@ -73,7 +73,7 @@ export const REPORT_GROUPS = [
       { key: 'customers', name: 'Customers', answers: 'Spend, visits and average order, per customer', to: finance('customers'), scopes: LEDGER },
       { key: 'visits', name: 'Visit pattern', answers: 'Which days and which hours they come', to: finance('visits'), scopes: LEDGER },
       { key: 'lapsed', name: 'Lapsed customers', answers: 'Regulars who have stopped coming, most valuable first', to: finance('customers'), scopes: LEDGER },
-      { key: 'loyalty', name: 'Loyalty statement', answers: 'Every points movement, and the reason it moved', to: '/frontdesk/customers', scopes: [SCOPES.POS_CRM_READ, T] },
+      { key: 'loyalty', name: 'Loyalty statement', answers: 'Every points movement, and the reason it moved', to: '/guests/customers', scopes: [SCOPES.POS_CRM_READ, T] },
     ],
   },
   {
@@ -81,7 +81,7 @@ export const REPORT_GROUPS = [
     name: 'Campaigns',
     blurb: 'What a promotion cost, and what it returned',
     reports: [
-      { key: 'campaign', name: 'Campaign performance', answers: 'Given away, redemptions, revenue on those bills, and cost per redemption', to: '/frontdesk/campaigns', scopes: [SCOPES.POS_CONFIG_READ, T] },
+      { key: 'campaign', name: 'Campaign performance', answers: 'Given away, redemptions, revenue on those bills, and cost per redemption', to: '/guests/offers', scopes: [SCOPES.POS_CONFIG_READ, T] },
     ],
   },
   {
@@ -89,7 +89,7 @@ export const REPORT_GROUPS = [
     name: 'Operations',
     blurb: 'How the service itself ran',
     reports: [
-      { key: 'today', name: 'Today', answers: 'Live counts: orders open, tables occupied, customers, feedback', to: '/frontdesk/reports', scopes: POS },
+      { key: 'today', name: 'Today', answers: 'Live counts: orders open, tables occupied, customers, feedback', to: '/insights/live', scopes: POS },
       // Both exist as data and neither has a screen. Listed rather than hidden:
       // a catalogue that quietly omits what is missing cannot be used to decide
       // what to build next.
@@ -102,7 +102,7 @@ export const REPORT_GROUPS = [
     name: 'Assets',
     blurb: 'What the outlet owns',
     reports: [
-      { key: 'assets', name: 'Asset register', answers: 'What is owned, at which branch, and what it cost', to: '/frontdesk/assets', scopes: [SCOPES.ASSET_READ, T] },
+      { key: 'assets', name: 'Asset register', answers: 'What is owned, at which branch, and what it cost', to: '/money/assets/register', scopes: [SCOPES.ASSET_READ, T] },
     ],
   },
   {
@@ -110,7 +110,7 @@ export const REPORT_GROUPS = [
     name: 'Documents & audit',
     blurb: 'The paper trail every figure lands on',
     reports: [
-      { key: 'ledger', name: 'Ledger', answers: 'Every invoice, credit note, refund and expense — filterable and printable', to: '/frontdesk/ledger', scopes: LEDGER },
+      { key: 'ledger', name: 'Ledger', answers: 'Every invoice, credit note, refund and expense — filterable and printable', to: '/money/ledger', scopes: LEDGER },
       { key: 'audit', name: 'Audit log', answers: 'Who did what, and when', to: '/audit', scopes: [SCOPES.AUDIT_READ, SCOPES.ADMIN_ACCESS, T] },
     ],
   },

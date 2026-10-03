@@ -1,5 +1,6 @@
 import api from '../api/api'
 import { APP_CONFIG } from '../constants'
+import qrService from './qrService'
 
 const { MAX_LIMIT } = APP_CONFIG.PAGINATION
 
@@ -126,6 +127,30 @@ export const fireKot = async (orderId) => {
   const res = await api.post(`/api/pos/orders/${orderId}/fire-kot`)
   return toObject(res.data)
 }
+
+// Who can be named as a table's waiter: the business's active members, by name
+// and outlet.
+export const getWaiters = async () => {
+  const res = await api.get('/api/pos/orders/waiters')
+  return toArray(res.data)
+}
+
+// Covers and/or waiter on a table's open rounds, all at once. A key left out is
+// left alone; null clears it.
+export const setOrderServiceDetails = async (payload) => {
+  const res = await api.post('/api/pos/orders/service-details', payload)
+  return toObject(res.data)
+}
+
+// A bill was printed for these rounds before payment. Raises no invoice.
+export const markBillPrinted = async (orderIds) => {
+  const res = await api.post('/api/pos/orders/bill-printed', { orderIds })
+  return toObject(res.data)
+}
+
+// Guests' QR orders waiting for review — the same queue the QR inbox reads.
+// Exposed here so the till reads everything it shows through one service.
+export const getPendingQrOrders = (branchId) => qrService.getPendingOrders(branchId)
 
 // ── KOTs ─────────────────────────────────────────────────────────────────────
 export const getKots = async (params = {}) => {
@@ -557,6 +582,29 @@ export const getPaymentModes = async () => {
   return toArray(res.data)
 }
 
+// ── Daily portion counts ────────────────────────────────────────────────────
+// HOW MANY THE KITCHEN MADE TODAY, per dish per outlet. Availability, not
+// ingredient inventory.
+//
+// Each row carries `stockState` — unlimited | unavailable | available | sold_out
+// — and the middle two are different problems: `unavailable` means nobody set a
+// count this morning, `sold_out` means the kitchen ran out.
+export const getDailyStock = async (branchId, date) => {
+  const res = await api.get('/api/pos/daily-stock', { params: { branchId, date } })
+  return toObject(res.data)
+}
+// Never resets what has already sold — changing the figure at 3pm adjusts how
+// many were prepared, not how many went out.
+export const setDailyStock = async (branchId, itemMetaId, preparedQty, date) => {
+  const res = await api.put('/api/pos/daily-stock', { itemMetaId, preparedQty, date }, { params: { branchId } })
+  return toObject(res.data)
+}
+// Back to "not available today", which is NOT the same as a count of zero.
+export const clearDailyStock = async (branchId, itemMetaId, date) => {
+  const res = await api.delete(`/api/pos/daily-stock/${itemMetaId}`, { params: { branchId, date } })
+  return toObject(res.data)
+}
+
 // ── Branch payment methods ──────────────────────────────────────────────────
 // WHICH TENDERS THIS OUTLET ACCEPTS. getPaymentModes above is the tenant-wide
 // CATALOGUE — every method the business has ever defined, including the portal
@@ -971,6 +1019,7 @@ const posService = {
   getCustomerReport, getVisitPatternReport, getLapsedReport,
   getLoyaltyStatement, adjustLoyalty,
   getOrders, getOrder, getOrderDetail, createOrder, updateOrder, deleteOrder, transferOrder, fireKot,
+  getWaiters, setOrderServiceDetails, markBillPrinted, getPendingQrOrders,
   getKots, createKot, updateKot, markKotReady, deleteKot,
   getBills, getBill, createBill, updateBill, settleBill, deleteBill,
   getOnlineOrders, createOnlineOrder, updateOnlineOrder, deleteOnlineOrder,
@@ -992,6 +1041,7 @@ const posService = {
   downloadErrorMessage,
   getPaymentModes,
   getBranchPaymentMethods, setBranchPaymentMethods,
+  getDailyStock, setDailyStock, clearDailyStock,
   getLedgerDocuments, getLedgerDocument, refundLedgerDocument,
   createLedgerReturn, getLedgerReturns, getReturnsRegister,
   getRefundSettlementQueue, setRefundSettlement,

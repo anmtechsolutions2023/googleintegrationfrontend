@@ -117,7 +117,7 @@ const MenuBulkFieldModal = ({ rows, referenceData = {}, busy = false, onClose, o
       targets = rows.filter((r) => picked.some((id) => own(r).includes(id)))
       lines.push(`Removes ${names} from ${targets.length} of ${itemsText(n)}.`)
       if (rows.some((r) => picked.some((id) => inherited(r).includes(id) && !own(r).includes(id)))) {
-        lines.push('A tag a dish gets from its category stays — change it under Master Data → Categories.')
+        lines.push('A tag a dish gets from its category stays — change it under Menu → Categories & hours → Categories.')
       }
     } else {
       targets = rows

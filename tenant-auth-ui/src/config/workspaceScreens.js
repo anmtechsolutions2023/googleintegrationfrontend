@@ -9,6 +9,7 @@ import OnlineOrders from '../pages/frontdesk/OnlineOrders'
 import Tracking from '../pages/frontdesk/Tracking'
 import MenuMaster from '../pages/frontdesk/MenuMaster'
 import CategorySchedules from '../pages/frontdesk/CategorySchedules'
+import DailyStock from '../pages/frontdesk/DailyStock'
 import Variants from '../pages/frontdesk/Variants'
 import AddonGroups from '../pages/frontdesk/AddonGroups'
 import Addons from '../pages/frontdesk/Addons'
@@ -22,6 +23,7 @@ import RejectionReasons from '../pages/frontdesk/RejectionReasons'
 import Inventory from '../pages/frontdesk/Inventory'
 import BusinessProfile from '../pages/frontdesk/BusinessProfile'
 import Floors from '../pages/frontdesk/Floors'
+import TableSetup from '../pages/frontdesk/TableSetup'
 import QrCodes from '../pages/frontdesk/QrCodes'
 import PosSettings from '../pages/frontdesk/PosSettings'
 import ReceiptFormat from '../pages/frontdesk/ReceiptFormat'
@@ -76,10 +78,12 @@ export const SCREENS = {
   'menu.channels.channels': <Channels />,
   'menu.channels.portals': <Portals />,
   'menu.channels.rejection-reasons': <RejectionReasons />,
+  'menu.stock.daily': <DailyStock />,
   'menu.stock.inventory': <Inventory />,
 
   'outlet.business.profile': <BusinessProfile />,
   'outlet.floors.floors': <Floors />,
+  'outlet.floors.tables': <TableSetup />,
   'outlet.floors.qr-codes': <QrCodes />,
   'outlet.front-desk': <PosSettings />,
   'outlet.receipts': <ReceiptFormat />,

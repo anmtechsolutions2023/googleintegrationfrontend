@@ -91,11 +91,11 @@ const items = (e, format, lines) => {
     const label = `${name}${shows(format, 'itemCode', code) ? ` (${code})` : ''}`
 
     if (layout === 'single_line') {
-      e.row(label, money(amount))
+      e.row(label, money(amount), { strong: true })
       optionLines(e, format, l, true)
     } else {
-      e.line(label)
-      e.row(`  ${qty(q)} x ${money(rate)}`, money(amount))
+      e.bold(true).line(label).bold(false)
+      e.row(`  ${qty(q)} x ${money(rate)}`, money(amount), { strongValue: true })
       optionLines(e, format, l, false)
       if (present(format, 'itemNotes', note)) e.line(`  Note: ${note}`)
     }
@@ -133,7 +133,7 @@ const bill = (e, format, shop, data, images = {}) => {
   }
   if (shows(format, 'portalOrder', data.portalOrderNo)) e.row('Order', data.portalOrderNo)
   if (shows(format, 'customer', data.CustomerName || data.CustomerMobile)) {
-    e.row('Customer', [data.CustomerName, data.CustomerMobile].filter(Boolean).join(' '))
+    e.row('Customer', [data.CustomerName, data.CustomerMobile].filter(Boolean).join(' '), { strongValue: true })
   }
   if (shows(format, 'cashier', data.CreatedBy)) e.row('Cashier', data.CreatedBy)
 

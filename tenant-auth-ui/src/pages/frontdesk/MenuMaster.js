@@ -49,7 +49,7 @@ const ITEM_META_CONFIG = {
       },
       wide: true,
       derivedFromLabel: 'Item',
-      hint: 'Comes from the selected item. Change it in Master Data → Items.',
+      hint: 'Comes from the selected item. Change it in Admin → Data tables → Items.',
       emptyText: 'No price set on this item',
     },
     { name: 'FoodTypeId', label: 'Food Type', type: 'select', required: true, reference: 'posFoodType' },
@@ -81,7 +81,7 @@ const ITEM_META_CONFIG = {
       type: 'chips',
       wide: true,
       emptyText: 'This dish\'s category has no tags yet.',
-      hint: 'Change these under Master Data → Categories.',
+      hint: 'Change these under Menu → Categories & hours → Categories.',
     },
     // The dish's OWN tags. The till filters on the union of these and the
     // inherited set above. Grouped by type: a flat dozen makes "Starter" and
@@ -148,6 +148,25 @@ const ITEM_META_CONFIG = {
       // rows on this form would push everything a cashier actually edits below
       // the fold. Send null to clear the record entirely.
       hint: 'Optional. Keys: ServingSizeG, Calories, ProteinG, CarbohydrateG, SugarG, FatG, SaturatedFatG, FibreG, SodiumMg, Allergens. Leave empty for no data.',
+    },
+    {
+      // OPT IN. Off for every dish that exists, which keeps them unlimited.
+      // On means the stricter rule applies: no count entered for a day and the
+      // dish is not sold that day. Set the numbers under Today's Counts.
+      name: 'StockTracked',
+      label: 'Track daily quantity',
+      type: 'boolean',
+      default: false,
+      hint: 'On: this dish is only sold when somebody has entered how many were made that day. Set the number under Menu → Stock & units → Today\'s Counts.',
+    },
+    {
+      // Not inventory: a kitchen holding forty portions may still refuse to
+      // send twelve to one table.
+      name: 'MaxPerOrder',
+      label: 'Max per order',
+      type: 'number',
+      min: 1,
+      hint: 'The most one order may take. Leave empty for no limit. Separate from the daily quantity.',
     },
     { name: 'Active', type: 'boolean', default: true },
   ],

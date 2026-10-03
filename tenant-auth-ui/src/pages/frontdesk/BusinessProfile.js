@@ -293,7 +293,7 @@ const BusinessProfile = () => {
                     : ''}
                 </p>
                 <span className="bp-hint">
-                  Change at Master Data → Transaction Type Configs
+                  Change at Outlet → Numbering
                   {profile.business.invoiceSeries
                     ? ` (series “${profile.business.invoiceSeries}”)`
                     : ''}.
@@ -461,7 +461,7 @@ const BusinessProfile = () => {
               </ul>
               <p className="bp-hint">
                 ✓ prints · ✗ stored but switched off · — nothing stored.
-                Change what prints at Front Desk → Receipt Format.
+                Change what prints at Outlet → Receipt Format.
               </p>
             </section>
           )}

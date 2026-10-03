@@ -40,8 +40,10 @@
 .rc-row { display: flex; justify-content: space-between; gap: 8px; }
 .rc-row > span:last-child { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .rc-strong { font-weight: 700; }
-.rc-total { font-size: 13px; font-weight: 700; }
-.rc-w58 .rc-total { font-size: 11.5px; }
+.rc-total { font-size: 15px; font-weight: 800; padding: 2px 0; }
+.rc-w58 .rc-total { font-size: 13px; }
+/* What the guest checks: each dish, what it cost, and whose bill it is. */
+.rc-itemname, .rc-amount, .rc-strong-value > span:last-child { font-weight: 700; }
 
 .rc-item { margin-top: 3px; }
 .rc-qty { padding-left: 12px; }

@@ -114,14 +114,36 @@ export const isOnSale = (meta) => {
   return !(v === false || v === 0 || v === '0')
 }
 
-/** Orderable right now: on sale AND its section open. */
-export const isAvailable = (meta) => isOnSale(meta) && isCategoryOpen(meta)
+/**
+ * Today's portion count, when the dish keeps one.
+ *
+ * Four states from the server: unlimited (not tracked), unavailable (tracked but
+ * nobody set a count today), available, sold_out. A row that says nothing — an
+ * older payload, or a dish the server did not resolve — counts as unlimited, so
+ * this can never be what takes a dish off the menu by accident.
+ */
+export const stockStateOf = (meta) => meta?.stockState || meta?.StockState || 'unlimited'
+export const isSoldOut = (meta) => stockStateOf(meta) === 'sold_out'
+export const isUnsetToday = (meta) => stockStateOf(meta) === 'unavailable'
+export const remainingOf = (meta) => {
+  const v = meta?.remaining ?? meta?.Remaining
+  return v === null || v === undefined ? null : Number(v)
+}
+export const hasCount = (meta) => remainingOf(meta) !== null
+
+/** Orderable right now: on sale, its section open, and portions left. */
+export const isAvailable = (meta) =>
+  isOnSale(meta) && isCategoryOpen(meta) && !isSoldOut(meta) && !isUnsetToday(meta)
 
 /** 'Opens 18:00' / 'Back at 07:00', or '' while it is on the menu. */
 export const openLabel = (meta) => {
   if (isAvailable(meta)) return ''
   // Never an opening time for an Off dish: at that time it would still be off.
   if (!isOnSale(meta)) return 'Not on sale'
+  // Ahead of the section's hours: a dish that has run out is not coming back at
+  // 18:00 either, and "Sold out" is the answer a guest is actually asking for.
+  if (isSoldOut(meta)) return 'Sold out'
+  if (isUnsetToday(meta)) return 'Not available today'
   const at = meta?.CategoryOpensAt
   return at ? `Opens ${String(at).slice(0, 5)}` : 'Off the menu'
 }

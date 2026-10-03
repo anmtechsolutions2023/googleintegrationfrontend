@@ -108,7 +108,7 @@ const BranchGstinRow = ({ branch, canWrite, onSaved }) => {
 
 const BranchGstinList = ({ branches = [], canWrite = false, onSaved }) => {
   if (branches.length === 0) {
-    return <p className="fd-setting-desc">No branches yet. Add one under Organization → Branch Details.</p>
+    return <p className="fd-setting-desc">No branches yet. Add one under Outlet → Business & branches → Branches.</p>
   }
   return (
     <div className="fd-gstin-list">
