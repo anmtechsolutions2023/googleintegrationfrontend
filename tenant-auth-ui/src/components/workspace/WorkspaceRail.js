@@ -5,6 +5,7 @@ import { visibleWorkspaces, visibleTabs, entryPathOf, workspaceOfPath } from '..
 
 // Stroke icons, one per workspace. Inline so they take the rail's text colour.
 const ICONS = {
+  billing: 'M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6M9 16h3',
   service: 'M4 17h16M6 17a6 6 0 0 1 12 0M12 11V8M10 8h4',
   menu: 'M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3zM5 17a3 3 0 0 1 3-3h11',
   outlet: 'M4 10h16l-1-5H5zM5 10v10h14V10M10 20v-5h4v5',
@@ -20,30 +21,37 @@ const ICONS = {
  * Decides nothing itself — visibility comes from config/workspaces.js, the same
  * rules that build the routes, so the rail cannot offer what the router refuses.
  * Each entry lands on the first tab (and section) the user may open.
+ *
+ * A `bare` workspace (the till) is a single screen rather than a place with
+ * tabs, so a rule sets it apart from the workspaces below it.
  */
 const WorkspaceRail = () => {
   const { user } = useAuth()
   const { pathname } = useLocation()
   const current = workspaceOfPath(pathname)
+  const open = visibleWorkspaces(user)
 
   return (
     <nav className="ws-rail" aria-label="Workspaces">
-      {visibleWorkspaces(user).map((ws) => {
+      {open.map((ws, i) => {
         const active = current && current.key === ws.key
         const first = visibleTabs(ws, user)[0]
+        const divide = ws.bare && open[i + 1] && !open[i + 1].bare
         return (
-          <NavLink
-            key={ws.key}
-            to={entryPathOf(first, user)}
-            className={`ws-rail-item ${active ? 'is-active' : ''}`}
-            aria-current={active ? 'page' : undefined}
-            title={ws.hint}
-          >
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d={ICONS[ws.key]} />
-            </svg>
-            <span>{ws.workspace}</span>
-          </NavLink>
+          <React.Fragment key={ws.key}>
+            <NavLink
+              to={entryPathOf(first, user)}
+              className={`ws-rail-item ${active ? 'is-active' : ''}${ws.bare ? ' is-till' : ''}`}
+              aria-current={active ? 'page' : undefined}
+              title={ws.hint}
+            >
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d={ICONS[ws.key]} />
+              </svg>
+              <span>{ws.workspace}</span>
+            </NavLink>
+            {divide && <span className="ws-rail-rule" aria-hidden="true" />}
+          </React.Fragment>
         )
       })}
     </nav>

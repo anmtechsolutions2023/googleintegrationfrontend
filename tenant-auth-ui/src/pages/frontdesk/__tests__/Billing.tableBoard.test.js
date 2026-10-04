@@ -120,9 +120,38 @@ describe('step 1 — the board is open', () => {
     expect(tileFor('G-4').getAttribute('aria-label')).toMatch(/free, 6 seats/);
   });
 
-  test('the menu waits at half strength until a table is chosen', async () => {
+  // Forty tables and a menu do not both fit in column 2: while a table is
+  // being picked the board fills it, and the dishes wait behind it.
+  test('fills column 2 until a table is chosen', async () => {
     await open();
-    expect(document.querySelector('.fd-billing-layout')).toHaveClass('is-picking');
+    expect(document.querySelector('.fd-billing-layout')).toHaveClass('is-board-full');
+    expect(board()).toHaveClass('is-fill');
+  });
+
+  test('"Add dishes first" brings the dishes up, folding the board to its row', async () => {
+    await open();
+    fireEvent.click(within(board()).getByRole('button', { name: 'Add dishes first →' }));
+    expect(document.querySelector('.fd-billing-layout')).not.toHaveClass('is-board-full');
+    expect(screen.getByRole('group', { name: 'Table row' })).toBeInTheDocument();
+    // Still step 1: the row says so, and All tables reopens the board.
+    expect(screen.getByText('Pick a table to start')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'All tables ⌄' }));
+    expect(document.querySelector('.fd-billing-layout')).toHaveClass('is-board-full');
+  });
+
+  test('typing a dish in the search brings the dishes up as well', async () => {
+    await open();
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search the menu' }), { target: { value: 'chai' } });
+    expect(document.querySelector('.fd-billing-layout')).not.toHaveClass('is-board-full');
+  });
+
+  test('once a table is chosen, the next walk-in starts at the board again', async () => {
+    await open();
+    fireEvent.click(within(board()).getByRole('button', { name: 'Add dishes first →' }));
+    fireEvent.click(within(screen.getByRole('group', { name: 'Table row' })).getByRole('button', { name: /^G-3, / }));
+    await screen.findByText('Table G-3');
+    expect(document.querySelector('.fd-billing-layout')).not.toHaveClass('is-board-full');
+    expect(screen.queryByRole('button', { name: 'Add dishes first →' })).not.toBeInTheDocument();
   });
 });
 
@@ -193,6 +222,18 @@ describe('step 2 — the board folds to one row', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'All tables ⌄' }));
     fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.getByRole('group', { name: 'Table row' })).toBeInTheDocument();
+  });
+
+  // The open board covers the dishes, so asking for one folds it again.
+  test('searching for a dish while the board is open folds it', async () => {
+    await serve('G-4');
+    fireEvent.click(screen.getByRole('button', { name: 'All tables ⌄' }));
+    expect(document.querySelector('.fd-billing-layout')).toHaveClass('is-board-full');
+    // Serving a table, so there is no "Add dishes first" — that is step 1's.
+    expect(screen.queryByRole('button', { name: 'Add dishes first →' })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search the menu' }), { target: { value: 'chai' } });
+    expect(document.querySelector('.fd-billing-layout')).not.toHaveClass('is-board-full');
     expect(screen.getByRole('group', { name: 'Table row' })).toBeInTheDocument();
   });
 

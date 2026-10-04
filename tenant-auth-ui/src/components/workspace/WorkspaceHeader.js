@@ -9,12 +9,16 @@ import { visibleTabs, entryPathOf, tabLabelOf, workspaceOfPath } from '../../con
  * A tab is active when the path is inside it, so a section (/menu/options/addons)
  * or a nested page (/guests/offers/<id>) keeps its tab lit. An `external` tab
  * (the setup wizard) is a plain link out of the workspace.
+ *
+ * A `bare` workspace has no header at all: the till is one screen, the rail
+ * already says where you are, and every pixel above the menu is one the
+ * cashier scrolls past all shift.
  */
 const WorkspaceHeader = () => {
   const { user } = useAuth()
   const { pathname } = useLocation()
   const ws = workspaceOfPath(pathname)
-  if (!ws) return null
+  if (!ws || ws.bare) return null
   const tabs = visibleTabs(ws, user)
 
   return (

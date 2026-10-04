@@ -663,8 +663,9 @@ describe('Billing — multi-round bill summary', () => {
     expect(await screen.findByText('Round 1 total')).toBeInTheDocument();
     expect(screen.getByText('Round 2 total')).toBeInTheDocument();
     expect(screen.getByText('Grand Total')).toBeInTheDocument();
-    // 118 + 20 = 138 across the two rounds.
-    expect(screen.getByText('₹138.00')).toBeInTheDocument();
+    // 118 + 20 = 138 across the two rounds — on the bill, and on Settle.
+    expect(screen.getByText('Grand Total').parentElement).toHaveTextContent('₹138.00');
+    expect(screen.getByRole('button', { name: 'Settle bill' })).toHaveTextContent('Settle₹138.00');
   });
 
   test('item-wise GST breakup shows how much tax each product carries', async () => {

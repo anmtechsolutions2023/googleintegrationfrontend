@@ -1,7 +1,7 @@
 import { PRIMARY_NAV, visibleNavItems, visibleAdminTabs } from '../navigation';
 import {
   WORKSPACES, visibleWorkspaces, visibleTabs, visibleSections, tabLabelOf,
-  homePathFor, entryPathOf, legacyTargetFor, workspaceOfPath, LEGACY_PATHS,
+  homePathFor, entryPathOf, legacyTargetFor, workspaceOfPath, LEGACY_PATHS, MOVED_PATHS,
 } from '../workspaces';
 
 // Menus are built from the user's scopes, so what is on screen matches what the
@@ -42,16 +42,37 @@ describe('the top bar', () => {
 });
 
 describe('the workspace rail', () => {
-  it('gives a tenant admin all seven workspaces', () => {
+  it('gives a tenant admin the till, then all seven workspaces', () => {
     expect(wsNames(userWith(['TENANT:ADMIN']))).toEqual(
-      ['Service', 'Menu', 'Outlet', 'Money', 'Guests', 'Insights', 'Admin'],
+      ['Billing & KOT', 'Service', 'Menu', 'Outlet', 'Money', 'Guests', 'Insights', 'Admin'],
     );
+  });
+
+  // The till is one tap from anywhere: its own rail entry, one screen, no
+  // workspace header — not a section two tabs down inside Service.
+  it('puts Billing & KOT first, as one bare screen', () => {
+    const till = WORKSPACES[0];
+    expect(till.key).toBe('billing');
+    expect(till.bare).toBe(true);
+    expect(till.tabs.map((t) => t.path)).toEqual(['/billing']);
+    expect(wsNames(userWith(['POS_ORDER:READ']))[0]).toBe('Billing & KOT');
+  });
+
+  it('keeps Tables and the QR inbox under Service › Floor, and not the till', () => {
+    const floor = WORKSPACES.find((w) => w.key === 'service').tabs.find((t) => t.key === 'floor');
+    expect(visibleSections(floor, userWith(['TENANT:ADMIN'])).map((s) => s.label)).toEqual(['Tables', 'QR inbox']);
+  });
+
+  it('opens the till to the same scopes the Billing & KOT section needed', () => {
+    expect(wsNames(userWith(['POS_ORDER:READ']))).toContain('Billing & KOT');
+    expect(wsNames(userWith(['POS_KITCHEN:READ']))).not.toContain('Billing & KOT');
+    expect(wsNames(userWith(['TRANSACTIONS:READ']))).not.toContain('Billing & KOT');
   });
 
   it('shows a cashier the floor, not the books or the admin', () => {
     const cashier = userWith(['POS_ORDER:READ', 'POS_ORDER:WRITE', 'POS_BILLING:READ', 'POS_BILLING:WRITE', 'POS_CRM:READ', 'POS_CONFIG:READ', 'POS_QR:READ']);
     const seen = wsNames(cashier);
-    expect(seen).toEqual(expect.arrayContaining(['Service', 'Guests']));
+    expect(seen).toEqual(expect.arrayContaining(['Billing & KOT', 'Service', 'Guests']));
     expect(seen).not.toContain('Admin');
     // Dues is theirs: collecting a balance is taking money at the till. The
     // books themselves (Finance, Ledger, Returns) are not.
@@ -67,8 +88,10 @@ describe('the workspace rail', () => {
   });
 
   it('sends floor staff Home to Billing & KOT, and others to their first screen', () => {
-    expect(homePathFor(userWith(['TENANT:ADMIN']))).toBe('/service/floor/order');
-    expect(homePathFor(userWith(['POS_ORDER:READ']))).toBe('/service/floor/order');
+    expect(homePathFor(userWith(['TENANT:ADMIN']))).toBe('/billing');
+    expect(homePathFor(userWith(['POS_ORDER:READ']))).toBe('/billing');
+    // No till, but the QR inbox: Service lands on Floor rather than Today.
+    expect(homePathFor(userWith(['POS_QR:READ']))).toBe('/service/floor/qr');
     // Service is open through Kitchen alone, but Floor is not — first tab wins.
     expect(homePathFor(userWith(['POS_KITCHEN:READ']))).toBe('/service/today');
   });
@@ -82,7 +105,7 @@ describe('the workspace rail', () => {
   // first one the person may open — not on a section they would be refused.
   it('lands a sectioned tab on the first section the user may open', () => {
     const qrOnly = userWith(['POS_QR:READ']);
-    const floor = WORKSPACES[0].tabs.find((t) => t.key === 'floor');
+    const floor = WORKSPACES.find((w) => w.key === 'service').tabs.find((t) => t.key === 'floor');
     expect(visibleSections(floor, qrOnly).map((s) => s.key)).toEqual(['qr']);
     expect(entryPathOf(floor, qrOnly)).toBe('/service/floor/qr');
   });
@@ -104,7 +127,8 @@ describe('the workspace rail', () => {
 describe('old addresses', () => {
   it.each([
     ['/frontdesk', '/service/today'],
-    ['/frontdesk/billing', '/service/floor/order'],
+    ['/frontdesk/billing', '/billing'],
+    ['/service/floor/order', '/billing'],
     ['/frontdesk/qr-orders', '/service/floor/qr'],
     ['/frontdesk/menu', '/menu/items'],
     ['/frontdesk/menu-tags', '/menu/labels/menu-tags'],
@@ -119,6 +143,13 @@ describe('old addresses', () => {
 
   it('keeps the query string', () => {
     expect(legacyTargetFor('/frontdesk/finance', '?tab=gst')).toBe('/money/overview?tab=gst');
+    expect(legacyTargetFor('/service/floor/order', '?table=t1')).toBe('/billing?table=t1');
+  });
+
+  // Old roots (/frontdesk, /master, /reports) have catch-all routes in App.js;
+  // an old address inside today's workspace URLs needs a route of its own.
+  it('lists the moved workspace addresses that need their own redirect route', () => {
+    expect(MOVED_PATHS).toEqual(['/service/floor/order']);
   });
 
   it('matches whole path segments only', () => {

@@ -59,8 +59,9 @@ import GenericCrudPage from '../components/MasterData/GenericCrudPage'
  * grid (see screenFor).
  */
 export const SCREENS = {
+  'billing.till': <Billing />,
+
   'service.today': <FrontDeskDashboard />,
-  'service.floor.order': <Billing />,
   'service.floor.tables': <Tables />,
   'service.floor.qr': <QrOrders />,
   'service.counter.tokens': <Tokens />,

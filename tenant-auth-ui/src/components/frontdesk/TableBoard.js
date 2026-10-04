@@ -27,6 +27,10 @@ import './frontdesk.css'
  * @param {string} [props.suggestId] - The table offered to a walk-in party.
  * @param {number} [props.suggestGuests]
  * @param {Object} [props.findRef] - So F4 can focus the finder.
+ * @param {boolean} [props.fill] - Open and filling its column: the floors
+ *   scroll inside the board instead of stopping at a fixed height.
+ * @param {() => void} [props.onAddDishes] - While a table is being picked:
+ *   the way to the dishes before choosing one.
  */
 
 const FLOOR_KEY = 'fd.tableBoard.floor'
@@ -58,7 +62,7 @@ const COUNTS = [
 
 const TableBoard = ({
   info = [], floors = [], selectedTableId = '', open, onToggle, onPick,
-  suggestId = null, suggestGuests = null, findRef = null,
+  suggestId = null, suggestGuests = null, findRef = null, fill = false, onAddDishes = null,
 }) => {
   const [filter, setFilter] = useState('all')
   const [floor, setFloor] = useState(readFloor)
@@ -259,7 +263,7 @@ const TableBoard = ({
   // ── FOLDED ──────────────────────────────────────────────────────────────
   if (!open) {
     return (
-      <section className="fd-tboard is-folded" aria-label="Tables">
+      <section className={`fd-tboard is-folded${selected ? ' is-serving' : ''}`} aria-label="Tables">
         <div className="fd-tboard-line">
           {/* Phone: the board, one tap away. */}
           <button
@@ -329,7 +333,7 @@ const TableBoard = ({
     .filter((f) => f.shown.length > 0)
 
   return (
-    <section className={`fd-tboard is-open${selected ? '' : ' is-picking'}`} aria-label="Tables">
+    <section className={`fd-tboard is-open${selected ? '' : ' is-picking'}${fill ? ' is-fill' : ''}`} aria-label="Tables">
       <div className="fd-tboard-line">
         {steps}
         <div className="fd-tboard-meter" title="Tables seated now">
@@ -387,6 +391,17 @@ const TableBoard = ({
         })}
         {shownGroups.length === 0 && <p className="fd-tboard-empty">No table matches “{find.trim()}”.</p>}
       </div>
+
+      {/* The dishes are behind the board while it is open. Taking an order
+          before seating anyone is still one tap away. */}
+      {onAddDishes && (
+        <div className="fd-tboard-foot">
+          <span>A free table starts Round 1. A running one opens its bill.</span>
+          <button type="button" className="fd-link-btn" onClick={onAddDishes}>
+            Add dishes first →
+          </button>
+        </div>
+      )}
     </section>
   )
 }

@@ -2,9 +2,10 @@ import React from 'react'
 import { Route, Navigate } from 'react-router-dom'
 import { ScopeGuard } from '../Guards'
 import { useAuth } from '../../context/AuthContext'
-import { WORKSPACES, entryPathOf } from '../../config/workspaces'
+import { WORKSPACES, MOVED_PATHS, entryPathOf } from '../../config/workspaces'
 import { screenFor, NESTED_SCREENS } from '../../config/workspaceScreens'
-import SectionedTab from './SectionedTab'
+import SectionedTab, { TabBanner } from './SectionedTab'
+import { LegacyRedirect } from './WorkspaceRedirects'
 
 /** /menu/options → its first section this user may open. */
 const FirstSection = ({ tab }) => {
@@ -27,8 +28,13 @@ export const workspaceRoutes = () => WORKSPACES.flatMap((ws) => ws.tabs
   .flatMap((tab) => {
     const tabKey = `${ws.key}.${tab.key}`
     if (!tab.sections) {
+      const screen = guarded(tab.scopes, screenFor(tabKey, tab))
       return [
-        <Route key={tab.path} path={tab.path} element={guarded(tab.scopes, screenFor(tabKey, tab))} />,
+        <Route
+          key={tab.path}
+          path={tab.path}
+          element={tab.banner ? <><TabBanner name={tab.banner} />{screen}</> : screen}
+        />,
         ...(NESTED_SCREENS[tabKey] || []).map((n) => (
           <Route key={`${tab.path}/${n.path}`} path={`${tab.path}/${n.path}`} element={guarded(tab.scopes, n.element)} />
         )),
@@ -49,3 +55,13 @@ export const workspaceRoutes = () => WORKSPACES.flatMap((ws) => ws.tabs
       </Route>,
     ]
   }))
+
+/**
+ * Redirects for old addresses that sit inside the workspace URLs (see
+ * MOVED_PATHS), each with its sub-paths. `wrap` lets App.js put them behind
+ * the same sign-in guard as its other legacy routes.
+ */
+export const movedRoutes = (wrap = (el) => el) => MOVED_PATHS.flatMap((from) => [
+  <Route key={from} path={from} element={wrap(<LegacyRedirect />)} />,
+  <Route key={`${from}/*`} path={`${from}/*`} element={wrap(<LegacyRedirect />)} />,
+])

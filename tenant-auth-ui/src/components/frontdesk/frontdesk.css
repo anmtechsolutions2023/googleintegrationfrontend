@@ -3840,11 +3840,26 @@ button.fd-printer-btn { cursor: pointer; }
 .fd-seg button.is-on { background: var(--ink, #0f3460); color: #fff; }
 .fd-seg button:focus-visible { outline: 2px solid var(--action, #2563eb); outline-offset: -2px; }
 
-/* The grid gains a first column when there is a rail to put in it. */
-.fd-billing-layout { gap: 12px; }
+/* Three columns: diet and categories · search, tables, dishes · the order.
+   The first exists when there is a rail to put in it. It spans the full height
+   and nothing stacks above it, so the table board can open or fold without
+   moving it — the board used to span this column too, and when it opened the
+   rail was pushed below it and cut to a sliver. */
+.fd-billing-layout { gap: 12px; grid-template-rows: minmax(0, 1fr); }
 .fd-billing-layout.has-rail {
-  grid-template-columns: 168px minmax(0, 1fr) clamp(320px, 28%, 440px);
+  grid-template-columns: 220px minmax(0, 1fr) clamp(340px, 28%, 440px);
 }
+
+/* Column 2: the search, then the board, then the dishes. Only the dishes — or
+   the open board, which takes their place — get the leftover height. */
+.fd-till-main {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.fd-till-main > .fd-menu-panel { flex: 1 1 auto; }
 
 .fd-cat-rail {
   min-width: 0;
@@ -3867,44 +3882,66 @@ button.fd-printer-btn { cursor: pointer; }
   overflow-x: hidden;
   overflow-y: auto;
 }
-.fd-menu-cats.is-rail .fd-chip,
-.fd-menu-diets.is-rail .fd-chip {
+.fd-menu-cats.is-rail { padding: 6px 8px 10px; gap: 2px; }
+.fd-menu-cats.is-rail .fd-chip {
   width: 100%;
   justify-content: flex-start;
   border: 0;
-  border-radius: 0;
+  border-radius: 10px;
   background: transparent;
-  min-height: 42px;
-  padding: 8px 12px 8px 14px;
+  min-height: 44px;
+  padding: 8px 10px;
   white-space: normal;
   text-align: left;
+  font-size: 13.5px;
+  color: var(--ink, #0b1220);
 }
 .fd-menu-cats.is-rail .fd-chip-name,
 .fd-menu-diets.is-rail .fd-chip-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .fd-menu-cats.is-rail .fd-chip:hover:not(.is-on) { background: #f1f5f9; }
-.fd-menu-cats.is-rail .fd-chip.is-on {
-  background: #eaf0ff;
-  color: var(--action, #1d4ed8);
-  box-shadow: inset 3px 0 0 var(--action, #1d4ed8);
-}
-.fd-menu-cats.is-rail .fd-chip.is-on .fd-chip-count { background: #fff; color: var(--action, #1d4ed8); }
-.fd-menu-cats.is-rail .fd-chip.is-on .fd-chip-clock { color: #e67e22; }
+/* The Bold theme's "where am I": solid ink, as on the section switcher. */
+.fd-menu-cats.is-rail .fd-chip.is-on { background: var(--ink, #0b1220); color: #fff; }
+.fd-menu-cats.is-rail .fd-chip.is-on .fd-chip-count { background: var(--ink-2, #1b2537); color: #fff; }
+.fd-menu-cats.is-rail .fd-chip.is-on .fd-chip-clock { color: var(--saffron, #ffb020); }
 
+/* Diet, pinned above the categories, two by two: the name on top, how many
+   dishes it leaves underneath. A short fixed list, so it never scrolls — at
+   the foot of twenty categories it used to scroll out of reach. */
 .fd-menu-diets.is-rail {
-  flex-direction: column;
-  align-items: stretch;
-  flex-wrap: nowrap;
-  gap: 0;
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
   margin: 0;
-  padding: 6px 0 8px;
-  border-top: 1px solid #eef1f5;
-  border-bottom: 0;
+  padding: 12px;
+  border-top: 0;
+  border-bottom: 1px solid #eef1f5;
 }
-.fd-menu-diets.is-rail .fd-menu-filter-label { padding: 2px 14px 4px; text-transform: uppercase; font-size: 11px; letter-spacing: 0.04em; }
-.fd-menu-diets.is-rail .fd-chip { min-height: 36px; font-size: 12.5px; }
-.fd-menu-diets.is-rail .fd-chip.is-on { background: #eaf0ff; color: var(--action, #1d4ed8); }
-.fd-menu-diets.is-rail .fd-chip.is-on .fd-diet-dot { background: currentColor; }
-.fd-menu-diets.is-rail .fd-chip.is-on .fd-chip-count { background: #fff; color: var(--action, #1d4ed8); }
+.fd-menu-diets.is-rail .fd-menu-filter-label { grid-column: 1 / -1; padding: 0 2px; text-transform: uppercase; font-size: 11px; letter-spacing: 0.06em; }
+.fd-menu-diets.is-rail .fd-chip {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: 6px;
+  row-gap: 1px;
+  width: auto;
+  min-height: 48px;
+  padding: 6px 8px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink, #0b1220);
+  font-size: 13px;
+  white-space: nowrap;
+  text-align: left;
+}
+.fd-menu-diets.is-rail .fd-chip-count { grid-column: 2; justify-self: start; padding: 0; background: transparent; color: #475569; font-weight: 600; }
+/* A food type longer than the chip ("Eggetarian") ends in "…"; the chip's
+   tooltip has it whole. */
+.fd-menu-diets.is-rail .fd-chip-name { overflow: hidden; text-overflow: ellipsis; overflow-wrap: normal; }
+.fd-menu-diets.is-rail .fd-chip:hover:not(.is-on) { border-color: #94a3b8; }
+.fd-menu-diets.is-rail .fd-chip.is-on { background: var(--ink, #0b1220); border-color: var(--ink, #0b1220); color: #fff; }
+.fd-menu-diets.is-rail .fd-chip.is-on .fd-chip-count { background: transparent; color: #cbd5e1; }
 
 /* The active chip's count was white on a pale fill on the old horizontal row
    and could not be read. A solid count fixes it wherever the chip is drawn. */
@@ -4119,78 +4156,67 @@ button.fd-printer-btn { cursor: pointer; }
 /* ── Phone: summary bar ─────────────────────────────────────────────────── */
 .fd-cart-jump { display: none; }
 
-/* Laptop with the sidebar out: a narrower rail keeps three dish columns. */
-@media (max-width: 1180px) {
-  .fd-billing-layout.has-rail { grid-template-columns: 140px minmax(0, 1fr) clamp(300px, 32%, 380px); }
+/* Landscape tablet and small laptops (1024–1279px): narrower side columns
+   keep two or three dish columns in the middle. */
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .fd-billing-layout.has-rail { grid-template-columns: 188px minmax(0, 1fr) clamp(300px, 30%, 340px); }
+}
+/* A 188px column leaves each diet chip ~84px: less padding keeps "Non-Veg"
+   whole. */
+@media (min-width: 768px) and (max-width: 1279px) {
+  .fd-menu-diets.is-rail { padding: 10px 8px; gap: 6px 4px; }
+  .fd-menu-diets.is-rail .fd-chip { padding: 5px 6px; column-gap: 4px; font-size: 12px; }
 }
 
-/* Portrait tablet and phone: one column. The rail folds back into two rows of
-   chips above the dishes, and the order follows the menu. */
+/* ── Phone (≤767px) ─────────────────────────────────────────────────────────
+   The page flows again, and the categories stay a column: 104px beside the
+   dishes, with the search and the tables across the full width above them.
+   Column 2's wrapper dissolves so those two can span both. The order panel
+   is a sheet (below, shared with the portrait tablet). */
 @media (max-width: 767px) {
-  .fd-billing-layout.has-rail { grid-template-columns: minmax(0, 1fr); }
-  .fd-cat-rail { box-shadow: none; background: transparent; overflow: visible; gap: 6px; }
-  .fd-menu-cats.is-rail,
-  .fd-menu-diets.is-rail {
-    flex-direction: row;
-    align-items: center;
-    overflow-x: auto;
-    overflow-y: visible;
-    padding: 0 0 4px;
-    gap: 6px;
-    border-top: 0;
-    scrollbar-width: thin;
+  .fd-billing-layout,
+  .fd-billing-layout.has-rail { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; }
+  .fd-billing-layout.has-rail { grid-template-columns: 104px minmax(0, 1fr); }
+  .fd-till-main { display: contents; }
+  .fd-till-main > .fd-till-bar { order: 1; grid-column: 1 / -1; }
+  .fd-till-main > .fd-tboard-wrap { order: 2; grid-column: 1 / -1; }
+  .fd-billing-layout > .fd-cat-rail { order: 3; }
+  .fd-till-main > .fd-menu-panel { order: 4; }
+  /* Side by side, each scrolls inside a screen-high band rather than running
+     the page as long as twenty categories. */
+  .fd-billing-layout > .fd-cat-rail,
+  .fd-till-main > .fd-menu-panel {
+    height: calc(100dvh - var(--navbar-height, 64px) - 150px);
+    min-height: 360px;
   }
-  .fd-menu-cats.is-rail .fd-chip,
-  .fd-menu-diets.is-rail .fd-chip {
-    width: auto;
-    flex: 0 0 auto;
-    white-space: nowrap;
-    border: 1px solid #d0d4da;
-    border-radius: 18px;
-    background: #fff;
-    min-height: 38px;
-    padding: 6px 12px;
-    box-shadow: none;
+  .fd-billing-layout.is-board-full > .fd-cat-rail { display: none; }
+  .fd-menu-panel { padding: 10px; }
+  .fd-menu-grid { max-height: none; }
+
+  .fd-menu-cats.is-rail { padding: 4px 4px 8px; }
+  .fd-menu-cats.is-rail .fd-chip {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    min-height: 52px;
+    padding: 8px;
+    font-size: 12.5px;
+    line-height: 1.25;
   }
-  .fd-menu-cats.is-rail .fd-chip.is-on,
-  .fd-menu-diets.is-rail .fd-chip.is-on { background: var(--ink, #0f3460); border-color: var(--ink, #0f3460); color: #fff; box-shadow: none; }
-  .fd-menu-diets.is-rail .fd-menu-filter-label { padding: 0 4px 0 0; }
+  .fd-menu-cats.is-rail .fd-chip-count { padding: 0; background: transparent; font-weight: 600; }
+  .fd-menu-cats.is-rail .fd-chip.is-on .fd-chip-count { background: transparent; color: #cbd5e1; }
+  .fd-menu-diets.is-rail { grid-template-columns: minmax(0, 1fr); gap: 4px; padding: 8px 6px; }
+  .fd-menu-diets.is-rail .fd-chip { min-height: 40px; padding: 4px 8px; font-size: 12.5px; }
+  .fd-menu-diets.is-rail .fd-chip-count { display: none; }
+
   .fd-till-search { flex-basis: 100%; order: -1; }
   .fd-till-tail { margin-left: 0; }
-  .fd-menu-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-
   /* Room under the last dish for the bar, so it never covers one. */
   .fd-billing { padding-bottom: 72px; }
-  .fd-cart-jump {
-    position: fixed;
-    left: 12px;
-    right: 12px;
-    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
-    z-index: 40;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 10px 12px 10px 16px;
-    border-radius: 12px;
-    background: var(--ink, #0b1220);
-    color: #fff;
-    font-weight: 600;
-    font-size: 14px;
-    font-variant-numeric: tabular-nums;
-    box-shadow: 0 6px 20px rgba(11, 18, 32, 0.3);
-  }
-  .fd-cart-jump button {
-    border: 0;
-    border-radius: 8px;
-    background: var(--saffron, #ffb020);
-    color: #0b1220;
-    font-weight: 700;
-    font-size: 13px;
-    padding: 9px 12px;
-    cursor: pointer;
-  }
-  .fd-cart-actions-grid { gap: 6px; }
+}
+/* A narrow phone: one dish per row beside the categories. */
+@media (max-width: 520px) {
+  .fd-menu-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* ══ Dine-in on the till screen ═══════════════════════════════════════════
@@ -4290,65 +4316,23 @@ button.fd-printer-btn { cursor: pointer; }
 .fd-cart-jump-text small { font-size: 11.5px; font-weight: 500; opacity: 0.75; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ── Tablet, portrait (768–1023px) ─────────────────────────────────────────
-   Two columns. The category rail folds into two rows of chips above the
-   dishes, so the dishes keep two columns beside a 300px order panel. Search
-   takes the toolbar's whole first row. */
+   The same first two columns as the desktop — categories, then search,
+   tables and dishes — and the order becomes a sheet raised from a bar along
+   the bottom, as on a phone. A 300px order column used to squeeze the dishes
+   into two narrow columns and fold the categories into rows of chips. */
 @media (min-width: 768px) and (max-width: 1023px) {
+  .fd-billing { padding-bottom: 76px; }
+  .fd-billing-layout { grid-template-columns: minmax(0, 1fr); }
+  .fd-billing-layout.has-rail { grid-template-columns: 188px minmax(0, 1fr); }
   .fd-till-search { flex-basis: 100%; }
   .fd-till-tail { margin-left: auto; }
-  .fd-billing-layout,
-  .fd-billing-layout.has-rail {
-    grid-template-columns: minmax(0, 1fr) 300px;
-    grid-template-rows: auto minmax(0, 1fr);
-    grid-template-areas: "rail cart" "menu cart";
-  }
-  .fd-billing-layout:not(.has-rail) { grid-template-areas: "menu cart" "menu cart"; }
-  .fd-billing-layout > .fd-cat-rail { grid-area: rail; }
-  .fd-billing-layout > .fd-menu-panel { grid-area: menu; }
-  .fd-billing-layout > .fd-cart-panel { grid-area: cart; }
-
-  .fd-cat-rail { flex-direction: column; gap: 6px; background: transparent; box-shadow: none; overflow: visible; }
-  .fd-menu-cats.is-rail,
-  .fd-menu-diets.is-rail {
-    flex-direction: row;
-    align-items: center;
-    overflow-x: auto;
-    overflow-y: visible;
-    padding: 0 0 2px;
-    gap: 6px;
-    border-top: 0;
-    scrollbar-width: thin;
-  }
-  .fd-menu-cats.is-rail .fd-chip,
-  .fd-menu-diets.is-rail .fd-chip {
-    width: auto;
-    flex: 0 0 auto;
-    white-space: nowrap;
-    border: 1px solid #d0d4da;
-    border-radius: 18px;
-    background: #fff;
-    min-height: 38px;
-    padding: 6px 12px;
-    box-shadow: none;
-  }
-  .fd-menu-cats.is-rail .fd-chip.is-on,
-  .fd-menu-diets.is-rail .fd-chip.is-on { background: var(--ink, #0f3460); border-color: var(--ink, #0f3460); color: #fff; box-shadow: none; }
-  .fd-menu-diets.is-rail .fd-menu-filter-label { padding: 0 4px 0 0; }
-  .fd-menu-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  /* Four actions in a 300px column: two by two, each still 52px tall. */
-  .fd-cart-actions-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
 }
 
-/* Tablet landscape and small laptops: the desktop layout, narrower rail. */
-@media (min-width: 1024px) and (max-width: 1180px) {
-  .fd-billing-layout.has-rail { grid-template-columns: 132px minmax(0, 1fr) clamp(300px, 30%, 360px); }
-}
-
-/* ── Phone (≤767px): the order panel is a sheet ────────────────────────────
-   The menu takes the whole width. The bar at the bottom raises the order
-   panel as a sheet: the table picker until a table is chosen, then that
-   table's order. */
-@media (max-width: 767px) {
+/* ── Phone and portrait tablet (≤1023px): the order panel is a sheet ───────
+   The dishes take the width. The bar at the bottom raises the order panel as
+   a sheet: the table picker until a table is chosen, then that table's
+   order. */
+@media (max-width: 1023px) {
   .fd-cart-panel {
     position: fixed;
     left: 0;
@@ -4391,10 +4375,49 @@ button.fd-printer-btn { cursor: pointer; }
   }
   .fd-cart-head-top { gap: 10px; }
   .fd-cart-head-name { margin-right: auto; }
-  .fd-cart-actions-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px; }
   .fd-btn.fd-act { min-height: 54px; }
   .fd-till-bar .fd-table-chip.is-none { display: none; }
-  .fd-cart-jump button { flex-shrink: 0; }
+  .fd-cart-jump {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px 10px 16px;
+    border-radius: 12px;
+    background: var(--ink, #0b1220);
+    color: #fff;
+    font-weight: 600;
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+    box-shadow: 0 6px 20px rgba(11, 18, 32, 0.3);
+  }
+  .fd-cart-jump button {
+    flex-shrink: 0;
+    border: 0;
+    border-radius: 8px;
+    background: var(--saffron, #ffb020);
+    color: #0b1220;
+    font-weight: 700;
+    font-size: 13px;
+    padding: 9px 12px;
+    min-height: 44px;
+    cursor: pointer;
+  }
+}
+/* Four actions on a phone: two by two, each still 54px tall. */
+@media (max-width: 767px) {
+  .fd-cart-actions-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px; }
+}
+/* A tall portrait tablet: the sheet stops short of the top, and the bar
+   clears the 72px workspace rail. */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .fd-cart-panel { top: 14vh; }
+  .fd-cart-jump { left: 84px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -4664,12 +4687,10 @@ button.fd-printer-btn { cursor: pointer; }
   box-shadow: 0 0 0 2px #fff;
 }
 
-/* Step 1: the menu waits, at half strength, until a table is chosen. It
-   still works — dishes tapped first wait for the table. */
-.fd-billing-layout.is-picking > .fd-menu-panel,
-.fd-billing-layout.is-picking > .fd-cat-rail { opacity: 0.55; transition: opacity 0.15s ease; }
-.fd-billing-layout.is-picking > .fd-menu-panel:hover,
-.fd-billing-layout.is-picking > .fd-cat-rail:hover { opacity: 1; }
+/* While the board is open it fills column 2 and the dishes wait behind it —
+   forty tables and a menu do not both fit. "Add dishes first", a category or
+   a search brings them back before a table is chosen. */
+.fd-billing-layout.is-board-full .fd-menu-panel { display: none; }
 
 /* ── The empty order panel: seat a walk-in ─────────────────────────────── */
 .fd-tstart { display: grid; gap: 12px; padding-top: 4px; }
@@ -4727,28 +4748,55 @@ button.fd-printer-btn { cursor: pointer; }
 .fd-tstart-takeaway { justify-self: start; font-size: 12.5px; }
 
 /* ── Where the board sits ───────────────────────────────────────────────── */
-/* Desktop and landscape tablet: across the rail and menu, beside the order. */
-@media (min-width: 1024px) {
-  .fd-billing-layout.has-board { grid-template-rows: auto minmax(0, 1fr); }
-  .fd-billing-layout.has-board.has-rail { grid-template-areas: "board board cart" "rail menu cart"; }
-  .fd-billing-layout.has-board:not(.has-rail) { grid-template-areas: "board cart" "menu cart"; }
-  .fd-billing-layout.has-board > .fd-tboard-wrap { grid-area: board; }
-  .fd-billing-layout.has-board > .fd-cat-rail { grid-area: rail; }
-  .fd-billing-layout.has-board > .fd-menu-panel { grid-area: menu; }
-  .fd-billing-layout.has-board > .fd-cart-panel { grid-area: cart; }
+/* In column 2, under the search. Folded, it is one row; open, it takes the
+   column's leftover height and its floors scroll inside it. */
+.fd-till-main > .fd-tboard-wrap { flex: 0 0 auto; }
+.fd-billing-layout.is-board-full .fd-till-main > .fd-tboard-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.fd-tboard.is-fill {
+  flex: 1 1 auto;
+  min-height: 0;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+}
+.fd-tboard.is-fill .fd-tboard-body { max-height: none; min-height: 0; }
+.fd-tboard-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  padding-top: 8px;
+  border-top: 1px solid #eef1f5;
+  font-size: 12.5px;
+  color: #475569;
+}
+.fd-tboard-foot .fd-link-btn { min-height: 40px; font-size: 13.5px; font-weight: 700; }
+
+/* Folded in a narrow column 2 (a laptop's 676px, a tablet's 520px), the head
+   line cannot hold everything it held when the board spanned the category
+   column too: the floor tabs give way, then "Serving G04" — the served table
+   still leads the row and names the order panel — so the counts, the finder
+   and All tables keep their room. */
+.fd-tboard-wrap { container: tboard / inline-size; }
+@container tboard (max-width: 940px) {
+  .fd-tboard.is-folded .fd-tboard-floors,
+  .fd-tboard.is-folded.is-serving .fd-tboard-steps,
+  .fd-tboard.is-folded:not(.is-serving) .fd-tboard-arrow,
+  .fd-tboard.is-folded:not(.is-serving) .fd-tboard-step.is-dim { display: none; }
+}
+@container tboard (max-width: 600px) {
+  .fd-tboard.is-folded .fd-tboard-find { width: 110px; }
+  .fd-tboard.is-folded .fd-tboard-line { gap: 8px; }
+  .fd-tboard-mini { gap: 4px; }
+  .fd-tboard-mini .fd-tboard-count { padding: 0 7px; gap: 5px; }
 }
 
-/* Portrait tablet: the full width, over both columns. */
+/* Portrait tablet: a narrower floor label; folded, the row keeps the room. */
 @media (min-width: 768px) and (max-width: 1023px) {
-  .fd-billing-layout.has-board.has-rail {
-    grid-template-rows: auto auto minmax(0, 1fr);
-    grid-template-areas: "board board" "rail cart" "menu cart";
-  }
-  .fd-billing-layout.has-board:not(.has-rail) {
-    grid-template-rows: auto minmax(0, 1fr);
-    grid-template-areas: "board board" "menu cart";
-  }
-  .fd-billing-layout.has-board > .fd-tboard-wrap { grid-area: board; }
   .fd-tboard-floor { grid-template-columns: 72px minmax(0, 1fr); }
   .fd-tboard.is-folded .fd-tboard-floors,
   .fd-tboard.is-folded .fd-tboard-find { display: none; }

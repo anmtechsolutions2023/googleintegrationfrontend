@@ -3,10 +3,15 @@ import { MODULES } from './modules'
 import { CATEGORY_READ_SCOPE, hasScope, canRunSetupWizard } from '../utils/permissions'
 
 /**
- * The whole app's navigation, as seven workspaces.
+ * The whole app's navigation: the till, then seven workspaces.
  *
  *   workspace  →  tab  →  (optional) section
- *   Service       Floor    Order & bill · Tables · QR inbox
+ *   Service       Floor    Tables · QR inbox
+ *
+ * Billing & KOT is first and `bare`: one tab, no workspace header, so the till
+ * opens one tap from anywhere and starts right under the navbar. It used to be
+ * Service › Floor › Billing & KOT — two taps from anywhere else, and under a
+ * title, four tabs and three section pills that took ~185px of a laptop screen.
  *
  * This file is the ONE place that says what exists, where it lives, who may
  * open it and which old URL it replaced. The rail, the tab strip, the section
@@ -49,10 +54,13 @@ export const MASTER_DATA_SCOPES = [
 ]
 
 export const WORKSPACES = [
+  { workspace: 'Billing & KOT', key: 'billing', bare: true, hint: 'The till — take the order, send the KOT, settle the bill.', tabs: [
+    { key: 'till', label: 'Billing & KOT', path: '/billing', banner: 'qrAlert', scopes: [SCOPES.POS_ORDER_READ, A], legacy: ['/frontdesk/billing', '/service/floor/order'] },
+  ] },
+
   { workspace: 'Service', key: 'service', hint: 'The live shift — tables, orders, kitchen, counter.', tabs: [
     { key: 'today', label: 'Today', path: '/service/today', scopes: ANY_POS_READ, legacyExact: ['/frontdesk'] },
     { key: 'floor', path: '/service/floor', tabLabel: 'Floor', banner: 'qrAlert', sections: [
-      { key: 'order', label: 'Billing & KOT', scopes: [SCOPES.POS_ORDER_READ, A], legacy: ['/frontdesk/billing'] },
       { key: 'tables', label: 'Tables', scopes: [SCOPES.POS_ORDER_READ, A], legacy: ['/frontdesk/tables'] },
       { key: 'qr', label: 'QR inbox', scopes: [SCOPES.POS_QR_READ, SCOPES.POS_QR_WRITE, SCOPES.POS_ORDER_READ, A], legacy: ['/frontdesk/qr-orders'] },
     ] },
@@ -188,13 +196,14 @@ export const entryPathOf = (tab, user) => {
   return `${tab.path}/${(first || tab.sections[0]).key}`
 }
 
-// Where Home looks first: the day-to-day workspaces before configuration, so an
-// accountant who can also read the numbering series lands in Money, not Outlet.
-const HOME_ORDER = ['service', 'money', 'guests', 'menu', 'insights', 'outlet', 'org']
+// Where Home looks first: the till, then the day-to-day workspaces before
+// configuration, so an accountant who can also read the numbering series lands
+// in Money, not Outlet.
+const HOME_ORDER = ['billing', 'service', 'money', 'guests', 'menu', 'insights', 'outlet', 'org']
 
-// The tab Home opens within a workspace when it is not the first one. Service
-// lands on Floor (Billing & KOT first) — the till is what staff open the app
-// for. Someone who cannot open it falls back to the workspace's first tab.
+// The tab Home opens within a workspace when it is not the first one. Somebody
+// who cannot open the till but can see Service lands on Floor (Tables, or the
+// QR inbox) rather than Today. Anyone else falls back to the first tab.
 const HOME_TAB = { service: 'floor' }
 
 /** The first place this user may go — where Home sends them. */
@@ -223,6 +232,16 @@ export const LEGACY_PATHS = WORKSPACES
     ...(t.sections || []).flatMap((s) => (s.legacy || []).map((from) => ({ from, to: `${t.path}/${s.key}` }))),
   ]))
   .sort((a, b) => b.from.length - a.from.length)
+
+// Prefixes App.js already sends to the legacy redirect wholesale.
+const OLD_ROOTS = /^\/(frontdesk|master|reports)(\/|$)/
+
+/**
+ * Old addresses inside today's workspace URLs — /service/floor/order, from
+ * before Billing & KOT had a rail entry of its own. Nothing else catches them
+ * (the router would answer 404), so each gets its own redirect route.
+ */
+export const MOVED_PATHS = LEGACY_PATHS.map((l) => l.from).filter((from) => !OLD_ROOTS.test(from))
 
 /**
  * The new address for an old one, keeping whatever came after the matched

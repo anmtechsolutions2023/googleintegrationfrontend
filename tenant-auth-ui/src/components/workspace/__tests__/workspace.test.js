@@ -7,7 +7,7 @@ import { render, screen } from '@testing-library/react'
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { useAuth } from '../../../context/AuthContext'
 import WorkspaceLayout from '../WorkspaceLayout'
-import { workspaceRoutes } from '../workspaceRoutes'
+import { workspaceRoutes, movedRoutes } from '../workspaceRoutes'
 import { LegacyRedirect, HomeRedirect } from '../WorkspaceRedirects'
 
 jest.mock('../../../context/AuthContext', () => ({ useAuth: jest.fn() }))
@@ -44,6 +44,7 @@ const renderAt = (path, scopes) => {
         <Route path="/dashboard" element={<HomeRedirect fallback={<div>home page</div>} />} />
         <Route path="/frontdesk/*" element={<LegacyRedirect />} />
         <Route path="/master/*" element={<LegacyRedirect />} />
+        {movedRoutes()}
       </Routes>
       <Where />
     </MemoryRouter>,
@@ -51,8 +52,9 @@ const renderAt = (path, scopes) => {
 }
 
 test('the rail shows only the workspaces a cashier can open', () => {
-  renderAt('/service/floor/order', ['POS_ORDER:READ', 'POS_CRM:READ'])
+  renderAt('/billing', ['POS_ORDER:READ', 'POS_CRM:READ'])
   const rail = screen.getByRole('navigation', { name: 'Workspaces' })
+  expect(rail).toHaveTextContent('Billing & KOT')
   expect(rail).toHaveTextContent('Service')
   expect(rail).toHaveTextContent('Guests')
   expect(rail).not.toHaveTextContent('Money')
@@ -62,9 +64,39 @@ test('the rail shows only the workspaces a cashier can open', () => {
 test('a sectioned tab shows its sections and the banner above them', () => {
   renderAt('/service/floor/tables', ['TENANT:ADMIN'])
   expect(screen.getByText('screen:service.floor.tables')).toBeInTheDocument()
-  expect(screen.getByRole('tab', { name: 'Billing & KOT' })).toBeInTheDocument()
+  expect(screen.getByRole('tab', { name: 'Tables' })).toBeInTheDocument()
   expect(screen.getByRole('tab', { name: 'QR inbox' })).toBeInTheDocument()
+  expect(screen.queryByRole('tab', { name: 'Billing & KOT' })).not.toBeInTheDocument()
   expect(screen.getByText('QR alert')).toBeInTheDocument()
+})
+
+// The till is its own rail entry: lit there, with no workspace title, tabs or
+// section pills above it — but still the QR banner, as it had under Floor.
+test('the till opens bare, with the QR banner and nothing else above it', () => {
+  renderAt('/billing', ['TENANT:ADMIN'])
+  expect(screen.getByText('screen:billing.till')).toBeInTheDocument()
+  expect(screen.getByText('QR alert')).toBeInTheDocument()
+  expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument()
+  expect(screen.queryByRole('tablist')).not.toBeInTheDocument()
+  const till = screen.getByRole('link', { name: 'Billing & KOT' })
+  expect(till).toHaveAttribute('aria-current', 'page')
+  expect(till).toHaveAttribute('href', '/billing')
+})
+
+test('the old Service › Floor › Billing & KOT address forwards to the till', () => {
+  renderAt('/service/floor/order?table=t1', ['TENANT:ADMIN'])
+  expect(screen.getByTestId('where')).toHaveTextContent('/billing?table=t1')
+  expect(screen.getByText('screen:billing.till')).toBeInTheDocument()
+})
+
+test('an old Front Desk billing link forwards to the till', () => {
+  renderAt('/frontdesk/billing', ['POS_ORDER:READ'])
+  expect(screen.getByTestId('where')).toHaveTextContent('/billing')
+})
+
+test('Home sends floor staff to the till', () => {
+  renderAt('/dashboard', ['POS_ORDER:READ'])
+  expect(screen.getByTestId('where')).toHaveTextContent('/billing')
 })
 
 test('opening a tab lands on the first section this user may open', () => {

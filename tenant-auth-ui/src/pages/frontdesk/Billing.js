@@ -261,6 +261,11 @@ const Billing = () => {
   // The table board under the search: open while no table is chosen (step 1),
   // folded to one row once one is (step 2) unless the cashier opens it again.
   const [boardOpen, setBoardOpen] = useState(false)
+  // Open, the board fills the middle column and the dishes wait behind it —
+  // with 40 tables on six floors there is no room for both. Picking a
+  // category, searching, or "Add dishes first" brings the dishes up before a
+  // table is chosen; they then wait in the order panel for one.
+  const [dishesFirst, setDishesFirst] = useState(false)
   // The walk-in party size typed in the empty order panel. It picks the table
   // the board suggests, and becomes the order's guests when they are seated.
   const [walkInGuests, setWalkInGuests] = useState(2)
@@ -505,6 +510,19 @@ const Billing = () => {
   // first and wait in the cart, and the order panel asks which table they are
   // for. Nothing can be saved or sent until one is picked — Save needs a table.
   const pickingTable = !selectedTable && !counterMode
+
+  // "Dishes first" belongs to one search for a table: once a table is chosen,
+  // or the till switches to takeaway, the next walk-in starts at the board.
+  useEffect(() => {
+    if (!pickingTable) setDishesFirst(false)
+  }, [pickingTable])
+  // Asking for a dish — a category, a diet, a search — while the board covers
+  // the dishes brings them back: before a table is chosen (they wait in the
+  // order panel for one), or beside the table being served.
+  const showDishes = () => {
+    if (pickingTable) setDishesFirst(true)
+    setBoardOpen(false)
+  }
 
   // The selected table, for the order panel and the print-outs. Falls back to a
   // neutral name if the table has since been retired from the floor plan.
@@ -1983,17 +2001,17 @@ const Billing = () => {
     if (pickingTable) {
       return cartItems.length > 0
         ? 'Tap a table to put these dishes on it.'
-        : 'Tap a table to start, or tap dishes first.'
+        : 'Pick a table, or seat a walk-in, to start.'
     }
     if (counterMode) return null
     if (cartItems.length > 0) {
       return canTakeOrders
-        ? `Save puts these on Round ${nextRound}. KOT then sends it to the kitchen.`
+        ? `Save puts these on Round ${nextRound}. Send KOT then sends it to the kitchen.`
         : null
     }
     if (sessionRounds.length === 0) return 'Tap dishes to start Round 1.'
     if (selectedRound && !selectedSent) {
-      return `Round ${selectedRound.round} is saved but not in the kitchen yet. Press KOT to send it.`
+      return `Round ${selectedRound.round} is saved but not in the kitchen yet. Press Send KOT to send it.`
     }
     if (billPrintedAt) return 'Bill printed. Settle when the guest pays.'
     return 'Add dishes for another round, or print the bill when the guest asks.'
@@ -2018,6 +2036,14 @@ const Billing = () => {
     .sort((a, b) => new Date(b.CreatedOn || 0) - new Date(a.CreatedOn || 0))
 
   const showBoard = !counterMode && tables.length > 0
+  // Open, the board fills column 2 and the dishes wait behind it: while a
+  // table is being picked (unless the dishes were asked for first), or when
+  // "All tables" reopens it beside a table being served.
+  const boardFull = showBoard && (pickingTable ? !dishesFirst : boardOpen)
+  const toggleBoard = (open) => {
+    setBoardOpen(open)
+    if (open) setDishesFirst(false)
+  }
 
   // ── The phone's bottom bar ─────────────────────────────────────────────────
   // On a phone the order panel is a sheet. This bar is always in reach: what is
@@ -2041,248 +2067,258 @@ const Billing = () => {
 
   return (
     <div className="fd-billing" ref={billingRef}>
-      {/* ONE toolbar for the whole till: find a dish, how it is being sold,
-          who it is for, and the time the menu is being read against. It
-          replaces a page heading, a card heading and a clock that each took a
-          row of their own above the menu. */}
-      <div className="fd-till-bar">
-        <input
-          ref={searchRef}
-          type="search"
-          className="fd-till-search"
-          placeholder="Search dishes, cuisines, courses..."
-          aria-label="Search the menu"
-          title="Search the menu (F2)"
-          value={menuFilters.state.query}
-          onChange={(e) => menuFilters.setQuery(e.target.value)}
-        />
-
-        {/* How this order is being sold. Both open the same screen; only the
-            order panel differs — a table for dine-in, the counter for takeaway.
-            Unpaid counter sales are counted on Takeaway so a cashier serving
-            tables still sees money waiting at the counter. */}
-        <div className="fd-seg" role="group" aria-label="Order type">
-          <button
-            type="button"
-            aria-pressed={!counterMode}
-            className={!counterMode ? 'is-on' : ''}
-            onClick={() => { if (counterMode) handleTableChange('') }}
-            title="Dine-in (F4 picks a table)"
-          >
-            Dine-in
-          </button>
-          <button
-            type="button"
-            aria-pressed={counterMode}
-            aria-label={`Counter takeaway${unpaidCounterOrders.length ? `, ${unpaidCounterOrders.length} unpaid` : ''}`}
-            className={counterMode ? 'is-on' : ''}
-            onClick={() => { if (!counterMode) handlePickCounter() }}
-          >
-            Takeaway
-            {unpaidCounterOrders.length > 0 && (
-              <span className="fd-seg-count" aria-hidden="true">{unpaidCounterOrders.length}</span>
-            )}
-          </button>
-        </div>
-
-        {/* Which table is being served is said by the table board below, so
-            the toolbar no longer repeats it. */}
-
-        <span className="fd-till-tail">
-          {/* The till's clock. The menu depends on the time — a greyed card
-              and "Opens 07:00" have nothing to be read against without it.
-              Local to this device: a till standing in the outlet reads the
-              outlet's time. */}
-          <span className="fd-menu-clock" title="Used by the kitchen schedule">
-            {clockLabel}
-          </span>
-          <PrinterButton />
-        </span>
-      </div>
-
-      {/* ONE layout for dine-in and takeaway. Dine-in used to open on a
-          full-screen floor plan and only then show the till, so the screen
-          jumped every time a cashier switched between the two. Now the menu is
-          always here and only the order panel changes: it picks the table, then
-          becomes that table's order. */}
-      <div className={`fd-billing-layout${showRail ? ' has-rail' : ''}${showBoard ? ' has-board' : ''}${pickingTable && showBoard ? ' is-picking' : ''}`}>
-        {/* THE TABLE BOARD, under the dish search: table first, then dishes.
-            Open in step 1 — every table, with how many are free, occupied,
-            waiting on a bill or reserved — and folded to one row once a table
-            is being served, so the menu gets the room back. */}
-        {showBoard && (
-          <div className="fd-tboard-wrap">
-            <TableBoard
-              info={boardInfo}
-              floors={floors}
-              selectedTableId={selectedTable}
-              open={pickingTable || boardOpen}
-              onToggle={setBoardOpen}
-              onPick={pickFromBoard}
-              suggestId={pickingTable ? walkInSuggestion?.table.id : null}
-              suggestGuests={walkInGuests}
-              findRef={boardFindRef}
-            />
-          </div>
-        )}
-        {/* CATEGORIES DOWN THE SIDE, the way every Indian till lays them out.
-            A rail holds twenty sections without wrapping or scrolling them out
-            of sight, and it gives the menu back the rows the chips took. Diet
-            sits at its foot: a second axis, used less. On a phone the rail
-            folds back into a row of chips above the dishes. */}
+      {/* ONE layout for dine-in and takeaway, in three columns: diet and
+          categories · search, tables, dishes · the order. Switching between
+          the two never moves the categories, the search or the order panel;
+          only column 2 changes — the table board while one is being picked,
+          the dishes once it is. */}
+      <div className={`fd-billing-layout${showRail ? ' has-rail' : ''}${boardFull ? ' is-board-full' : ''}`}>
+        {/* COLUMN 1: DIET AND CATEGORIES, top to bottom, the way every Indian
+            till lays them out. Nothing sits above it, so opening the table
+            board can never push it down — it used to span this column and cut
+            the rail to a sliver. Diet is pinned at the top: it is a short,
+            fixed list that re-counts the categories under it, and at the foot
+            of twenty categories it scrolled out of reach. Only the categories
+            scroll. On a phone the column narrows to 104px beside the dishes. */}
         {showRail && (
-          <nav className="fd-cat-rail" aria-label="Menu sections">
-            <CategoryChips filters={menuFilters} className="is-rail" />
+          <nav className="fd-cat-rail" aria-label="Menu sections" onClickCapture={showDishes}>
             <DietChips filters={menuFilters} menu={menu} className="is-rail" />
+            <CategoryChips filters={menuFilters} className="is-rail" />
           </nav>
         )}
 
-        <div className="fd-menu-panel">
-          {/* What else the search matched, the filters in force, and tags —
-              the search box itself is in the toolbar, the rest in the rail. */}
-          <MenuFilterBar filters={menuFilters} menu={menu} hideSearch hideCategories hideDiets />
+        {/* COLUMN 2: search, then tables, then dishes. The search heads the
+            column it searches rather than spanning the categories and the
+            order panel as well. */}
+        <div className="fd-till-main">
+          {/* ONE toolbar for the whole till: find a dish, how it is being sold,
+              who it is for, and the time the menu is being read against. It
+              replaces a page heading, a card heading and a clock that each took a
+              row of their own above the menu. */}
+          <div className="fd-till-bar">
+            <input
+              ref={searchRef}
+              type="search"
+              className="fd-till-search"
+              placeholder="Search dishes, cuisines, courses..."
+              aria-label="Search the menu"
+              title="Search the menu (F2)"
+              value={menuFilters.state.query}
+              onChange={(e) => { menuFilters.setQuery(e.target.value); if (e.target.value) showDishes() }}
+            />
 
-          {filteredMenu.length === 0 ? (
-            <div className="fd-empty">
-              {menuFiltered ? 'Nothing matches these filters.' : 'No menu items found.'}
-              {/* The way out is offered here rather than left to be hunted for:
-                  an empty grid with three filters on is otherwise a puzzle. */}
-              {menuFiltered && (
-                <div className="fd-empty-action">
-                  <button
-                    type="button"
-                    className="fd-link-btn"
-                    onClick={menuFilters.clear}
-                  >
-                    Clear filters
-                  </button>
-                </div>
-              )}
+            {/* How this order is being sold. Both open the same screen; only the
+                order panel differs — a table for dine-in, the counter for takeaway.
+                Unpaid counter sales are counted on Takeaway so a cashier serving
+                tables still sees money waiting at the counter. */}
+            <div className="fd-seg" role="group" aria-label="Order type">
+              <button
+                type="button"
+                aria-pressed={!counterMode}
+                className={!counterMode ? 'is-on' : ''}
+                onClick={() => { if (counterMode) handleTableChange('') }}
+                title="Dine-in (F4 picks a table)"
+              >
+                Dine-in
+              </button>
+              <button
+                type="button"
+                aria-pressed={counterMode}
+                aria-label={`Counter takeaway${unpaidCounterOrders.length ? `, ${unpaidCounterOrders.length} unpaid` : ''}`}
+                className={counterMode ? 'is-on' : ''}
+                onClick={() => { if (!counterMode) handlePickCounter() }}
+              >
+                Takeaway
+                {unpaidCounterOrders.length > 0 && (
+                  <span className="fd-seg-count" aria-hidden="true">{unpaidCounterOrders.length}</span>
+                )}
+              </button>
             </div>
-          ) : (
-            <div className="fd-menu-grid">
-              {filteredMenu.map((meta) => {
-                const id = meta.id || meta.Id
-                const name = itemName(meta, itemDetails[meta.ItemDetailId])
-                const price = itemPrice(meta)
-                const isVeg = meta.FoodTypeIsVeg === 1 || meta.FoodTypeIsVeg === true
-                // Outside its section's trading hours: still ON the grid and
-                // still findable, but not orderable. Hiding it would leave the
-                // cashier hunting for a dish that is simply not shown, unable
-                // to tell "we do not sell it" from "not right now".
-                const onMenu = isAvailable(meta)
-                // Turned off in Menu Master — which beats the section's hours,
-                // so it reads differently from a dish whose section is shut.
-                const onSale = isOnSale(meta)
-                const backAt = openLabel(meta)
-                const tags = effectiveTags(meta)
-                // Today's portion count, where the dish keeps one. `left` is
-                // null for an untracked dish, which is most of the menu.
-                const left = remainingOf(meta)
-                const refuse = () => {
-                  if (!onSale) {
-                    toast.info(`${name} is not on sale. Turn it on in Menu Master.`)
-                  } else if (isSoldOut(meta)) {
-                    toast.info(`${name} is sold out. Add more under Today's Counts.`)
-                  } else if (isUnsetToday(meta)) {
-                    toast.info(`${name} has no count for today. Set one under Today's Counts.`)
-                  } else {
-                    toast.info(`${name} is off the menu right now${backAt ? ` — ${backAt.toLowerCase()}` : ''}.`)
-                  }
-                }
-                // How many of this dish are already in the cart, across every
-                // line it is on (one plain, one "less spicy" — still two).
-                const inCart = cartQtyByMeta[id] || 0
-                const excl = itemTaxRate(meta) > 0 && !meta?.TaxBreakdown?.isTaxIncluded
-                return (
-                  <div
-                    key={id}
-                    className={`fd-menu-item-card${onMenu ? '' : ' is-unavailable'}${onSale ? '' : ' is-off'}${inCart ? ' in-cart' : ''}`}
-                    role="button"
-                    tabIndex={0}
-                    aria-disabled={!onMenu}
-                    // A real name, rather than whatever the card's text nodes
-                    // concatenate to. Availability belongs in it: aria-disabled
-                    // says a control is inert, not why.
-                    aria-label={`${name || 'Unnamed item'}, ₹${money(price)}${inCart ? `, ${inCart} in this order` : ''}${onMenu ? '' : `, ${backAt}`}`}
-                    onClick={() => (onMenu ? handleMenuClick(meta) : refuse())}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault()
-                        if (onMenu) handleMenuClick(meta); else refuse()
-                      }
-                    }}
-                  >
-                    {inCart > 0 && <span className="fd-tile-qty" aria-hidden="true">{inCart}</span>}
-                    {/* The FSSAI square: green dot veg, red triangle non-veg.
-                        Staff read the mark, not the word, and it costs a corner
-                        rather than a line. The food type is its tooltip. */}
-                    {meta.FoodTypeName && (
-                      <span
-                        className={`fd-diet-mark ${isVeg ? 'is-veg' : 'is-nonveg'}`}
-                        title={meta.FoodTypeName}
-                        aria-hidden="true"
-                      />
-                    )}
-                    <div className="item-name">{name || '(unnamed)'}</div>
-                    {price > 0 && (
-                      <div className="item-price">
-                        ₹{money(price)}
-                        {/* Only a price that GROWS at the till is flagged. An
-                            inclusive price is what the guest pays, so it needs
-                            no label; the tax shows once, in the order totals. */}
-                        {excl && (
-                          <span className="tax-flag excl">+ {itemTaxRate(meta)}% tax</span>
-                        )}
-                      </div>
-                    )}
-                    {/* ONE status line. Unavailable says why (sold out, no count
-                        today, off sale, opens later); otherwise a counted dish
-                        says how many are left. Two lines for one fact read as
-                        two problems. */}
-                    {!onMenu && backAt ? (
-                      <div className={`fd-item-window${onSale ? '' : ' is-off'}${isSoldOut(meta) ? ' is-out' : ''}`}>
-                        {backAt}
-                      </div>
-                    ) : (onMenu && left !== null && (
-                      <div className={`fd-item-left${left > 0 && left <= 3 ? ' is-low' : ''}`}>
-                        {left} left
-                      </div>
-                    ))}
-                    {tags.length > 0 && (
-                      <div className="fd-item-tags">
-                        {tags.map((t) => (
-                          <span
-                            key={t.id}
-                            className={`fd-item-tag${t.from === 'category' ? ' is-inherited' : ''}`}
-                            title={t.from === 'category'
-                              ? `From ${categoryNameOf(meta)}`
-                              : 'Set on this dish'}
-                          >
-                            {t.name}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    {/* Says whether the next tap opens a sheet, and whether it
-                        can be dismissed. A required group changes the wording:
-                        "Choices required" warns before the tap, which is
-                        cheaper than a disabled button after it. */}
-                    {onMenu && (() => {
-                      const groups = addonGroupsFor(meta)
-                      if (variantsFor(meta).length === 0 && groups.length === 0) return null
-                      const required = groups.some((g) => g.minSelection > 0)
-                      return (
-                        <div className={`item-has-options${required ? ' is-required' : ''}`}>
-                          {required ? 'Choices required' : 'Options available'}
-                        </div>
-                      )
-                    })()}
-                  </div>
-                )
-              })}
+
+            {/* Which table is being served is said by the table board below, so
+                the toolbar no longer repeats it. */}
+
+            <span className="fd-till-tail">
+              {/* The till's clock. The menu depends on the time — a greyed card
+                  and "Opens 07:00" have nothing to be read against without it.
+                  Local to this device: a till standing in the outlet reads the
+                  outlet's time. */}
+              <span className="fd-menu-clock" title="Used by the kitchen schedule">
+                {clockLabel}
+              </span>
+              <PrinterButton />
+            </span>
+          </div>
+
+          {/* THE TABLE BOARD, under the search: table first, then dishes. Open
+              in step 1 it fills this column — every floor, with how many tables
+              are free, occupied, waiting on a bill or reserved — and the dishes
+              wait behind it. Folded to one row once a table is being served, so
+              the menu gets the room back. */}
+          {showBoard && (
+            <div className="fd-tboard-wrap">
+              <TableBoard
+                info={boardInfo}
+                floors={floors}
+                selectedTableId={selectedTable}
+                open={boardFull}
+                onToggle={toggleBoard}
+                fill={boardFull}
+                onAddDishes={pickingTable ? showDishes : null}
+                onPick={pickFromBoard}
+                suggestId={pickingTable ? walkInSuggestion?.table.id : null}
+                suggestGuests={walkInGuests}
+                findRef={boardFindRef}
+              />
             </div>
           )}
+          <div className="fd-menu-panel">
+            {/* What else the search matched, the filters in force, and tags —
+                the search box itself is in the toolbar, the rest in the rail. */}
+            <MenuFilterBar filters={menuFilters} menu={menu} hideSearch hideCategories hideDiets />
+
+            {filteredMenu.length === 0 ? (
+              <div className="fd-empty">
+                {menuFiltered ? 'Nothing matches these filters.' : 'No menu items found.'}
+                {/* The way out is offered here rather than left to be hunted for:
+                    an empty grid with three filters on is otherwise a puzzle. */}
+                {menuFiltered && (
+                  <div className="fd-empty-action">
+                    <button
+                      type="button"
+                      className="fd-link-btn"
+                      onClick={menuFilters.clear}
+                    >
+                      Clear filters
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="fd-menu-grid">
+                {filteredMenu.map((meta) => {
+                  const id = meta.id || meta.Id
+                  const name = itemName(meta, itemDetails[meta.ItemDetailId])
+                  const price = itemPrice(meta)
+                  const isVeg = meta.FoodTypeIsVeg === 1 || meta.FoodTypeIsVeg === true
+                  // Outside its section's trading hours: still ON the grid and
+                  // still findable, but not orderable. Hiding it would leave the
+                  // cashier hunting for a dish that is simply not shown, unable
+                  // to tell "we do not sell it" from "not right now".
+                  const onMenu = isAvailable(meta)
+                  // Turned off in Menu Master — which beats the section's hours,
+                  // so it reads differently from a dish whose section is shut.
+                  const onSale = isOnSale(meta)
+                  const backAt = openLabel(meta)
+                  const tags = effectiveTags(meta)
+                  // Today's portion count, where the dish keeps one. `left` is
+                  // null for an untracked dish, which is most of the menu.
+                  const left = remainingOf(meta)
+                  const refuse = () => {
+                    if (!onSale) {
+                      toast.info(`${name} is not on sale. Turn it on in Menu Master.`)
+                    } else if (isSoldOut(meta)) {
+                      toast.info(`${name} is sold out. Add more under Today's Counts.`)
+                    } else if (isUnsetToday(meta)) {
+                      toast.info(`${name} has no count for today. Set one under Today's Counts.`)
+                    } else {
+                      toast.info(`${name} is off the menu right now${backAt ? ` — ${backAt.toLowerCase()}` : ''}.`)
+                    }
+                  }
+                  // How many of this dish are already in the cart, across every
+                  // line it is on (one plain, one "less spicy" — still two).
+                  const inCart = cartQtyByMeta[id] || 0
+                  const excl = itemTaxRate(meta) > 0 && !meta?.TaxBreakdown?.isTaxIncluded
+                  return (
+                    <div
+                      key={id}
+                      className={`fd-menu-item-card${onMenu ? '' : ' is-unavailable'}${onSale ? '' : ' is-off'}${inCart ? ' in-cart' : ''}`}
+                      role="button"
+                      tabIndex={0}
+                      aria-disabled={!onMenu}
+                      // A real name, rather than whatever the card's text nodes
+                      // concatenate to. Availability belongs in it: aria-disabled
+                      // says a control is inert, not why.
+                      aria-label={`${name || 'Unnamed item'}, ₹${money(price)}${inCart ? `, ${inCart} in this order` : ''}${onMenu ? '' : `, ${backAt}`}`}
+                      onClick={() => (onMenu ? handleMenuClick(meta) : refuse())}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          if (onMenu) handleMenuClick(meta); else refuse()
+                        }
+                      }}
+                    >
+                      {inCart > 0 && <span className="fd-tile-qty" aria-hidden="true">{inCart}</span>}
+                      {/* The FSSAI square: green dot veg, red triangle non-veg.
+                          Staff read the mark, not the word, and it costs a corner
+                          rather than a line. The food type is its tooltip. */}
+                      {meta.FoodTypeName && (
+                        <span
+                          className={`fd-diet-mark ${isVeg ? 'is-veg' : 'is-nonveg'}`}
+                          title={meta.FoodTypeName}
+                          aria-hidden="true"
+                        />
+                      )}
+                      <div className="item-name">{name || '(unnamed)'}</div>
+                      {price > 0 && (
+                        <div className="item-price">
+                          ₹{money(price)}
+                          {/* Only a price that GROWS at the till is flagged. An
+                              inclusive price is what the guest pays, so it needs
+                              no label; the tax shows once, in the order totals. */}
+                          {excl && (
+                            <span className="tax-flag excl">+ {itemTaxRate(meta)}% tax</span>
+                          )}
+                        </div>
+                      )}
+                      {/* ONE status line. Unavailable says why (sold out, no count
+                          today, off sale, opens later); otherwise a counted dish
+                          says how many are left. Two lines for one fact read as
+                          two problems. */}
+                      {!onMenu && backAt ? (
+                        <div className={`fd-item-window${onSale ? '' : ' is-off'}${isSoldOut(meta) ? ' is-out' : ''}`}>
+                          {backAt}
+                        </div>
+                      ) : (onMenu && left !== null && (
+                        <div className={`fd-item-left${left > 0 && left <= 3 ? ' is-low' : ''}`}>
+                          {left} left
+                        </div>
+                      ))}
+                      {tags.length > 0 && (
+                        <div className="fd-item-tags">
+                          {tags.map((t) => (
+                            <span
+                              key={t.id}
+                              className={`fd-item-tag${t.from === 'category' ? ' is-inherited' : ''}`}
+                              title={t.from === 'category'
+                                ? `From ${categoryNameOf(meta)}`
+                                : 'Set on this dish'}
+                            >
+                              {t.name}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {/* Says whether the next tap opens a sheet, and whether it
+                          can be dismissed. A required group changes the wording:
+                          "Choices required" warns before the tap, which is
+                          cheaper than a disabled button after it. */}
+                      {onMenu && (() => {
+                        const groups = addonGroupsFor(meta)
+                        if (variantsFor(meta).length === 0 && groups.length === 0) return null
+                        const required = groups.some((g) => g.minSelection > 0)
+                        return (
+                          <div className={`item-has-options${required ? ' is-required' : ''}`}>
+                            {required ? 'Choices required' : 'Options available'}
+                          </div>
+                        )
+                      })()}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Cart / order panel — the till's working surface. Scrolls internally
@@ -2718,8 +2754,9 @@ const Billing = () => {
               <>
                 {/* Four steps, left to right, in the order a table goes through
                     them: save the round, send it to the kitchen, print the bill
-                    for the guest, settle. Each says what it acts on underneath,
-                    so a cashier never has to wonder which round KOT will send. */}
+                    for the guest, settle. Short labels: a second line inside a
+                    76px button was cut to "Before pay…". Which round each acts
+                    on, and why one is off, is the sentence under the row. */}
                 <div
                   className="fd-cart-actions-grid"
                   style={{ gridTemplateColumns: `repeat(${dineActionCount}, minmax(0, 1fr))` }}
@@ -2733,7 +2770,6 @@ const Billing = () => {
                       title="Saves the cart as a round. It is not sent to the kitchen until you press KOT."
                     >
                       <span>Save</span>
-                      <small>Round {sessionRounds.length + 1}</small>
                     </button>
                   )}
                   {/* Send-once on the server, so this stays enabled: pressing it
@@ -2749,8 +2785,7 @@ const Billing = () => {
                         ? 'This round is already in the kitchen'
                         : 'Send this round to the kitchen'}
                     >
-                      <span>{selectedSent ? 'Sent ✓' : 'KOT'}</span>
-                      <small>{selectedRound ? `Round ${selectedRound.round}` : 'Save first'}</small>
+                      <span>{selectedSent ? 'Sent ✓' : 'Send KOT'}</span>
                     </button>
                   )}
                   {(canTakeOrders || canTakeMoney) && (
@@ -2761,8 +2796,7 @@ const Billing = () => {
                       aria-label="Print bill"
                       title="Prints the bill for the guest to check. The tax invoice is issued when it is settled."
                     >
-                      <span>{billPrinting ? 'Printing…' : 'Print bill'}</span>
-                      <small>{billPrintedAt ? 'Print again' : 'Before payment'}</small>
+                      <span>{billPrinting ? 'Printing…' : (billPrintedAt ? 'Print again' : 'Print bill')}</span>
                     </button>
                   )}
                   {canTakeMoney && (
@@ -2773,7 +2807,7 @@ const Billing = () => {
                       aria-label="Settle bill"
                     >
                       <span>Settle</span>
-                      <small>{`₹${money(sessionSummary.total)} due`}</small>
+                      {sessionRounds.length > 0 && <small>{`₹${money(sessionSummary.total)}`}</small>}
                     </button>
                   )}
                 </div>

@@ -72,6 +72,7 @@ export const DietChips = ({ filters, menu, className = '' }) => {
           type="button"
           className={`fd-chip fd-chip-diet${state.diet === d.id ? ' is-on' : ''}${d.count === 0 ? ' is-empty' : ''}`}
           aria-pressed={state.diet === d.id}
+          title={d.name}
           onClick={() => setDiet(d.id)}
         >
           <span

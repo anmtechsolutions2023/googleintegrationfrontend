@@ -24,7 +24,7 @@ import DineApp from './pages/dine/DineApp';
 
 // Every tenant screen lives in one of seven workspaces — see config/workspaces.js.
 import WorkspaceLayout from './components/workspace/WorkspaceLayout';
-import { workspaceRoutes } from './components/workspace/workspaceRoutes';
+import { workspaceRoutes, movedRoutes } from './components/workspace/workspaceRoutes';
 import { LegacyRedirect, HomeRedirect } from './components/workspace/WorkspaceRedirects';
 
 const AppRoutes = () => {
@@ -121,19 +121,21 @@ const AppRoutes = () => {
           }
         />
 
-        {/* The seven workspaces. Routes, guards and tabs all come from
-            config/workspaces.js. */}
+        {/* The till and the seven workspaces. Routes, guards and tabs all come
+            from config/workspaces.js. */}
         <Route element={<ApprovedRoute><WorkspaceLayout /></ApprovedRoute>}>
           {workspaceRoutes()}
         </Route>
 
-        {/* Old addresses — /frontdesk/*, /master/*, /reports — forward to where
+        {/* Old addresses — /frontdesk/*, /master/*, /reports, and moved
+            workspace screens such as /service/floor/order — forward to where
             each screen lives now, keeping ids and query strings. */}
         <Route path={ROUTES.FRONTDESK} element={<ApprovedRoute><LegacyRedirect /></ApprovedRoute>} />
         <Route path={`${ROUTES.FRONTDESK}/*`} element={<ApprovedRoute><LegacyRedirect /></ApprovedRoute>} />
         <Route path="/master" element={<ApprovedRoute><LegacyRedirect /></ApprovedRoute>} />
         <Route path="/master/*" element={<ApprovedRoute><LegacyRedirect /></ApprovedRoute>} />
         <Route path="/reports" element={<ApprovedRoute><LegacyRedirect /></ApprovedRoute>} />
+        {movedRoutes((el) => <ApprovedRoute>{el}</ApprovedRoute>)}
 
         {/* 404 — wrapped so an unrecognised URL cannot be used to slip past the
             setup gate. Unauthenticated visitors still land on Login as before. */}

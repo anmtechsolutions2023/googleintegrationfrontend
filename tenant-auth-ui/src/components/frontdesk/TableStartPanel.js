@@ -30,8 +30,8 @@ const TableStartPanel = ({ info = [], floors = [], guests, onGuests, onSeat, onP
   if (info.length === 0) {
     return (
       <p className="fd-tstart-empty">
-        No tables set up yet. Add them under Service → Floor → Tables to take a dine-in
-        order, or switch to Takeaway.
+        No tables set up yet. Add them under Outlet → Floors &amp; tables to take a
+        dine-in order, or switch to Takeaway.
       </p>
     )
   }
