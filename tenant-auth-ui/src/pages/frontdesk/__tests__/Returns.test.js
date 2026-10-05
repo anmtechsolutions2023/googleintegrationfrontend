@@ -82,7 +82,7 @@ const REGISTER = {
 };
 
 beforeEach(() => {
-  asUser(['TRANSACTIONS:READ', 'TRANSACTIONS:WRITE']);
+  asUser(['TRANSACTIONS:READ', 'TRANSACTIONS:WRITE', 'REFUND:APPROVE']);
   posService.getSalesReport.mockResolvedValue(SALES);
   posService.getReturnReasonsReport.mockResolvedValue(REASONS);
   posService.getReturnProductReport.mockResolvedValue(PRODUCTS);
@@ -264,6 +264,16 @@ describe('the settlement worklist', () => {
     await waitFor(() => expect(posService.setRefundSettlement).toHaveBeenCalledWith(
       'cn9', { SettlementStatus: 'SETTLED' },
     ));
+  });
+
+  // Marking a refund handed over is money going out: REFUND:APPROVE. Keeping
+  // the books (TRANSACTIONS:WRITE) is not enough.
+  test('offers no settle action to a bookkeeper without REFUND:APPROVE', async () => {
+    asUser(['TRANSACTIONS:READ', 'TRANSACTIONS:WRITE']);
+    posService.getRefundSettlementQueue.mockResolvedValue(PENDING);
+    await renderReturns();
+    const queue = (await screen.findByText(/not yet handed back/i)).closest('section');
+    expect(within(queue).queryByRole('button', { name: /Handed over/i })).toBeNull();
   });
 
   // Marking a refund handed over moves money. Reading the register does not.

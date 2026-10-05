@@ -16,11 +16,12 @@ export const ProtectedRoute = ({ children }) => {
   );
 };
 
-// Existing: render Forbidden if user lacks any required scope
+// Render Forbidden if the user lacks every required scope. The scopes go with
+// it, so the page can say what would have opened the screen.
 export const ScopeGuard = ({ requiredScopes, children }) => {
   const { user } = useAuth();
   const hasAccess = hasScope(user, requiredScopes);
-  return hasAccess ? children : <Forbidden />;
+  return hasAccess ? children : <Forbidden requiredScopes={requiredScopes || []} />;
 };
 
 // New: only for provisioned (approved) users — guests are bounced to /onboarding.

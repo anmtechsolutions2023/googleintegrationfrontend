@@ -14,7 +14,7 @@ jest.mock('../../../services/posService', () => ({
     getAddonGroups: jest.fn(), getAddons: jest.fn(),
     getPaymentModes: jest.fn(), getBranchPaymentMethods: jest.fn(), getKots: jest.fn(),
     quotePricing: jest.fn(), previewOffers: jest.fn(),
-    createOrder: jest.fn(), updateOrder: jest.fn(), updateTable: jest.fn(),
+    createOrder: jest.fn(), updateOrder: jest.fn(), updateTable: jest.fn(), setTableOccupancy: jest.fn(),
     transferOrder: jest.fn(), deleteOrder: jest.fn(),
     fireKot: jest.fn(), createBill: jest.fn(), settleBill: jest.fn(),
     getPosSettings: jest.fn(), getWaiters: jest.fn(),

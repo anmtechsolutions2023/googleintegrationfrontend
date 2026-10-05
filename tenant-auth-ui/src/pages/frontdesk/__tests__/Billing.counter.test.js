@@ -15,7 +15,7 @@ jest.mock('../../../services/posService', () => ({
     getOrders: jest.fn(), getItemDetail: jest.fn(), getVariants: jest.fn(),
     getAddonGroups: jest.fn(), getAddons: jest.fn(),
     getPaymentModes: jest.fn(), getBranchPaymentMethods: jest.fn(), getKots: jest.fn(), quotePricing: jest.fn(),
-    createOrder: jest.fn(), updateOrder: jest.fn(), updateTable: jest.fn(),
+    createOrder: jest.fn(), updateOrder: jest.fn(), updateTable: jest.fn(), setTableOccupancy: jest.fn(),
     transferOrder: jest.fn(), deleteOrder: jest.fn(),
     fireKot: jest.fn(), createBill: jest.fn(), settleBill: jest.fn(),
     // Campaign offers. The till previews them as the cart changes.
@@ -238,6 +238,7 @@ describe('Counter mode — placing and paying', () => {
     fireEvent.click(screen.getByRole('button', { name: /Settle & Post|Save Partial/i }));
     await waitFor(() => expect(posService.settleBill).toHaveBeenCalled());
     expect(posService.updateTable).not.toHaveBeenCalled();
+    expect(posService.setTableOccupancy).not.toHaveBeenCalled();
   });
 
   it('the bill covers the counter order', async () => {

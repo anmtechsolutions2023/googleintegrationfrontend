@@ -38,7 +38,7 @@ export const PRIMARY_NAV = [
   // While setup is pending the workspaces are closed, so the audit log needs a
   // way in of its own. Afterwards it is Admin › Audit Logs.
   { key: 'audit', path: ROUTES.AUDIT, label: STRINGS.nav.auditLogs,
-    scopes: [SCOPES.AUDIT_READ, SCOPES.ADMIN_ACCESS, SCOPES.TENANT_ADMIN], duringSetup: true, when: isSetupPending },
+    scopes: [SCOPES.AUDIT_READ, SCOPES.TENANT_ADMIN], duringSetup: true, when: isSetupPending },
   // The platform console — onboarding, the global feature catalogue,
   // cross-tenant users, system configuration. Nothing here can be narrowed to
   // one tenancy, so it is super-admin-only and not a workspace.

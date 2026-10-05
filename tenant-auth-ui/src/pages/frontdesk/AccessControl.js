@@ -121,6 +121,7 @@ const AccessControl = () => {
         <TenantUsersPanel
           roles={roles}
           branches={branches}
+          features={features}
           currentPhone={user?.phone}
           canWrite={canManage}
         />
@@ -132,7 +133,13 @@ const AccessControl = () => {
         // Reloads the shared catalogue when a role is created, renamed or
         // deleted, so the People and Invitations tabs cannot offer a role that
         // no longer exists.
-        <RolesPanel features={features} canWrite={canManage} onRolesChanged={load} />
+        <RolesPanel
+          features={features}
+          canWrite={canManage}
+          onRolesChanged={load}
+          viewerIsSuper={isSuper}
+          onGoToPeople={() => setActiveTab('users')}
+        />
       )}
     </div>
   )

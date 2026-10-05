@@ -164,8 +164,8 @@ export const WORKSPACES = [
   ] },
 
   { workspace: 'Admin', key: 'org', hint: 'People, the audit trail, and the raw data tables.', tabs: [
-    { key: 'people', label: 'People & Access', path: '/org/people', scopes: [SCOPES.TENANT_ADMIN, SCOPES.ADMIN_ACCESS], legacy: ['/frontdesk/access-control', '/frontdesk/staff'] },
-    { key: 'audit', label: 'Audit Logs', path: '/org/audit', scopes: [SCOPES.AUDIT_READ, SCOPES.ADMIN_ACCESS, A] },
+    { key: 'people', label: 'People & Access', path: '/org/people', scopes: [SCOPES.TENANT_ADMIN], legacy: ['/frontdesk/access-control', '/frontdesk/staff'] },
+    { key: 'audit', label: 'Audit Logs', path: '/org/audit', scopes: [SCOPES.AUDIT_READ, A] },
     { key: 'data', label: 'Data tables', path: '/org/data', scopes: MASTER_DATA_SCOPES, legacy: ['/master'], nested: true },
     { key: 'setup', label: 'Setup Wizard', path: '/master-setup', scopes: [A, SCOPES.TENANT_SUPER_ADMIN], external: true, when: canRunSetupWizard },
   ] },
@@ -206,8 +206,22 @@ const HOME_ORDER = ['billing', 'service', 'money', 'guests', 'menu', 'insights',
 // QR inbox) rather than Today. Anyone else falls back to the first tab.
 const HOME_TAB = { service: 'floor' }
 
+/**
+ * Kitchen staff: they mark tickets ready and can only READ the till. Home used
+ * to send them to Billing & KOT — the first workspace they could see — so their
+ * shift started on a screen with no buttons for them.
+ */
+const worksTheKitchen = (user) =>
+  hasScope(user, [SCOPES.POS_KITCHEN_WRITE])
+  && !hasScope(user, [SCOPES.POS_ORDER_WRITE, SCOPES.POS_BILLING_WRITE, SCOPES.TENANT_ADMIN])
+
 /** The first place this user may go — where Home sends them. */
 export const homePathFor = (user) => {
+  if (worksTheKitchen(user)) {
+    const service = WORKSPACES.find((w) => w.key === 'service')
+    const kds = service && visibleTabs(service, user).find((t) => t.key === 'kitchen')
+    if (kds) return entryPathOf(kds, user)
+  }
   const open = visibleWorkspaces(user)
   const ws = HOME_ORDER.map((k) => open.find((w) => w.key === k)).find(Boolean)
   if (!ws) return null

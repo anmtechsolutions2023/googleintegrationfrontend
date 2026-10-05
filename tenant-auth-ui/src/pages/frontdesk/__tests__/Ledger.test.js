@@ -68,7 +68,8 @@ const DETAIL = {
 };
 
 beforeEach(() => {
-  asUser(['TRANSACTIONS:READ', 'TRANSACTIONS:WRITE']);
+  // A refund is REFUND:APPROVE, not TRANSACTIONS:WRITE — see the bookkeeper test.
+  asUser(['TRANSACTIONS:READ', 'TRANSACTIONS:WRITE', 'REFUND:APPROVE']);
   posService.getLedgerDocuments.mockResolvedValue(DOCS);
   posService.getLedgerDocument.mockResolvedValue(DETAIL);
   posService.refundLedgerDocument.mockResolvedValue({ status: 'REFUNDED' });
@@ -219,6 +220,15 @@ describe('Invoice view', () => {
     const dialog = screen.getByRole('dialog', { name: /Invoice/i });
     expect(within(dialog).getByRole('button', { name: /Refund/i })).toBeInTheDocument();
     expect(within(dialog).queryByRole('button', { name: /Edit/i })).not.toBeInTheDocument();
+  });
+
+  // Editors and operations staff keep the books with TRANSACTIONS:WRITE; handing
+  // money back is a separate permission.
+  test('does not offer Refund to a bookkeeper without REFUND:APPROVE', async () => {
+    asUser(['TRANSACTIONS:READ', 'TRANSACTIONS:WRITE']);
+    await openInvoice();
+    const dialog = screen.getByRole('dialog', { name: /Invoice/i });
+    expect(within(dialog).queryByRole('button', { name: /Refund/i })).not.toBeInTheDocument();
   });
 
   test('does not offer Refund on an already refunded document', async () => {

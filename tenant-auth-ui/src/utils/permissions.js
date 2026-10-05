@@ -1,4 +1,5 @@
 import { SCOPES } from '../constants/scopes';
+import { effectiveScopes } from '../config/permissionRules';
 
 // Maps MODULE_CATEGORIES display values → scope strings
 export const CATEGORY_READ_SCOPE = {
@@ -31,6 +32,11 @@ export const CATEGORY_WRITE_SCOPE = {
  * Check if user has any of the required scopes
  * Super admin has access to everything
  *
+ * Manage implies View: a user holding X:WRITE passes a check for X:READ. The
+ * server already accepts WRITE on the reads behind every View screen, so a
+ * role with only "Manage" used to be able to call the API while never seeing
+ * the screens that call it.
+ *
  * @param {Object} user - User object with scopes array
  * @param {Array<string>} requiredScopes - Array of scope strings to check
  * @returns {boolean} - True if user has at least one required scope
@@ -49,7 +55,8 @@ export const hasScope = (user, requiredScopes = []) => {
   }
 
   // Check if user has any of the required scopes
-  return requiredScopes.some((scope) => userScopes.includes(scope));
+  const held = effectiveScopes(userScopes);
+  return requiredScopes.some((scope) => held.has(scope));
 };
 
 /**
@@ -73,7 +80,8 @@ export const hasAllScopes = (user, requiredScopes = []) => {
   }
 
   // Check if user has all required scopes
-  return requiredScopes.every((scope) => userScopes.includes(scope));
+  const held = effectiveScopes(userScopes);
+  return requiredScopes.every((scope) => held.has(scope));
 };
 
 /**

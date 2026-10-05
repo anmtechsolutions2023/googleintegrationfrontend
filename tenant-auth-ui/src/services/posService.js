@@ -48,6 +48,14 @@ export const updateTable = async (id, data) => {
   return toObject(res.data)
 }
 export const deleteTable = async (id) => api.delete(`/api/pos/tables/${id}`)
+// The till's own change to a table: seat it on a round's first save, free it on
+// settle. Its own endpoint because editing a table (PUT /tables/:id) needs
+// POS_CONFIG:WRITE, which cashiers and waiters do not hold — their order went
+// through and then this step failed. Only Status and CurrentOrderId move here.
+export const setTableOccupancy = async (id, { Status, CurrentOrderId = null }) => {
+  const res = await api.put(`/api/pos/tables/${id}/occupancy`, { Status, CurrentOrderId })
+  return toObject(res.data)
+}
 
 // ── Item Meta (Menu) ─────────────────────────────────────────────────────────
 export const getItemMeta = async (params = {}) => {
@@ -1046,7 +1054,7 @@ export const previewOffers = async (lines, branchId, posCustomerId = null) => {
 
 const posService = {
   getFloors, createFloor, updateFloor, deleteFloor,
-  getTables, createTable, updateTable, deleteTable,
+  getTables, createTable, updateTable, deleteTable, setTableOccupancy,
   getItemMeta, createItemMeta, updateItemMeta, deleteItemMeta,
   getCustomers, createCustomer, updateCustomer, deleteCustomer,
   searchCustomers, getCustomerProfile,

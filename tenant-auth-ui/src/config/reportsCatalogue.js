@@ -111,7 +111,7 @@ export const REPORT_GROUPS = [
     blurb: 'The paper trail every figure lands on',
     reports: [
       { key: 'ledger', name: 'Ledger', answers: 'Every invoice, credit note, refund and expense — filterable and printable', to: '/money/ledger', scopes: LEDGER },
-      { key: 'audit', name: 'Audit log', answers: 'Who did what, and when', to: '/audit', scopes: [SCOPES.AUDIT_READ, SCOPES.ADMIN_ACCESS, T] },
+      { key: 'audit', name: 'Audit log', answers: 'Who did what, and when', to: '/audit', scopes: [SCOPES.AUDIT_READ, T] },
     ],
   },
 ]

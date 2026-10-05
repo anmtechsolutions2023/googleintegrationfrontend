@@ -68,7 +68,7 @@ const AppRoutes = () => {
           path={ROUTES.AUDIT}
           element={
             <ApprovedRoute allowDuringSetup>
-              <ScopeGuard requiredScopes={[SCOPES.AUDIT_READ, SCOPES.ADMIN_ACCESS]}>
+              <ScopeGuard requiredScopes={[SCOPES.AUDIT_READ, SCOPES.TENANT_ADMIN]}>
                 <AuditLogs />
               </ScopeGuard>
             </ApprovedRoute>

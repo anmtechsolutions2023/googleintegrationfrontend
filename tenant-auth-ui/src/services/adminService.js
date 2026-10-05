@@ -162,8 +162,20 @@ export const listRolePermissionIds = async (roleId) => {
 };
 export const saveRole = async (id, body) =>
   toObject((id ? await api.put(`${BASE.ROLES}/${id}`, body) : await api.post(BASE.ROLES, body)).data);
+// Resolves to { role, added, removed, implied } — feature keys. `implied` is
+// what the server added because a choice required it (Manage brings View).
 export const saveRolePermissions = async (roleId, featureIds) =>
   toObject((await api.put(`${BASE.ROLES}/${roleId}/permissions`, { featureIds })).data);
+
+// Every grant of every role in this tenancy, as [{ role_id, feature_id }] —
+// one read for the permission matrix, role comparison and access preview.
+export const listRolePermissionMatrix = async () =>
+  toArray((await api.get(`${BASE.ROLES}/permissions`)).data);
+
+// The administrators of the caller's own tenancy, as [{ name, phone }]. Any
+// member may read it: the Access Denied page names whom to ask.
+export const listAdministrators = async () =>
+  toArray((await api.get('/api/admin/administrators')).data);
 
 // ── Application configuration (super-admin) ──
 export const getAppConfig = () =>
@@ -215,4 +227,6 @@ export default {
   listRolePermissionIds,
   saveRole,
   saveRolePermissions,
+  listRolePermissionMatrix,
+  listAdministrators,
 };

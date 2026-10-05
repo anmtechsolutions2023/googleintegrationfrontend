@@ -2,10 +2,10 @@
 export const SCOPES = {
   TENANT_ADMIN: 'TENANT:ADMIN',
   TENANT_SUPER_ADMIN: 'TENANT:SUPER_ADMIN',
-  REPORTS_READ: 'reports:READ',
-  REPORTS_WRITE: 'reports:WRITE',
   GUEST_EXPLORE: 'guest:explore',
-  ADMIN_ACCESS: 'admin:access',
+  // 'admin:access', 'reports:READ' and 'reports:WRITE' used to be listed here.
+  // No code issued them and no role could grant them; the server no longer
+  // accepts admin:access anywhere.
   AUDIT_READ: 'AUDIT:READ',
 
   // Master data module category scopes (match feature_short_name:scope in DB)
@@ -45,6 +45,10 @@ export const SCOPES = {
   // Approving an expense commits money, so it is deliberately NOT POS_OPS:WRITE
   // — the person who raises a claim should not be able to approve it.
   EXPENSE_APPROVE:    'EXPENSE:APPROVE',
+  // Money going back out: refunding a settled bill, taking a partial return,
+  // and marking a refund paid. Separate from TRANSACTIONS:WRITE, which editors
+  // and operations staff hold to keep the books.
+  REFUND_APPROVE:     'REFUND:APPROVE',
   // The asset register is finance-owned reference data, not floor operations.
   ASSET_READ:         'ASSET:READ',
   ASSET_WRITE:        'ASSET:WRITE',

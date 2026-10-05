@@ -2,7 +2,17 @@ import React, { useCallback, useEffect, useState } from 'react'
 import { formatForDisplay } from '../../utils/phone'
 import { toast } from 'react-toastify'
 import adminService from '../../services/adminService'
-import { grantableRoles } from '../../utils/roleLabels'
+import { grantableRoles, roleLabel } from '../../utils/roleLabels'
+import AccessSummary from './access/AccessSummary'
+
+// The roles column is a GROUP_CONCAT of role codes; shown as job titles, the
+// same words the Invitations and Roles tabs use.
+const roleLabelsOf = (text) => String(text || '').split(',').map((r) => r.trim()).filter(Boolean)
+  .map((name) => roleLabel({ name })).join(', ')
+
+// Provisioning stores the number as the name when none was given, which showed
+// "+919876543210" above "+91 98765 43210". That is no name at all.
+const nameOf = (u) => (u.full_name && u.full_name !== u.user_phone ? u.full_name : null)
 
 /**
  * Everybody in this tenancy — staff record and login in one row.
@@ -20,7 +30,7 @@ import { grantableRoles } from '../../utils/roleLabels'
  * Owns its own data and mutations; the parent supplies the role and branch
  * catalogues so a single fetch serves every panel.
  */
-const TenantUsersPanel = ({ roles = [], branches = [], currentPhone, canWrite = true, onChanged }) => {
+const TenantUsersPanel = ({ roles = [], branches = [], features = [], currentPhone, canWrite = true, onChanged }) => {
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(null)      // email being role-edited
@@ -30,6 +40,7 @@ const TenantUsersPanel = ({ roles = [], branches = [], currentPhone, canWrite = 
   const [busy, setBusy] = useState(null)
   const [confirmRemove, setConfirmRemove] = useState(null)
   const [search, setSearch] = useState('')
+  const [summaryOf, setSummaryOf] = useState(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -85,7 +96,7 @@ const TenantUsersPanel = ({ roles = [], branches = [], currentPhone, canWrite = 
 
   const startEditProfile = (u) => {
     setDraftProfile({
-      fullName: u.full_name || '',
+      fullName: nameOf(u) || '',
       branchDetailId: u.branch_detail_id || '',
     })
     setEditingProfile(u.user_phone)
@@ -131,7 +142,7 @@ const TenantUsersPanel = ({ roles = [], branches = [], currentPhone, canWrite = 
           grantableRoles here, and utils/roleGuard.js on the server). */}
       <p className="fd-page-sub">
         <strong>Admin</strong> controls access to these management screens and is separate
-        from roles. Changes take effect when the person next signs in.
+        from roles. Changes reach the person on their next action — nobody has to sign out.
         You cannot change your own roles — ask another administrator here.
       </p>
 
@@ -156,7 +167,7 @@ const TenantUsersPanel = ({ roles = [], branches = [], currentPhone, canWrite = 
         <table className="fd-table">
           <thead>
             <tr>
-              <th>Person</th><th>Branch</th><th>Roles</th><th>Admin</th><th>Status</th><th>Actions</th>
+              <th>Person</th><th>Home branch</th><th>Roles</th><th>Admin</th><th>Status</th><th>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -184,8 +195,10 @@ const TenantUsersPanel = ({ roles = [], branches = [], currentPhone, canWrite = 
                       </div>
                     ) : (
                       <>
-                        <strong>{u.full_name || formatForDisplay(email)}</strong>
-                        {u.full_name && <div className="muted">{formatForDisplay(email)}</div>}
+                        <strong>{nameOf(u) || formatForDisplay(email)}</strong>
+                        {nameOf(u)
+                          ? <div className="muted">{formatForDisplay(email)}</div>
+                          : <div className="muted">Name not set</div>}
                         {isSelf(email) && <span className="fd-source-chip is-table">you</span>}
                         {!!u.is_super_admin && <span className="fd-source-chip is-token">super admin</span>}
                       </>
@@ -222,13 +235,15 @@ const TenantUsersPanel = ({ roles = [], branches = [], currentPhone, canWrite = 
                                 checked={draftRoles.includes(id)}
                                 onChange={() => toggleDraft(id)}
                               />
-                              {r.name || r.Name}
+                              {roleLabel(r)}
                             </label>
                           )
                         })}
                       </div>
                     ) : (
-                      u.roles || <span className="muted">No roles</span>
+                      u.roles
+                        ? <span title={u.roles}>{roleLabelsOf(u.roles)}</span>
+                        : <span className="muted">No roles</span>
                     )}
                   </td>
 
@@ -282,6 +297,8 @@ const TenantUsersPanel = ({ roles = [], branches = [], currentPhone, canWrite = 
                             out of anything — so this one stays available to
                             everybody. */}
                         <button className="fd-btn fd-btn-outline fd-btn-sm"
+                                onClick={() => setSummaryOf(u)}>View access</button>
+                        <button className="fd-btn fd-btn-outline fd-btn-sm"
                                 onClick={() => startEditProfile(u)}>Edit details</button>
                         {/* Roles REPLACE the whole set on save, so an admin
                             saving their own with the wrong boxes ticked would
@@ -321,6 +338,14 @@ const TenantUsersPanel = ({ roles = [], branches = [], currentPhone, canWrite = 
           </tbody>
         </table>
       </div>
+
+      <p className="fd-page-sub muted" style={{ marginTop: 8 }}>
+        Home branch is a label for rotas and reports. It does not limit what anyone can open.
+      </p>
+
+      {summaryOf && (
+        <AccessSummary person={summaryOf} roles={roles} features={features} onClose={() => setSummaryOf(null)} />
+      )}
 
       {/* Removal ends a MEMBERSHIP, not a person — worth saying plainly, because
           "delete user" reads as something more final than it is. */}

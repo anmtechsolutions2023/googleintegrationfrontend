@@ -9,10 +9,6 @@ jest.mock('./context/AuthContext', () => ({
   useAuth: jest.fn(),
 }));
 
-jest.mock('@react-oauth/google', () => ({
-  GoogleOAuthProvider: ({ children }) => <>{children}</>,
-  useGoogleLogin: jest.fn(() => jest.fn()),
-}));
 
 jest.mock('react-toastify', () => ({
   toast: { error: jest.fn(), success: jest.fn() },
@@ -114,11 +110,11 @@ describe('App routing', () => {
     };
 
     test('/admin/users lands on the front-desk screen', () => {
-      expect(at('/admin/users')).toBe('/frontdesk/access-control');
+      expect(at('/admin/users')).toBe('/org/people');
     });
 
     test('/admin/roles lands there too', () => {
-      expect(at('/admin/roles')).toBe('/frontdesk/access-control');
+      expect(at('/admin/roles')).toBe('/org/people');
     });
 
     // The platform console is what is left at /admin: onboarding, the global
@@ -127,7 +123,11 @@ describe('App routing', () => {
     test('/admin itself refuses a tenant admin', () => {
       at('/admin');
       // ScopeGuard renders Forbidden in place rather than navigating away.
-      expect(screen.getByText('Access Denied')).toBeInTheDocument();
+      // …and says whose screen it is, without offering the Admin switch, which
+      // would not open it.
+      expect(screen.getByText("You don't have access to this screen")).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'This screen is for the platform owner' })).toBeInTheDocument();
+      expect(screen.queryByText('Copy access request')).not.toBeInTheDocument();
       expect(screen.queryByText('Admin Dashboard')).not.toBeInTheDocument();
     });
 

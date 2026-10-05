@@ -12,7 +12,7 @@ jest.mock('../../../services/posService', () => ({
     getPaymentModes: jest.fn(), getBranchPaymentMethods: jest.fn(),
     getKots: jest.fn(),
     quotePricing: jest.fn(),
-    createOrder: jest.fn(), updateOrder: jest.fn(), updateTable: jest.fn(),
+    createOrder: jest.fn(), updateOrder: jest.fn(), updateTable: jest.fn(), setTableOccupancy: jest.fn(),
     transferOrder: jest.fn(), deleteOrder: jest.fn(),
     fireKot: jest.fn(), createBill: jest.fn(), settleBill: jest.fn(),
     // Campaign offers. The till previews them as the cart changes.
@@ -541,6 +541,7 @@ describe('Billing — settle sends every round and lets the server total it', ()
     posService.settleBill.mockResolvedValue({});
     posService.updateOrder.mockResolvedValue({});
     posService.updateTable.mockResolvedValue({});
+    posService.setTableOccupancy.mockResolvedValue({});
 
     await renderBilling({ table: 'T1' });
     fireEvent.click(screen.getByRole('button', { name: /Settle Bill/i }));
@@ -606,6 +607,7 @@ describe('Billing — payable is rounded the way the ledger invoices it', () => 
     posService.settleBill.mockResolvedValue({});
     posService.updateOrder.mockResolvedValue({});
     posService.updateTable.mockResolvedValue({});
+    posService.setTableOccupancy.mockResolvedValue({});
     await renderBilling({ table: 'T1' });
     fireEvent.click(screen.getByRole('button', { name: /Settle Bill/i }));
     await screen.findByText(/Settle & Post|Save Partial/i);
@@ -697,6 +699,7 @@ describe('Billing — settle preview updates with the discount', () => {
     posService.settleBill.mockResolvedValue({});
     posService.updateOrder.mockResolvedValue({});
     posService.updateTable.mockResolvedValue({});
+    posService.setTableOccupancy.mockResolvedValue({});
     // The settle preview re-quotes with the discount folded in (before tax).
     posService.quotePricing.mockImplementation(async (lines, discount) => {
       const d = discount?.value || 0;
@@ -778,6 +781,7 @@ describe('Billing — per-item discount', () => {
     posService.settleBill.mockResolvedValue({});
     posService.updateOrder.mockResolvedValue({});
     posService.updateTable.mockResolvedValue({});
+    posService.setTableOccupancy.mockResolvedValue({});
     posService.quotePricing.mockImplementation(async (lines) => {
       const item = Number(lines[0]?.discount?.value) || 0;
       const net = 100 - item;
@@ -1068,6 +1072,7 @@ describe('Billing — tenders (split payment)', () => {
     posService.settleBill.mockResolvedValue({ Total: 118, TransactionNo: 'INV-0042', BalanceDue: 0 });
     posService.updateOrder.mockResolvedValue({});
     posService.updateTable.mockResolvedValue({});
+    posService.setTableOccupancy.mockResolvedValue({});
     await renderBilling({ table: 'T1' });
     fireEvent.click(screen.getByRole('button', { name: /Settle Bill/i }));
     await screen.findByText(/Payments/i);
@@ -1156,7 +1161,8 @@ describe('Billing — tenders (split payment)', () => {
     // The meal is over: the rounds close and the table frees, so a second
     // Settle can never invoice the same food again.
     await waitFor(() => expect(posService.updateOrder).toHaveBeenCalledWith(expect.anything(), { Status: 'closed' }));
-    expect(posService.updateTable).toHaveBeenCalledWith('t1', { Status: 'free', CurrentOrderId: null });
+    // Through the till's own endpoint — PUT /tables/:id needs POS_CONFIG:WRITE.
+    expect(posService.setTableOccupancy).toHaveBeenCalledWith('t1', { Status: 'free', CurrentOrderId: null });
     expect(await screen.findByText('Partial payment recorded')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Collect ₹68.00 now' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Collect later' })).toBeInTheDocument();

@@ -1458,7 +1458,7 @@ const Billing = () => {
       const orderId = order.id || order.Id
       if (isFirst) {
         // First round opens the session and marks the table occupied
-        await posService.updateTable(selectedTable, { Status: 'occupied', CurrentOrderId: orderId })
+        await posService.setTableOccupancy(selectedTable, { Status: 'occupied', CurrentOrderId: orderId })
       }
       // Placing a round does NOT send it to the kitchen — that is a separate,
       // deliberate tap. Say so, because a waiter who assumes otherwise is how a
@@ -1809,7 +1809,7 @@ const Billing = () => {
       // sale has no table — the customer left with a token instead.
       await Promise.all(sessionRounds.map((r) => posService.updateOrder(r.orderId, { Status: 'closed' })))
       if (selectedTable) {
-        await posService.updateTable(selectedTable, { Status: 'free', CurrentOrderId: null })
+        await posService.setTableOccupancy(selectedTable, { Status: 'free', CurrentOrderId: null })
       }
 
       // Which branch's format this bill prints in. Taken from the cart the same
@@ -1996,7 +1996,10 @@ const Billing = () => {
   ].join(' · ')
 
   // The next thing to press, in words — so a greyed button is never the only
-  // explanation of why nothing happens.
+  // explanation of why nothing happens. Only ever names a button this person
+  // HAS: kitchen staff (orders view only) were told to "press Send KOT" over an
+  // action bar with nothing in it.
+  const viewOnlyHint = 'View only. Taking orders and payments needs a front-desk role.'
   const nextStepHint = (() => {
     if (pickingTable) {
       return cartItems.length > 0
@@ -2004,17 +2007,28 @@ const Billing = () => {
         : 'Pick a table, or seat a walk-in, to start.'
     }
     if (counterMode) return null
+    if (!canTakeOrders && !canTakeMoney) return viewOnlyHint
     if (cartItems.length > 0) {
       return canTakeOrders
         ? `Save puts these on Round ${nextRound}. Send KOT then sends it to the kitchen.`
         : null
     }
-    if (sessionRounds.length === 0) return 'Tap dishes to start Round 1.'
-    if (selectedRound && !selectedSent) {
-      return `Round ${selectedRound.round} is saved but not in the kitchen yet. Press Send KOT to send it.`
+    if (sessionRounds.length === 0) {
+      return canTakeOrders ? 'Tap dishes to start Round 1.' : 'No rounds on this table yet.'
     }
-    if (billPrintedAt) return 'Bill printed. Settle when the guest pays.'
-    return 'Add dishes for another round, or print the bill when the guest asks.'
+    if (selectedRound && !selectedSent) {
+      return canTakeOrders
+        ? `Round ${selectedRound.round} is saved but not in the kitchen yet. Press Send KOT to send it.`
+        : `Round ${selectedRound.round} is saved but not in the kitchen yet.`
+    }
+    if (billPrintedAt) {
+      return canTakeMoney
+        ? 'Bill printed. Settle when the guest pays.'
+        : 'Bill printed. A cashier settles it when the guest pays.'
+    }
+    return canTakeOrders
+      ? 'Add dishes for another round, or print the bill when the guest asks.'
+      : 'Print the bill when the guest asks, then settle.'
   })()
 
   const dineActionCount = [

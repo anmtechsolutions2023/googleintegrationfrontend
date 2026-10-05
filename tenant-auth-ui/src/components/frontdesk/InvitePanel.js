@@ -129,7 +129,7 @@ const InvitePanel = ({ roles = [], branches = [], canWrite = true }) => {
 
           {branches.length > 0 && (
             <div className="fd-invite-row">
-              <label htmlFor="inv-branch">Branch</label>
+              <label htmlFor="inv-branch">Home branch</label>
               <select
                 id="inv-branch"
                 value={branchDetailId}
@@ -190,9 +190,10 @@ const InvitePanel = ({ roles = [], branches = [], canWrite = true }) => {
             {saving ? 'Sending…' : 'Send invitation'}
           </button>
           <p className="fd-invite-note">
-            They join when they next sign in with this Google account — whether or
-            not they already have one. The details above become their staff record
-            in this tenancy.
+            They join the next time they sign in with this WhatsApp number — whether
+            or not they have signed in before. The details above become their staff
+            record in this tenancy. The home branch is a label; it does not limit
+            what they can open.
           </p>
         </form>
       )}
@@ -222,7 +223,11 @@ const InvitePanel = ({ roles = [], branches = [], canWrite = true }) => {
                     {!!inv.is_admin && <span className="fd-source-chip is-token">admin</span>}
                   </td>
                   <td>
-                    {inv.role_names || <span className="muted">No roles</span>}
+                    {inv.role_names
+                      ? <span title={inv.role_names}>
+                          {inv.role_names.split(',').map((r) => roleLabel({ name: r.trim() })).join(', ')}
+                        </span>
+                      : <span className="muted">No roles</span>}
                   </td>
                   <td>
                     <span className={`fd-badge fd-badge-${STATUS_CLASS[inv.status] || 'pending'}`}>

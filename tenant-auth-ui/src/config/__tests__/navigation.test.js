@@ -96,6 +96,28 @@ describe('the workspace rail', () => {
     expect(homePathFor(userWith(['POS_KITCHEN:READ']))).toBe('/service/today');
   });
 
+  // Kitchen staff hold POS_ORDER:READ, so the till is visible to them — but it
+  // is a screen with no buttons for them. Their shift starts on the KDS.
+  it('sends kitchen staff Home to the kitchen display, not the till', () => {
+    const kitchen = userWith(['POS_KITCHEN:READ', 'POS_KITCHEN:WRITE', 'POS_ORDER:READ']);
+    expect(homePathFor(kitchen)).toBe('/service/kitchen');
+    // Somebody who also takes orders still lands on the till.
+    const both = userWith(['POS_KITCHEN:WRITE', 'POS_ORDER:READ', 'POS_ORDER:WRITE']);
+    expect(homePathFor(both)).toBe('/billing');
+  });
+
+  // The server accepts WRITE on the reads behind every View screen, so a role
+  // holding only "Manage" must be shown those screens too.
+  it('treats Manage as including View', () => {
+    const manageOnly = userWith(['POS_ORDER:WRITE']);
+    expect(wsNames(manageOnly)).toContain('Billing & KOT');
+    expect(homePathFor(manageOnly)).toBe('/billing');
+  });
+
+  it('no longer opens anything for the retired admin:access scope', () => {
+    expect(visibleWorkspaces(userWith(['admin:access']))).toEqual([]);
+  });
+
   it('offers nothing to somebody who holds nothing', () => {
     expect(visibleWorkspaces(userWith([]))).toEqual([]);
     expect(homePathFor(userWith([]))).toBeNull();

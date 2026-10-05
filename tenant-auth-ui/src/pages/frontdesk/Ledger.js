@@ -63,8 +63,10 @@ const REFUND_STATE_LABEL = {
  */
 const Ledger = () => {
   // The ledger is offered on TRANSACTIONS:READ — anyone who may see the books.
-  // A refund moves money back out of them, which is WRITE.
-  const canRefund = useCan(SCOPES.TRANSACTIONS_WRITE)
+  // A refund moves money back out of them: its own permission, REFUND:APPROVE,
+  // because the editors and operations staff who keep the books (WRITE) should
+  // not be the ones handing money back. The server requires the same.
+  const canRefund = useCan(SCOPES.REFUND_APPROVE)
   // Collecting a balance is taking money, which cashiers do too.
   const canCollect = useCan([SCOPES.POS_BILLING_WRITE, SCOPES.TRANSACTIONS_WRITE])
   const canWriteOff = useCan(SCOPES.TENANT_SUPER_ADMIN)

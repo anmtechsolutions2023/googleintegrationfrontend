@@ -74,9 +74,9 @@ const Metric = ({ label, value, sub, tone }) => (
 const Empty = ({ children }) => <div className="fd-empty">{children}</div>
 
 const Returns = () => {
-  // Same gate as the ledger itself: a credit note IS a transaction record.
-  // Marking one settled moves money, which is WRITE.
-  const canSettle = useCan(SCOPES.TRANSACTIONS_WRITE)
+  // Marking a credit note settled is money going back out — REFUND:APPROVE,
+  // the same permission as the refund itself. The server requires the same.
+  const canSettle = useCan(SCOPES.REFUND_APPROVE)
   const navigate = useNavigate()
 
   const [range, setRange] = useState({ preset: 'month', bucket: 'day' })

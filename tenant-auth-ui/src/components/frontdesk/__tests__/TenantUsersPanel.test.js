@@ -31,9 +31,11 @@ const ROLES = [
   { id: 'r2', name: 'POS_MANAGER' },
 ];
 
-const ME = 'me@x.com';
+// Identity is the verified mobile number (E.164) since the move to WhatsApp
+// sign-in; these fixtures used to carry email addresses.
+const ME = '+919000000002';
 const user = (over = {}) => ({
-  user_email: 'staff@x.com', roles: 'POS_CASHIER',
+  user_phone: '+919000000001', roles: 'POS_CASHIER',
   is_admin: 0, is_super_admin: 0, status: 'ACTIVE', ...over,
 });
 
@@ -48,7 +50,7 @@ beforeEach(() => {
 });
 
 const renderPanel = async (props = {}) => {
-  render(<TenantUsersPanel roles={ROLES} currentEmail={ME} canWrite {...props} />);
+  render(<TenantUsersPanel roles={ROLES} currentPhone={ME} canWrite {...props} />);
   await waitFor(() => expect(adminService.listUsers).toHaveBeenCalled());
 };
 
@@ -57,7 +59,7 @@ describe('admin access is a membership flag, not a role', () => {
     await renderPanel();
     fireEvent.click(await screen.findByRole('checkbox', { name: /Admin/i }));
     await waitFor(() => expect(adminService.setUserTenantAdmin)
-      .toHaveBeenCalledWith('staff@x.com', true));
+      .toHaveBeenCalledWith('+919000000001', true));
   });
 
   it('withdraws it again', async () => {
@@ -65,7 +67,7 @@ describe('admin access is a membership flag, not a role', () => {
     await renderPanel();
     fireEvent.click(await screen.findByRole('checkbox', { name: /Admin/i }));
     await waitFor(() => expect(adminService.setUserTenantAdmin)
-      .toHaveBeenCalledWith('staff@x.com', false));
+      .toHaveBeenCalledWith('+919000000001', false));
   });
 
   // A super admin already passes every check through the checkScope bypass.
@@ -78,7 +80,7 @@ describe('admin access is a membership flag, not a role', () => {
 
   // The server refuses this; not offering it is kinder than a 403 toast.
   it('does not let an admin withdraw their OWN access', async () => {
-    adminService.listUsers.mockResolvedValue([user({ user_email: ME, is_admin: 1 })]);
+    adminService.listUsers.mockResolvedValue([user({ user_phone: ME, is_admin: 1 })]);
     await renderPanel();
     await screen.findByText('you');   // the row chip, not the intro copy
     expect(screen.queryByRole('checkbox', { name: /Admin/i })).not.toBeInTheDocument();
@@ -88,26 +90,26 @@ describe('admin access is a membership flag, not a role', () => {
 describe('editing roles', () => {
   const openEditor = async () => {
     fireEvent.click(await screen.findByRole('button', { name: /Edit roles/i }));
-    await waitFor(() => expect(adminService.listUserRoleIds).toHaveBeenCalledWith('staff@x.com'));
+    await waitFor(() => expect(adminService.listUserRoleIds).toHaveBeenCalledWith('+919000000001'));
   };
 
   it('sends the full set — assignment replaces rather than merges', async () => {
     await renderPanel();
     await openEditor();
     // POS_CASHIER is pre-ticked from the current roles; add the manager role.
-    fireEvent.click(screen.getByRole('checkbox', { name: /POS_MANAGER/ }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /Front desk manager/ }));
     fireEvent.click(screen.getByRole('button', { name: /^Save$/ }));
 
     await waitFor(() => expect(adminService.setUserRoles)
-      .toHaveBeenCalledWith('staff@x.com', ['r1', 'r2']));
+      .toHaveBeenCalledWith('+919000000001', ['r1', 'r2']));
   });
 
   it('pre-selects what they already hold', async () => {
     await renderPanel();
     await openEditor();
     await waitFor(() =>
-      expect(screen.getByRole('checkbox', { name: /POS_CASHIER/ })).toBeChecked());
-    expect(screen.getByRole('checkbox', { name: /POS_MANAGER/ })).not.toBeChecked();
+      expect(screen.getByRole('checkbox', { name: /Cashier/ })).toBeChecked());
+    expect(screen.getByRole('checkbox', { name: /Front desk manager/ })).not.toBeChecked();
   });
 
   // The row's `roles` column is a GROUP_CONCAT of NAMES: it truncates at
@@ -122,8 +124,8 @@ describe('editing roles', () => {
     await openEditor();
 
     await waitFor(() =>
-      expect(screen.getByRole('checkbox', { name: /POS_MANAGER/ })).toBeChecked());
-    expect(screen.getByRole('checkbox', { name: /POS_CASHIER/ })).toBeChecked();
+      expect(screen.getByRole('checkbox', { name: /Front desk manager/ })).toBeChecked());
+    expect(screen.getByRole('checkbox', { name: /Cashier/ })).toBeChecked();
   });
 
   it('backs out of the edit if their roles cannot be read', async () => {
@@ -150,7 +152,7 @@ describe('suspend and remove', () => {
     await renderPanel();
     fireEvent.click(await screen.findByRole('button', { name: /Suspend/i }));
     await waitFor(() => expect(adminService.setUserStatus)
-      .toHaveBeenCalledWith('staff@x.com', 'SUSPENDED'));
+      .toHaveBeenCalledWith('+919000000001', 'SUSPENDED'));
   });
 
   it('reactivates a suspended one', async () => {
@@ -158,7 +160,7 @@ describe('suspend and remove', () => {
     await renderPanel();
     fireEvent.click(await screen.findByRole('button', { name: /Reactivate/i }));
     await waitFor(() => expect(adminService.setUserStatus)
-      .toHaveBeenCalledWith('staff@x.com', 'ACTIVE'));
+      .toHaveBeenCalledWith('+919000000001', 'ACTIVE'));
   });
 
   // "Delete user" reads as something more final than it is, so the dialog says
@@ -178,7 +180,7 @@ describe('suspend and remove', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Remove/i }));
     fireEvent.click(await screen.findByRole('button', { name: /Remove from tenancy/i }));
     await waitFor(() => expect(adminService.removeUser)
-      .toHaveBeenCalledWith('staff@x.com'));
+      .toHaveBeenCalledWith('+919000000001'));
   });
 
   it('backs out cleanly', async () => {
@@ -191,9 +193,9 @@ describe('suspend and remove', () => {
 
   // Self-removal is refused by the server; the controls are simply absent.
   it('offers neither suspend nor remove on your own row', async () => {
-    adminService.listUsers.mockResolvedValue([user({ user_email: ME })]);
+    adminService.listUsers.mockResolvedValue([user({ user_phone: ME })]);
     await renderPanel();
-    await screen.findByText(ME);
+    await screen.findByText('you');
     expect(screen.queryByRole('button', { name: /Suspend/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Remove$/i })).not.toBeInTheDocument();
   });
@@ -202,7 +204,7 @@ describe('suspend and remove', () => {
 describe('read-only access', () => {
   it('shows the list but offers no mutations', async () => {
     await renderPanel({ canWrite: false });
-    await screen.findByText('staff@x.com');
+    await screen.findByText('+91 90000 00001');
     expect(screen.queryByRole('button', { name: /Edit roles/i })).not.toBeInTheDocument();
     expect(screen.getByRole('checkbox', { name: /Admin/i })).toBeDisabled();
   });
@@ -219,42 +221,61 @@ describe('staff details on a membership', () => {
     ]);
     await renderPanel({ branches: BRANCHES });
     expect(await screen.findByText('Priya R')).toBeInTheDocument();
-    expect(screen.getByText('staff@x.com')).toBeInTheDocument();
+    expect(screen.getByText('+91 90000 00001')).toBeInTheDocument();
     expect(screen.getByText('Central')).toBeInTheDocument();
   });
 
-  it('falls back to the email for somebody with no name yet', async () => {
+  it('falls back to the number for somebody with no name yet, and says so', async () => {
     await renderPanel();
-    expect(await screen.findByText('staff@x.com')).toBeInTheDocument();
+    expect(await screen.findByText('+91 90000 00001')).toBeInTheDocument();
+    expect(screen.getByText('Name not set')).toBeInTheDocument();
   });
 
-  it('saves name, phone and branch together', async () => {
+  // Provisioning stores the number as the name when none was given; that is
+  // still no name, and must not be shown twice.
+  it('treats a name that is just the number as no name', async () => {
+    adminService.listUsers.mockResolvedValue([user({ full_name: '+919000000001' })]);
+    await renderPanel();
+    expect(await screen.findByText('Name not set')).toBeInTheDocument();
+    expect(screen.queryByText('+919000000001')).toBeNull();
+  });
+
+  // The number is the identity (user_phone) and is not edited here; name and
+  // home branch are.
+  it('saves name and home branch together', async () => {
     adminService.listUsers.mockResolvedValue([user({ full_name: 'Priya R' })]);
     await renderPanel({ branches: BRANCHES });
 
     fireEvent.click(await screen.findByRole('button', { name: /Edit details/i }));
     fireEvent.change(screen.getByLabelText(/Full name for/i), { target: { value: 'Priya Ramanathan' } });
-    fireEvent.change(screen.getByLabelText(/Phone for/i), { target: { value: '9000000000' } });
     fireEvent.change(screen.getByLabelText(/Branch for/i), { target: { value: 'b1' } });
     fireEvent.click(screen.getByRole('button', { name: /Save details/i }));
 
-    await waitFor(() => expect(adminService.updateUserProfile).toHaveBeenCalledWith('staff@x.com', {
-      fullName: 'Priya Ramanathan', phone: '9000000000', branchDetailId: 'b1',
+    await waitFor(() => expect(adminService.updateUserProfile).toHaveBeenCalledWith('+919000000001', {
+      fullName: 'Priya Ramanathan', branchDetailId: 'b1',
     }));
   });
 
-  // Clearing a phone number or unassigning a branch is a legitimate edit, so an
-  // empty field must send null rather than being silently dropped.
+  // Unassigning a branch is a legitimate edit, so an empty field must send
+  // null rather than being silently dropped.
   it('sends null for a field that has been cleared', async () => {
-    adminService.listUsers.mockResolvedValue([user({ full_name: 'Priya R', phone: '999' })]);
+    adminService.listUsers.mockResolvedValue([user({ full_name: 'Priya R', branch_detail_id: 'b1' })]);
     await renderPanel({ branches: BRANCHES });
 
     fireEvent.click(await screen.findByRole('button', { name: /Edit details/i }));
-    fireEvent.change(screen.getByLabelText(/Phone for/i), { target: { value: '' } });
+    fireEvent.change(screen.getByLabelText(/Branch for/i), { target: { value: '' } });
     fireEvent.click(screen.getByRole('button', { name: /Save details/i }));
 
     await waitFor(() => expect(adminService.updateUserProfile)
-      .toHaveBeenCalledWith('staff@x.com', expect.objectContaining({ phone: null })));
+      .toHaveBeenCalledWith('+919000000001', expect.objectContaining({ branchDetailId: null })));
+  });
+
+  it('shows roles by the job, and says the home branch restricts nothing', async () => {
+    adminService.listUsers.mockResolvedValue([user({ roles: 'POS_CASHIER, POS_MANAGER' })]);
+    await renderPanel();
+    expect(await screen.findByText('Cashier, Front desk manager')).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Home branch' })).toBeInTheDocument();
+    expect(screen.getByText(/does not limit what anyone can open/)).toBeInTheDocument();
   });
 });
 
@@ -262,7 +283,7 @@ describe('staff details on a membership', () => {
 // access to everything else in their tenancy.
 describe('an admin looking at their own row', () => {
   beforeEach(() => {
-    adminService.listUsers.mockResolvedValue([user({ user_email: ME, is_admin: 1, full_name: 'Me' })]);
+    adminService.listUsers.mockResolvedValue([user({ user_phone: ME, is_admin: 1, full_name: 'Me' })]);
   });
 
   it('is not offered a way to edit their own roles', async () => {
@@ -287,8 +308,8 @@ describe('an admin looking at their own row', () => {
 describe('finding somebody in a long list', () => {
   beforeEach(() => {
     adminService.listUsers.mockResolvedValue([
-      user({ user_email: 'priya@x.com', full_name: 'Priya R', roles: 'POS_MANAGER' }),
-      user({ user_email: 'sam@x.com', full_name: 'Sam T', roles: 'POS_CASHIER' }),
+      user({ user_phone: '+919000000003', full_name: 'Priya R', roles: 'POS_MANAGER' }),
+      user({ user_phone: '+919000000004', full_name: 'Sam T', roles: 'POS_CASHIER' }),
     ]);
   });
 
@@ -303,7 +324,7 @@ describe('finding somebody in a long list', () => {
     await renderPanel();
     const box = await screen.findByLabelText(/Search people/i);
 
-    fireEvent.change(box, { target: { value: 'sam@' } });
+    fireEvent.change(box, { target: { value: '9000000004' } });
     expect(screen.getByText('Sam T')).toBeInTheDocument();
 
     fireEvent.change(box, { target: { value: 'cashier' } });

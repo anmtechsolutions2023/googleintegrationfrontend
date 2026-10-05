@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import Cookies from 'js-cookie';
 import logger from '../utils/logger';
 import { decodeToken, getUserFromToken } from '../utils/tokenUtils';
-import api from '../api/api';
+import api, { TOKEN_REFRESHED_EVENT } from '../api/api';
 import {
   verifyOtp,
   logout as authLogout,
@@ -86,6 +86,16 @@ export const AuthProvider = ({ children }) => {
     setUser(payload);
     return payload;
   };
+
+  // The API client announces a token the server re-signed because this
+  // person's access changed mid-session (see api.js).
+  useEffect(() => {
+    const onRefreshed = (event) => { if (event.detail) applyToken(event.detail); };
+    window.addEventListener(TOKEN_REFRESHED_EVENT, onRefreshed);
+    return () => window.removeEventListener(TOKEN_REFRESHED_EVENT, onRefreshed);
+  // applyToken only touches the cookie and setUser, both stable.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const logout = async () => {
     // 1. Attempt backend logout (don't block cleanup if it fails)
