@@ -19,6 +19,7 @@ const Navbar = () => {
   if (!user) return null;
 
   const isGuest = !user.tid || user.onboardingStatus !== 'APPROVED';
+  const activeTenancyName = (user.associatedTenants || []).find((t) => t.tenantId === user.tid)?.name || null;
   // Tenant has not finished the first-time wizard: the menu collapses to the
   // only destinations the route guards and the API will actually allow. That
   // rule, and every permission rule below it, lives in config/navigation.js.
@@ -111,8 +112,8 @@ const Navbar = () => {
               <p className="user-email">{formatForDisplay(user.phone)}</p>
               {!isGuest && (
                 <p className="tid-label">
-                  {STRINGS.labels.activeId}{' '}
-                  {user.tid?.substring(0, APP_CONFIG.UI.TRUNCATE_ID_LENGTH)}...
+                  {activeTenancyName ? <strong>{activeTenancyName}</strong> : STRINGS.labels.activeId}{' '}
+                  <span title={user.tid}>{user.tid?.substring(0, APP_CONFIG.UI.TRUNCATE_ID_LENGTH)}...</span>
                 </p>
               )}
               {isGuest && (
@@ -138,9 +139,11 @@ const Navbar = () => {
                       className={`tenant-item ${user.tid === t.tenantId ? 'active' : ''}`}
                       onClick={() => handleSwitch(t.tenantId)}
                     >
-                      <div className="tenant-info">
+                      <div className="tenant-info" title={t.tenantId}>
                         <span className="status-dot" />
-                        <span>{t.tenantId.substring(0, APP_CONFIG.UI.TRUNCATE_ID_LENGTH)}...</span>
+                        {/* The tenancy's name where it has one: a member of
+                            several tenancies could not tell bare ids apart. */}
+                        <span>{t.name || `${t.tenantId.substring(0, APP_CONFIG.UI.TRUNCATE_ID_LENGTH)}...`}</span>
                       </div>
                       {t.isAdmin && <span className="admin-badge">{STRINGS.roles.admin}</span>}
                     </div>

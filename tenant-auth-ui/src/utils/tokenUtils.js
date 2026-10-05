@@ -1,6 +1,27 @@
 import logger from './logger';
 
 /**
+ * A JWT segment as text.
+ *
+ * Two things a bare atob() got wrong. The segment is base64URL (- and _, no
+ * padding), which atob rejects outright whenever one of those characters
+ * appears — the token then decoded to nothing and the person was signed out.
+ * And atob returns one character per BYTE, so any name outside plain ASCII
+ * came out mangled: "Mayini’s" read as "Mayiniâ€™s" in the menu.
+ *
+ * @param {string} segment
+ * @returns {string} The UTF-8 text it encodes.
+ */
+const decodeSegment = (segment) => {
+  const base64 = segment.replace(/-/g, '+').replace(/_/g, '/')
+    .padEnd(Math.ceil(segment.length / 4) * 4, '=');
+  const binary = window.atob(base64);
+  return decodeURIComponent(
+    Array.from(binary, (c) => `%${c.charCodeAt(0).toString(16).padStart(2, '0')}`).join(''),
+  );
+};
+
+/**
  * Decode a JWT token and return the payload
  *
  * @param {string} token - JWT token string
@@ -18,7 +39,7 @@ export const decodeToken = (token) => {
       return null;
     }
 
-    const payload = JSON.parse(window.atob(parts[1]));
+    const payload = JSON.parse(decodeSegment(parts[1]));
     return payload;
   } catch (error) {
     logger.error('Failed to decode token:', error);
