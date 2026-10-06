@@ -249,6 +249,21 @@ const QrCodes = () => {
               ))}
             </div>
 
+            <h2 style={{ marginTop: 16 }}>Dish photos</h2>
+            <label className={`fd-setting-option ${settings.showPhotos !== false ? 'is-active' : ''}`}>
+              <input
+                type="checkbox"
+                role="switch"
+                checked={settings.showPhotos !== false}
+                disabled={!canManage || saving}
+                onChange={(e) => saveSettings({ showPhotos: e.target.checked })}
+              />
+              <span>
+                <strong>Show dish photos on the QR menu</strong>
+                <em>Dishes with a photo show it beside the name and large when tapped. Add photos under Menu › Dishes.</em>
+              </span>
+            </label>
+
             <div className="fd-qr-lock" style={{ marginTop: 12 }}>
               <span aria-hidden="true">🔒</span>
               <span><strong>Staff approve every order.</strong> Always on — a guest&apos;s order reaches the kitchen only when someone presses Accept.</span>

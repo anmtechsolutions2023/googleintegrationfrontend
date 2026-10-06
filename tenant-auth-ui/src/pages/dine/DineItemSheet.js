@@ -8,8 +8,12 @@ import { optionErrors, rupees, unitPriceOf } from './cart'
  * Variants are one-of (the till's portion choice); add-on groups carry their
  * own min/max, checked here the same way the server checks them, so a guest is
  * told about a missing choice before placing rather than after.
+ *
+ * Also how a guest sees a dish's photo large: tapping the photo on the menu
+ * opens this sheet, even for a dish with no options, or one that cannot be
+ * ordered right now (then without the Add bar).
  */
-const DineItemSheet = ({ item, onClose, onAdd }) => {
+const DineItemSheet = ({ item, onClose, onAdd, canAdd = true, photoSrc = null }) => {
   const [variantId, setVariantId] = useState(item.variants[0]?.id || null)
   const [addonIds, setAddonIds] = useState([])
   const [note, setNote] = useState('')
@@ -50,7 +54,11 @@ const DineItemSheet = ({ item, onClose, onAdd }) => {
   return (
     <div className="dine-sheet-backdrop" onClick={onClose}>
       <div className="dine-sheet" role="dialog" aria-modal="true" aria-label={`${item.name} options`} onClick={(e) => e.stopPropagation()}>
-        <div className="dine-sheet-grip"><span /></div>
+        {photoSrc ? (
+          <div className="dine-sheet-photo"><img src={photoSrc} alt={item.name} decoding="async" /></div>
+        ) : (
+          <div className="dine-sheet-grip"><span /></div>
+        )}
         <div className="dine-sheet-head">
           <div className="dine-stack" style={{ gap: 4 }}>
             <h2 className="dine-display" style={{ fontSize: 24 }}>{item.name}</h2>
@@ -98,13 +106,15 @@ const DineItemSheet = ({ item, onClose, onAdd }) => {
             )
           })}
 
-          <div className="dine-stack">
-            <label className="dine-label" htmlFor="dine-note">Note for the kitchen</label>
-            <input id="dine-note" className="dine-input" type="text" maxLength={140} placeholder="e.g. less spicy" value={note} onChange={(e) => setNote(e.target.value)} />
-          </div>
+          {canAdd && (
+            <div className="dine-stack">
+              <label className="dine-label" htmlFor="dine-note">Note for the kitchen</label>
+              <input id="dine-note" className="dine-input" type="text" maxLength={140} placeholder="e.g. less spicy" value={note} onChange={(e) => setNote(e.target.value)} />
+            </div>
+          )}
         </div>
 
-        <div className="dine-sheet-foot">
+        {canAdd && <div className="dine-sheet-foot">
           <div className="dine-stepper is-light" style={{ height: 54 }}>
             <button type="button" aria-label="One less" onClick={() => setQuantity((q) => Math.max(1, q - 1))}>−</button>
             <span>{quantity}</span>
@@ -113,7 +123,7 @@ const DineItemSheet = ({ item, onClose, onAdd }) => {
           <button type="button" className="dine-btn dine-btn-primary" style={{ minHeight: 54 }} onClick={add}>
             Add · {rupees(unit * quantity)}
           </button>
-        </div>
+        </div>}
       </div>
     </div>
   )

@@ -30,12 +30,15 @@ import { useAuth } from '../../context/AuthContext'
 import { hasScope } from '../../utils/permissions'
 import CustomerPicker from '../../components/frontdesk/CustomerPicker'
 import CollectFlow from '../../components/frontdesk/CollectFlow'
+import DishPhoto from '../../components/DishPhoto'
 import {
   buildTableRounds, buildRoundIndex, formatRoundTime, itemLabel,
 } from '../../utils/posRounds'
 import { summarizeSession, estimateAfterDiscount, roundPayable } from '../../utils/posBilling'
 
 const { MAX_LIMIT } = APP_CONFIG.PAGINATION
+// This device's choice of text or picture tiles (localStorage).
+const TILE_VIEW_KEY = 'billing.tileView'
 
 // Normalize item-meta price. Prefer the linked CostInfo amount (new normalized
 // model); fall back to the legacy Prices JSON for older records.
@@ -273,6 +276,16 @@ const Billing = () => {
   // category, searching, or "Add dishes first" brings the dishes up before a
   // table is chosen; they then wait in the order panel for one.
   const [dishesFirst, setDishesFirst] = useState(false)
+  // Text tiles (the default — about three times as many dishes on screen) or
+  // picture tiles. Remembered on this device only: a counter screen and a
+  // captain's tablet want different answers.
+  const [tileView, setTileView] = useState(() => {
+    try { return window.localStorage.getItem(TILE_VIEW_KEY) === 'pictures' ? 'pictures' : 'text' } catch { return 'text' }
+  })
+  const chooseTileView = (view) => {
+    setTileView(view)
+    try { window.localStorage.setItem(TILE_VIEW_KEY, view) } catch { /* private mode: just this visit */ }
+  }
   // The walk-in party size typed in the empty order panel. It picks the table
   // the board suggests, and becomes the order's guests when they are seated.
   const [walkInGuests, setWalkInGuests] = useState(2)
@@ -389,6 +402,10 @@ const Billing = () => {
   // manager narrows the menu exactly the way a cashier does.
   const menuFilters = useMenuFilters(menu, nameOf)
   const filteredMenu = menuFilters.filtered
+  // The switch only appears once some dish has a photo; until then picture
+  // tiles would be a grid of letters.
+  const menuHasPhotos = useMemo(() => menu.some((m) => m.PhotoVersion), [menu])
+  const pictures = menuHasPhotos && tileView === 'pictures'
   const menuFiltered = menuFilters.isFiltered
   // The side rail exists when it has something to hold: more than one
   // category, or more than one food type.
@@ -2224,6 +2241,15 @@ const Billing = () => {
             {/* What else the search matched, the filters in force, and tags —
                 the search box itself is in the toolbar, the rest in the rail. */}
             <MenuFilterBar filters={menuFilters} menu={menu} hideSearch hideCategories hideDiets />
+            {menuHasPhotos && (
+              <div className="fd-tile-view" role="radiogroup" aria-label="Dish tiles">
+                {[['text', 'Text'], ['pictures', 'Pictures']].map(([v, label]) => (
+                  <button key={v} type="button" role="radio" aria-checked={tileView === v} className={tileView === v ? 'is-on' : ''} onClick={() => chooseTileView(v)}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {filteredMenu.length === 0 ? (
               <div className="fd-empty">
@@ -2243,7 +2269,7 @@ const Billing = () => {
                 )}
               </div>
             ) : (
-              <div className="fd-menu-grid">
+              <div className={`fd-menu-grid${pictures ? ' is-pictures' : ''}`}>
                 {filteredMenu.map((meta) => {
                   const id = meta.id || meta.Id
                   const name = itemName(meta, itemDetails[meta.ItemDetailId])
@@ -2296,6 +2322,14 @@ const Billing = () => {
                         }
                       }}
                     >
+                      {pictures && (
+                        <DishPhoto
+                          itemId={meta.ItemDetailId}
+                          version={meta.PhotoVersion}
+                          className="fd-tile-pic"
+                          fallback={<span className="fd-tile-pic fd-tile-letter" aria-hidden="true">{(name || '?').trim().charAt(0).toUpperCase()}</span>}
+                        />
+                      )}
                       {inCart > 0 && <span className="fd-tile-qty" aria-hidden="true">{inCart}</span>}
                       {/* The FSSAI square: green dot veg, red triangle non-veg.
                           Staff read the mark, not the word, and it costs a corner

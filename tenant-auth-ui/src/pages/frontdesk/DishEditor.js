@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import menuService from '../../services/menuService'
+import { preparePhoto } from '../../utils/dishPhoto'
 import { useCan } from '../../hooks/useCan'
 import { SCOPES } from '../../constants'
 import './menu.css'
@@ -21,26 +22,6 @@ const NUTRITION = [
   ['ServingSizeG', 'Serving (g)'], ['Calories', 'Calories'], ['ProteinG', 'Protein (g)'], ['CarbohydrateG', 'Carbs (g)'],
   ['SugarG', 'Sugar (g)'], ['FatG', 'Fat (g)'], ['SaturatedFatG', 'Sat. fat (g)'], ['FibreG', 'Fibre (g)'], ['SodiumMg', 'Sodium (mg)'],
 ]
-
-/** Downsizes a photo in the browser so it fits the 512KB cap: 1000px JPEG. */
-const shrinkPhoto = (file) => new Promise((resolve, reject) => {
-  const reader = new FileReader()
-  reader.onerror = () => reject(new Error('That file could not be read.'))
-  reader.onload = () => {
-    const img = new Image()
-    img.onerror = () => reject(new Error('That is not an image this browser can open.'))
-    img.onload = () => {
-      const scale = Math.min(1, 1000 / Math.max(img.width, img.height))
-      const canvas = document.createElement('canvas')
-      canvas.width = Math.round(img.width * scale)
-      canvas.height = Math.round(img.height * scale)
-      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height)
-      resolve(canvas.toDataURL('image/jpeg', 0.85))
-    }
-    img.src = String(reader.result)
-  }
-  reader.readAsDataURL(file)
-})
 
 /**
  * A text box that suggests what exists and offers to create what does not.
@@ -256,10 +237,11 @@ const DishEditor = () => {
     }
     delete payload.itemId
     delete payload.hasPhoto
+    delete payload.photoVersion
     try {
       const res = isNew ? await menuService.createDish(payload) : await menuService.updateDish(itemId, payload)
       if (pendingPhoto) {
-        try { await menuService.putDishPhoto(res.itemId, pendingPhoto) } catch (err) {
+        try { await menuService.putDishPhoto(res.itemId, pendingPhoto.dataUri, pendingPhoto.thumbDataUri) } catch (err) {
           toast.warn(err?.response?.data?.message || 'The dish was saved, but the photo was not.')
         }
       }
@@ -278,9 +260,9 @@ const DishEditor = () => {
     e.target.value = ''
     if (!file) return
     try {
-      const uri = await shrinkPhoto(file)
-      setPhoto(uri)
-      setPendingPhoto(uri)
+      const prepared = await preparePhoto(file)
+      setPhoto(prepared.dataUri)
+      setPendingPhoto(prepared)
     } catch (err) {
       toast.error(err.message)
     }
@@ -370,6 +352,17 @@ const DishEditor = () => {
                   )}
                   <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={onPhoto} aria-label="Choose a photo" />
                 </div>
+                {photo && (
+                  <div className="mn-guest-row" aria-label="How guests see it">
+                    <span className="mn-hint" style={{ gridColumn: '1 / -1' }}>How guests see it on the QR menu</span>
+                    <span>
+                      <b>{dish.name || 'Dish name'}</b>
+                      <span>₹{Number(dish.price) || 0}</span>
+                      {dish.description && <small>{dish.description}</small>}
+                    </span>
+                    <img src={photo} alt="" />
+                  </div>
+                )}
               </div>
             </div>
             <div className="mn-grid">

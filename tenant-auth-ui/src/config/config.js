@@ -31,6 +31,10 @@ export const PUBLIC_DINE_ORIGIN =
 export const DINE = {
   resolve: (token) => `/api/dine/${token}`,
   logo: (token) => `/api/dine/${token}/logo`,
+  // A dish photo, as an absolute URL for an <img>: the guest app does not go
+  // through axios for images. `v` is the item's photoVersion (cache key).
+  photo: (token, itemId, version, size = 'thumb') =>
+    `${API_BASE_URL}/api/dine/${token}/photo/${encodeURIComponent(itemId)}?size=${size}&v=${version}`,
   otpRequest: (token) => `/api/dine/${token}/otp/request`,
   otpVerify: (token) => `/api/dine/${token}/otp/verify`,
   SESSION: '/api/dine/session',

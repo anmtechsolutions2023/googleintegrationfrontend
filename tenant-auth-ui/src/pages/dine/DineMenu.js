@@ -9,10 +9,14 @@ const ALL = '__all__'
  *
  * Dishes outside trading hours stay visible but cannot be added, with the time
  * they come back; a menu-only branch shows the menu with no Add buttons.
+ *
+ * A dish with a photo shows it on the right, with the Add button sitting on
+ * its lower edge; tapping the photo opens the dish with the photo large. A
+ * dish without one keeps the compact text row — no placeholder boxes.
  */
 const DineMenu = ({
   venue, menu, cart, customerName, canOrder,
-  onAdd, onOpenItem, onChangeQty, onOpenCart, onOpenOrders, hasOrders,
+  onAdd, onOpenItem, onChangeQty, onOpenCart, onOpenOrders, hasOrders, photoUrl = () => null,
 }) => {
   const [category, setCategory] = useState(ALL)
   const [query, setQuery] = useState('')
@@ -85,8 +89,22 @@ const DineMenu = ({
             {section.items.map((item) => {
               const n = countOf(cart, item.id)
               const plainLine = !needsOptions(item) && cart.find((l) => l.id === item.id && !l.note)
+              const photo = photoUrl(item)
+              const control = canOrder && item.available && (
+                plainLine ? (
+                  <div className="dine-stepper">
+                    <button type="button" aria-label={`One less ${item.name}`} onClick={() => onChangeQty(plainLine.key, -1)}>−</button>
+                    <span>{plainLine.quantity}</span>
+                    <button type="button" aria-label={`One more ${item.name}`} onClick={() => onChangeQty(plainLine.key, 1)}>+</button>
+                  </div>
+                ) : (
+                  <button type="button" className="dine-add" onClick={() => addPlain(item)}>
+                    {needsOptions(item) ? 'Add +' : 'Add'}
+                  </button>
+                )
+              )
               return (
-                <article key={item.id} className={`dine-dish ${item.available ? '' : 'is-off'}`}>
+                <article key={item.id} className={`dine-dish ${item.available ? '' : 'is-off'}${photo ? ' has-photo' : ''}`}>
                   <div className="dine-dish-main">
                     <div className="dine-dish-name"><DietMark isVeg={item.isVeg} />{item.name}</div>
                     {item.description && <div className="dine-dish-desc">{item.description}</div>}
@@ -96,19 +114,17 @@ const DineMenu = ({
                       <div className="dine-dish-desc">{item.opensAt ? `Available from ${item.opensAt}` : 'Not available right now'}</div>
                     )}
                   </div>
-                  {canOrder && item.available && (
+                  {photo ? (
+                    <div className="dine-dish-pic">
+                      <button type="button" className="dine-dish-photo" onClick={() => onOpenItem(item)} aria-label={`See ${item.name}`}>
+                        <img src={photo} alt="" loading="lazy" decoding="async" width="112" height="104" />
+                      </button>
+                      {control && <div className="dine-dish-pic-control">{control}</div>}
+                      {control && needsOptions(item) && <span className="dine-small">{n > 0 ? `${n} in order` : 'Options'}</span>}
+                    </div>
+                  ) : control && (
                     <div className="dine-dish-side">
-                      {plainLine ? (
-                        <div className="dine-stepper">
-                          <button type="button" aria-label={`One less ${item.name}`} onClick={() => onChangeQty(plainLine.key, -1)}>−</button>
-                          <span>{plainLine.quantity}</span>
-                          <button type="button" aria-label={`One more ${item.name}`} onClick={() => onChangeQty(plainLine.key, 1)}>+</button>
-                        </div>
-                      ) : (
-                        <button type="button" className="dine-add" onClick={() => addPlain(item)}>
-                          {needsOptions(item) ? 'Add +' : 'Add'}
-                        </button>
-                      )}
+                      {control}
                       {needsOptions(item) && <span className="dine-small">{n > 0 ? `${n} in order` : 'Options'}</span>}
                     </div>
                   )}

@@ -200,3 +200,19 @@ textarea.mn-input { min-height: 72px; padding: 10px 12px; resize: vertical; }
 .mn-empty-card > b { font-size: 16px; }
 .mn-empty-card > .mn-muted { flex: 1 1 auto; }
 .mn-empty-card.feature { border-color: #f5a524; background: #fffbeb; }
+
+/* ── Dish photos ─────────────────────────────────────────────────────── */
+.mn-guest-row { display: grid; grid-template-columns: 1fr 72px; gap: 4px 12px; align-items: start; margin-top: 6px; padding: 10px 12px;
+  border: 1px solid #e7dfd3; border-radius: 12px; background: #faf6ef; max-width: 340px; }
+.mn-guest-row > span:nth-child(2) { display: flex; flex-direction: column; gap: 2px; font-size: 13.5px; min-width: 0; }
+.mn-guest-row small { color: #5e554b; font-size: 12px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.mn-guest-row img { width: 72px; height: 72px; border-radius: 10px; object-fit: cover; }
+.mn-thumb-box { width: 44px; height: 44px; border-radius: 9px; flex: 0 0 auto; }
+.mn-thumb-add { font: inherit; width: 44px; height: 44px; border-radius: 9px; flex: 0 0 auto; border: 1.5px dashed #c9cdd8; background: #f8f9fb;
+  color: #5b6170; font-size: 10.5px; font-weight: 700; line-height: 1.1; cursor: pointer; padding: 0; }
+.mn-thumb-add:hover { border-color: #0f3460; color: #0f3460; }
+.mn-thumb-add:disabled { cursor: progress; opacity: .6; }
+.mn-chip.gap { border-color: #f5a524; background: #fffbeb; color: #92400e; }
+.mn-chip.gap.is-on { background: #92400e; border-color: #92400e; color: #fff; }
+.mn-photo-table td { vertical-align: middle; }
+.mn-photo-table img { width: 52px; height: 52px; border-radius: 9px; object-fit: cover; display: block; }

@@ -61,7 +61,7 @@ test('Menu file lists the file actions in order, with clearing last for an admin
   await screen.findByText('Veg Biryani')
   fireEvent.click(screen.getByRole('button', { name: /Menu file/ }))
   const items = screen.getAllByRole('menuitem').map((b) => b.querySelector('b').textContent)
-  expect(items).toEqual(['Import menu file…', 'Download sample menu', 'Download blank template',
+  expect(items).toEqual(['Import menu file…', 'Download sample menu', 'Download blank template', 'Add photos…',
     'Export menu file', 'Export add-ons', 'Export hours', 'Clear the menu…'])
 })
 

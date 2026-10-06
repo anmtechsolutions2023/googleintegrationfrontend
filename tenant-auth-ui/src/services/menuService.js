@@ -18,7 +18,8 @@ export const updateDish = async (itemId, dish) => data(await api.put(`/api/menu/
 export const bulkDishes = async (body) => data(await api.post('/api/menu/dishes/bulk', body))
 
 export const getDishPhoto = async (itemId) => data(await api.get(`/api/menu/dishes/${encodeURIComponent(itemId)}/photo`))
-export const putDishPhoto = async (itemId, dataUri) => data(await api.put(`/api/menu/dishes/${encodeURIComponent(itemId)}/photo`, { dataUri }))
+/** The photo and its list thumbnail (utils/dishPhoto.preparePhoto makes both). */
+export const putDishPhoto = async (itemId, dataUri, thumbDataUri = null) => data(await api.put(`/api/menu/dishes/${encodeURIComponent(itemId)}/photo`, { dataUri, thumbDataUri }))
 export const deleteDishPhoto = async (itemId) => api.delete(`/api/menu/dishes/${encodeURIComponent(itemId)}/photo`)
 
 /** What a menu file would do. Writes nothing. */

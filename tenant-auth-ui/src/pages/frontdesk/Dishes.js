@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import menuService from '../../services/menuService'
@@ -7,6 +7,9 @@ import { SCOPES } from '../../constants'
 import { downloadTemplate, downloadSampleZip } from '../../utils/menuFile'
 import MenuFileMenu from './MenuFileMenu'
 import ClearMenuDialog from './ClearMenuDialog'
+import AddPhotosDialog from './AddPhotosDialog'
+import DishPhoto from '../../components/DishPhoto'
+import { preparePhoto } from '../../utils/dishPhoto'
 import './menu.css'
 
 const money = (n) => (n === null || n === undefined ? '—' : `₹${Number(n).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`)
@@ -38,6 +41,12 @@ const Dishes = () => {
   const [bulkTag, setBulkTag] = useState('')
   const [bulkPortal, setBulkPortal] = useState('')
   const [busy, setBusy] = useState(false)
+  const [noPhoto, setNoPhoto] = useState(false)
+  const [addingPhotos, setAddingPhotos] = useState(false)
+  // "+ photo" on a row: one hidden file input, aimed at the row clicked.
+  const photoInput = useRef(null)
+  const [photoFor, setPhotoFor] = useState(null)
+  const [uploadingFor, setUploadingFor] = useState(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -63,8 +72,31 @@ const Dishes = () => {
     return data.dishes.filter((d) => (!category || (d.category || 'Uncategorised') === category)
       && (!diet || d.diet === diet)
       && (!status || d.status === status)
+      && (!noPhoto || !d.photoVersion)
       && (!q || [d.name, d.code, ...(d.tags || [])].some((v) => String(v || '').toLowerCase().includes(q))))
-  }, [data.dishes, query, category, diet, status])
+  }, [data.dishes, query, category, diet, status, noPhoto])
+  const withoutPhoto = useMemo(() => data.dishes.filter((d) => !d.photoVersion && d.status === 'Active').length, [data.dishes])
+
+  const pickPhotoFor = (dish) => {
+    setPhotoFor(dish)
+    photoInput.current?.click()
+  }
+  const onRowPhoto = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file || !photoFor) return
+    setUploadingFor(photoFor.itemId)
+    try {
+      const { dataUri, thumbDataUri } = await preparePhoto(file)
+      await menuService.putDishPhoto(photoFor.itemId, dataUri, thumbDataUri)
+      toast.success(`Photo saved for ${photoFor.name}`)
+      await load()
+    } catch (err) {
+      toast.error(err?.response?.data?.message || err.message || 'The photo could not be saved')
+    } finally {
+      setUploadingFor(null)
+    }
+  }
 
   const toggle = (id) => setSelected((cur) => {
     const next = new Set(cur)
@@ -125,7 +157,7 @@ const Dishes = () => {
           </p>
         </div>
         <div className="mn-actions">
-          <MenuFileMenu canWrite={canWrite} canClear={canClear} onClear={() => setClearing(true)} />
+          <MenuFileMenu canWrite={canWrite} canClear={canClear} onClear={() => setClearing(true)} onAddPhotos={() => setAddingPhotos(true)} />
           {canWrite && <Link to="/menu/dishes/new" className="mn-btn pri">+ Add dish</Link>}
         </div>
       </div>
@@ -151,7 +183,24 @@ const Dishes = () => {
             {name} {n}
           </button>
         ))}
+        {withoutPhoto > 0 && (
+          <button type="button" className={`mn-chip gap${noPhoto ? ' is-on' : ''}`} aria-pressed={noPhoto} onClick={() => setNoPhoto((v) => !v)}
+            title="Dishes on the menu without a photo — guests see a plain text row for these">
+            No photo {withoutPhoto}
+          </button>
+        )}
       </div>
+
+      {canWrite && (
+        <input ref={photoInput} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={onRowPhoto} aria-label="Choose a dish photo" />
+      )}
+      {addingPhotos && (
+        <AddPhotosDialog
+          dishes={data.dishes}
+          onClose={() => setAddingPhotos(false)}
+          onSaved={async () => { setAddingPhotos(false); await load() }}
+        />
+      )}
 
       {canWrite && selected.size > 0 && (
         <div className="mn-bulk" role="region" aria-label="Bulk actions">
@@ -266,10 +315,18 @@ const Dishes = () => {
                   )}
                   <td data-wide="">
                     <div className="mn-dish">
+                      {d.photoVersion ? (
+                        <DishPhoto itemId={d.itemId} version={d.photoVersion} className="mn-thumb-box" fallback={<span className="mn-thumb-box" style={{ background: '#f1f2f5' }} />} />
+                      ) : canWrite ? (
+                        <button type="button" className="mn-thumb-add" disabled={uploadingFor === d.itemId}
+                          onClick={(e) => { e.stopPropagation(); pickPhotoFor(d) }} aria-label={`Add a photo of ${d.name}`}>
+                          {uploadingFor === d.itemId ? '…' : '+ photo'}
+                        </button>
+                      ) : <span className="mn-thumb-box" style={{ background: '#f1f2f5' }} aria-hidden="true" />}
                       <span className={`mn-dot ${isVegName(d.diet) ? 'mn-veg' : 'mn-nonveg'}`} title={d.diet || ''} />
                       <span>
                         <Link to={`/menu/dishes/${d.itemId}`} onClick={(e) => e.stopPropagation()} style={{ fontWeight: 700, color: '#1f2937', textDecoration: 'none' }}>{d.name}</Link>
-                        <span className="mn-mono" style={{ display: 'block' }}>{[d.code, d.hasPhoto ? 'photo' : null].filter(Boolean).join(' · ')}</span>
+                        <span className="mn-mono" style={{ display: 'block' }}>{d.code}</span>
                       </span>
                     </div>
                   </td>

@@ -21,7 +21,7 @@ const Item = ({ id, busy, title, hint, onClick, danger }) => (
  * from the pointer and never a button on the page. At phone width the list
  * opens as a bottom sheet.
  */
-const MenuFileMenu = ({ canWrite, canClear, onClear }) => {
+const MenuFileMenu = ({ canWrite, canClear, onClear, onAddPhotos }) => {
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState('')
@@ -71,6 +71,10 @@ const MenuFileMenu = ({ canWrite, canClear, onClear }) => {
               onClick={run('sample', downloadSampleZip, 'The sample menu could not be downloaded')} />
             <Item busy={busy} id="template" title="Download blank template" hint="Just the columns, with one example row"
               onClick={run('template', downloadTemplate, 'The template could not be downloaded')} />
+            {canWrite && onAddPhotos && (
+              <Item busy={busy} id="photos" title="Add photos…" hint="Many at once, matched to dishes by file name (MNS-01.jpg or butter-chicken.jpg)"
+                onClick={() => { setOpen(false); onAddPhotos() }} />
+            )}
 
             <div className="mn-menu-group">Back up</div>
             <Item busy={busy} id="menu" title="Export menu file" hint="Every dish, in the format Import reads"

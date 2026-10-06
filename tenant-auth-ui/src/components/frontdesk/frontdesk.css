@@ -4849,3 +4849,15 @@ button.fd-printer-btn { cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
   .fd-ttile, .fd-tboard-row { transition: none; scroll-behavior: auto; }
 }
+
+/* ── Till: picture tiles (Text / Pictures switch, per device) ─────────── */
+.fd-tile-view { display: inline-flex; align-self: flex-end; border: 1px solid #d5d8df; border-radius: 9px; overflow: hidden; background: #fff; margin-bottom: 8px; flex: 0 0 auto; }
+.fd-tile-view button { font: inherit; font-size: 13px; font-weight: 700; border: 0; background: transparent; padding: 7px 14px; cursor: pointer; color: #3f4452; min-height: 34px; }
+.fd-tile-view button.is-on { background: #1f2937; color: #fff; }
+.fd-menu-grid.is-pictures { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.fd-menu-grid.is-pictures .fd-menu-item-card { position: relative; padding: 0 10px 10px; overflow: hidden; }
+.fd-tile-pic { display: block; height: 96px; margin: 0 -10px 8px; background: #f3f4f6; }
+.fd-tile-letter { display: flex; align-items: center; justify-content: center; font-size: 30px; font-weight: 800; color: #c9cdd8; }
+.fd-menu-grid.is-pictures .fd-tile-qty { z-index: 1; top: 6px; right: 6px; }
+.fd-menu-grid.is-pictures .fd-diet-mark { top: 104px; }
+@media (max-width: 600px) { .fd-tile-pic { height: 80px; } .fd-menu-grid.is-pictures .fd-diet-mark { top: 88px; } }

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import dineService from '../../services/dineService'
+import { DINE } from '../../config/config'
 import * as store from '../../utils/dineSessionStore'
 import { addToCart, changeQuantity } from './cart'
 import DineEntry from './DineEntry'
@@ -48,6 +49,12 @@ const DineApp = () => {
   const [orders, setOrders] = useState([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
+  // A dish's photo, or null. The menu only carries photoVersion when the
+  // branch shows photos and the dish has one.
+  const photoUrl = useCallback(
+    (item, size = 'thumb') => (item?.photoVersion ? DINE.photo(qrToken, item.id, item.photoVersion, size) : null),
+    [qrToken],
+  )
   const quoteSeq = useRef(0)
 
   const stop = useCallback((kind, message = null) => {
@@ -254,6 +261,7 @@ const DineApp = () => {
           hasOrders={orders.length > 0}
           onAdd={(item) => setCart((c) => addToCart(c, item))}
           onOpenItem={setOpenItem}
+          photoUrl={photoUrl}
           onChangeQty={(key, d) => setCart((c) => changeQuantity(c, key, d))}
           onOpenCart={() => { setError(null); setStep(STEP.CART) }}
           onOpenOrders={() => setStep(STEP.STATUS)}
@@ -288,6 +296,8 @@ const DineApp = () => {
       {openItem && step === STEP.MENU && (
         <DineItemSheet
           item={openItem}
+          canAdd={canOrder && openItem.available}
+          photoSrc={openItem.photoVersion ? photoUrl(openItem, 'full') : null}
           onClose={() => setOpenItem(null)}
           onAdd={(opts) => { setCart((c) => addToCart(c, openItem, opts)); setOpenItem(null) }}
         />
