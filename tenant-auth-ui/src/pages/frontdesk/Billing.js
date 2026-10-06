@@ -2426,6 +2426,7 @@ const Billing = () => {
               <TableServiceEditor
                 guests={sessionService.guests}
                 waiterId={sessionService.waiterId}
+                waiterName={sessionService.waiterName}
                 waiters={waiters}
                 // A fresh table has no cart or round to say which outlet it is
                 // at yet; the table itself does.

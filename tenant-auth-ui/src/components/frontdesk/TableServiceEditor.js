@@ -11,13 +11,20 @@ const GUESTS_MAX = 999
  * before the first round it is remembered and sent with that round; after it,
  * it is written to every open round at once.
  *
- * The waiter list is the business's members. Those at THIS outlet come first
- * and the rest follow under their own heading, rather than being hidden: a
- * manager covering from another branch is still the person serving the table.
+ * The waiter list is the business's members who can take orders (the server
+ * decides: admins, or a role with POS_ORDER:WRITE), each by name — or by
+ * mobile when no name was entered. Those at THIS outlet come first and the rest
+ * follow under their own heading, rather than being hidden: a manager covering
+ * from another branch is still the person serving the table.
+ *
+ * A table may already carry a waiter who is no longer on that list (their role
+ * changed). They are still shown, as the current choice, so the picker never
+ * pretends the table is unassigned.
  *
  * @param {Object} props
  * @param {number|null} props.guests
  * @param {string|null} props.waiterId - Membership id.
+ * @param {string|null} [props.waiterName] - The name on the round, for a waiter not in the list.
  * @param {Array<{Id: string, Name: string, BranchDetailId: string|null}>} props.waiters
  * @param {string|null} [props.branchId] - The outlet being served.
  * @param {number|null} [props.capacity] - The table's seats, offered as a shortcut.
@@ -26,7 +33,7 @@ const GUESTS_MAX = 999
  * @param {() => void} props.onCancel
  */
 const TableServiceEditor = ({
-  guests, waiterId, waiters = [], branchId = null, capacity = null,
+  guests, waiterId, waiterName = null, waiters = [], branchId = null, capacity = null,
   busy = false, onSave, onCancel,
 }) => {
   const [draftGuests, setDraftGuests] = useState(guests == null ? '' : String(guests))
@@ -90,6 +97,9 @@ const TableServiceEditor = ({
           onChange={(e) => setDraftWaiter(e.target.value)}
         >
           <option value="">Not assigned</option>
+          {waiterId && !waiters.some((w) => w.Id === waiterId) && (
+            <option value={waiterId}>{waiterName || 'Current waiter'} (no longer takes orders)</option>
+          )}
           {here.map((w) => <option key={w.Id} value={w.Id}>{w.Name}</option>)}
           {elsewhere.length > 0 && (
             <optgroup label="Other outlets">
