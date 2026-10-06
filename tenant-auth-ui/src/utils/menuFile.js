@@ -14,6 +14,8 @@
 // straight away.
 
 import { parseCsvToObjects } from './csv'
+import { buildZip } from './zip'
+import { saveBlob } from '../services/exportService'
 
 /** Where the sample menu lives — public/samples, served with the app. */
 export const SAMPLE_FILES = {
@@ -113,19 +115,35 @@ export const payloadOf = (sorted) => ({
   hours: sorted.hours ? sorted.hours.rows : [],
 })
 
+const fetchText = async (url) => {
+  const res = await fetch(url, { cache: 'no-cache' })
+  if (!res.ok) throw new Error(`Could not load ${url}`)
+  return res.text()
+}
+
 /** Fetches the sample menu that ships with the app. */
 export const loadSample = async () => {
-  const get = async (url) => {
-    const res = await fetch(url, { cache: 'no-cache' })
-    if (!res.ok) throw new Error(`Could not load ${url}`)
-    return res.text()
-  }
-  const [menu, addons, hours] = await Promise.all([get(SAMPLE_FILES.menu), get(SAMPLE_FILES.addons), get(SAMPLE_FILES.hours)])
+  const [menu, addons, hours] = await Promise.all([fetchText(SAMPLE_FILES.menu), fetchText(SAMPLE_FILES.addons), fetchText(SAMPLE_FILES.hours)])
   return readFiles([
     { name: 'menu-sample.csv', text: menu },
     { name: 'addons-sample.csv', text: addons },
     { name: 'hours-sample.csv', text: hours },
   ])
+}
+
+/** Saves the sample menu as one .zip of its three files, ready to edit and import. */
+export const downloadSampleZip = async () => {
+  const [menu, addons, hours] = await Promise.all([fetchText(SAMPLE_FILES.menu), fetchText(SAMPLE_FILES.addons), fetchText(SAMPLE_FILES.hours)])
+  const zip = buildZip([{ name: 'menu.csv', data: menu }, { name: 'addons.csv', data: addons }, { name: 'hours.csv', data: hours }])
+  saveBlob(new Blob([zip], { type: 'application/zip' }), 'menu-sample.zip')
+  return 'menu-sample.zip'
+}
+
+/** Saves menu.csv with just the columns and one example row. */
+export const downloadTemplate = async () => {
+  const lines = (await fetchText(SAMPLE_FILES.menu)).split(/\r?\n/)
+  saveBlob(new Blob([`${lines.slice(0, 2).join('\r\n')}\r\n`], { type: 'text/csv;charset=utf-8' }), 'menu-template.csv')
+  return 'menu-template.csv'
 }
 
 /** Reads File objects (from an <input type=file multiple>) as text. */
@@ -136,5 +154,5 @@ export const readBrowserFiles = (fileList) => Promise.all([...fileList].map((fil
   reader.readAsText(file)
 })))
 
-const menuFile = { SAMPLE_FILES, kindOf, readFile, readFiles, payloadOf, loadSample, readBrowserFiles }
+const menuFile = { SAMPLE_FILES, kindOf, readFile, readFiles, payloadOf, loadSample, downloadSampleZip, downloadTemplate, readBrowserFiles }
 export default menuFile

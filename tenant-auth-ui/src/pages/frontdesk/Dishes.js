@@ -4,7 +4,9 @@ import { toast } from 'react-toastify'
 import menuService from '../../services/menuService'
 import { useCan } from '../../hooks/useCan'
 import { SCOPES } from '../../constants'
-import ExportButton from '../../components/export/ExportButton'
+import { downloadTemplate, downloadSampleZip } from '../../utils/menuFile'
+import MenuFileMenu from './MenuFileMenu'
+import ClearMenuDialog from './ClearMenuDialog'
 import './menu.css'
 
 const money = (n) => (n === null || n === undefined ? '—' : `₹${Number(n).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`)
@@ -14,13 +16,18 @@ const isVegName = (diet) => /veg|vegan|jain/i.test(diet || '') && !/non/i.test(d
  * Menu › Dishes — one line per dish, whatever branches it is sold at.
  *
  * The way in to everything else: Add dish opens the one-page editor, a row
- * opens that dish, Import takes a whole menu file, Export gives it back.
+ * opens that dish, and "Menu file" moves a whole menu in or out — import, the
+ * sample, a template, exports and (admins only) clearing the menu.
  * Bulk actions cover the jobs done to many dishes at once — hide for the
  * season, tag, list on a portal.
  */
 const Dishes = () => {
   const navigate = useNavigate()
   const canWrite = useCan(SCOPES.POS_CONFIG_WRITE)
+  // useCan always lets an admin through, so this is admins only.
+  const canClear = useCan(SCOPES.TENANT_ADMIN)
+  const [clearing, setClearing] = useState(false)
+  const [cleared, setCleared] = useState(null)
   const [data, setData] = useState({ dishes: [], portals: [] })
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
@@ -83,6 +90,29 @@ const Dishes = () => {
   }
 
   const totalCategories = categories.length
+  const activeCount = useMemo(() => data.dishes.filter((d) => d.status === 'Active').length, [data.dishes])
+  const hiddenCount = data.dishes.length - activeCount
+  // Nothing on the menu: no dishes at all, or every one hidden while the list
+  // shows what is on the menu (as after a clear).
+  const menuEmpty = !loading && (data.dishes.length === 0 || (activeCount === 0 && status === 'Active' && !query))
+
+  const onCleared = async (result, backupName) => {
+    setClearing(false)
+    setCleared({ ...result, backupName })
+    setSelected(new Set())
+    setStatus('Active')
+    setCategory('')
+    toast.success('Menu cleared')
+    await load()
+  }
+
+  const fileAction = (fn, fallback) => async () => {
+    try {
+      toast.success(`Saved ${await fn()}`)
+    } catch (err) {
+      toast.error(err?.message || fallback)
+    }
+  }
 
   return (
     <div className="mn-page">
@@ -95,8 +125,7 @@ const Dishes = () => {
           </p>
         </div>
         <div className="mn-actions">
-          {canWrite && <Link to="/menu/dishes/import" className="mn-btn">Import menu</Link>}
-          <ExportButton exportKey={['menu', 'menu-addons', 'menu-hours']} className="mn-btn" />
+          <MenuFileMenu canWrite={canWrite} canClear={canClear} onClear={() => setClearing(true)} />
           {canWrite && <Link to="/menu/dishes/new" className="mn-btn pri">+ Add dish</Link>}
         </div>
       </div>
@@ -146,19 +175,76 @@ const Dishes = () => {
         </div>
       )}
 
+      {cleared && (
+        <div className="mn-banner" role="status">
+          <span>
+            <b>Menu cleared.</b>{' '}
+            {cleared.mode === 'empty'
+              ? `${cleared.deleted} ${cleared.deleted === 1 ? 'dish' : 'dishes'} deleted, ${cleared.hidden} hidden.`
+              : `${cleared.hidden} ${cleared.hidden === 1 ? 'dish' : 'dishes'} taken off the menu.`}
+            {cleared.backupName && <> Backup saved as <span className="mn-mono">{cleared.backupName}</span>.</>}
+          </span>
+          {hiddenCount > 0 && (
+            <button type="button" className="mn-link" onClick={() => setStatus('Hidden')}>
+              Show the {hiddenCount} hidden {hiddenCount === 1 ? 'dish' : 'dishes'}
+            </button>
+          )}
+          <button type="button" className="mn-modal-x" aria-label="Dismiss" onClick={() => setCleared(null)}>×</button>
+        </div>
+      )}
+
+      {clearing && (
+        <ClearMenuDialog
+          dishCount={data.dishes.length}
+          categoryCount={totalCategories}
+          onClose={() => setClearing(false)}
+          onCleared={onCleared}
+        />
+      )}
+
       {loading ? (
         <div className="mn-card" style={{ padding: 24 }}>Loading the menu…</div>
-      ) : data.dishes.length === 0 ? (
-        <div className="mn-card" style={{ padding: 28, display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-start' }}>
-          <b style={{ fontSize: 18 }}>No dishes yet</b>
-          <span className="mn-muted">Add one by hand, or load a whole menu from a file — our sample menu has 31 dishes you can start from and change.</span>
+      ) : menuEmpty ? (
+        <section className="mn-empty" aria-labelledby="mn-empty-title">
+          <div>
+            <h2 id="mn-empty-title">Your menu is empty</h2>
+            <p className="mn-lead">
+              {canWrite
+                ? 'Start from our sample, bring back a backup, or load your own file. Whatever you import is checked and shown to you before anything is saved.'
+                : 'No dish is on the menu yet. Someone who manages the menu can add dishes or import a menu file.'}
+            </p>
+          </div>
           {canWrite && (
-            <div className="mn-actions">
-              <Link to="/menu/dishes/new" className="mn-btn pri">+ Add dish</Link>
-              <Link to="/menu/dishes/import" className="mn-btn">Import a menu file</Link>
+            <div className="mn-empty-cards">
+              <div className="mn-card mn-empty-card feature">
+                <b>Use our sample menu</b>
+                <span className="mn-muted">31 dishes in 9 categories, with variants, add-ons, hours and Zomato / Swiggy prices. Change anything after.</span>
+                <Link to="/menu/dishes/import?sample=1" className="mn-btn pri">Load the sample menu</Link>
+                <button type="button" className="mn-link" onClick={fileAction(downloadSampleZip, 'The sample menu could not be downloaded')}>or download it to edit first (.zip)</button>
+              </div>
+              {cleared?.backupName && (
+                <div className="mn-card mn-empty-card">
+                  <b>Restore the backup</b>
+                  <span className="mn-muted">
+                    The menu as it was before you cleared it, from <span className="mn-mono">{cleared.backupName}</span> — matched by code, so hidden dishes come back with their history.
+                  </span>
+                  <Link to="/menu/dishes/import" className="mn-btn">Import the backup</Link>
+                </div>
+              )}
+              <div className="mn-card mn-empty-card">
+                <b>Import your own file</b>
+                <span className="mn-muted">A menu.csv from a spreadsheet, another outlet's export, or the blank template filled in.</span>
+                <Link to="/menu/dishes/import" className="mn-btn">Import menu file</Link>
+                <button type="button" className="mn-link" onClick={fileAction(downloadTemplate, 'The template could not be downloaded')}>Download blank template</button>
+              </div>
+              <div className="mn-card mn-empty-card">
+                <b>Add dishes by hand</b>
+                <span className="mn-muted">One page per dish. Categories, tags and tax groups are created as you type them.</span>
+                <Link to="/menu/dishes/new" className="mn-btn">+ Add dish</Link>
+              </div>
             </div>
           )}
-        </div>
+        </section>
       ) : (
         <div className="mn-table-wrap">
           <table className="mn-table cards">

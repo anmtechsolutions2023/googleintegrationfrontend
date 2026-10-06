@@ -13,13 +13,13 @@ const clean = (params = {}) => Object.fromEntries(
   Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== ''),
 )
 
-const fileNameFrom = (res, fallback) => {
+export const fileNameFrom = (res, fallback) => {
   const header = res?.headers?.['content-disposition'] || ''
   const match = header.match(/filename="?([^";]+)"?/i)
   return match ? match[1] : fallback
 }
 
-const saveBlob = (blob, name) => {
+export const saveBlob = (blob, name) => {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url

@@ -1,4 +1,5 @@
 import api from '../api/api'
+import { fileNameFrom, saveBlob } from './exportService'
 
 // The Menu workspace — /api/menu on the server.
 //
@@ -28,9 +29,23 @@ export const applyMenuImport = async (files) => data(await api.post('/api/menu/i
 export const getMenuPrices = async () => data(await api.get('/api/menu/prices'))
 export const saveMenuPrices = async (changes) => data(await api.put('/api/menu/prices', { changes }))
 
+/** The menu as menu.csv + addons.csv + hours.csv, zipped. Saves it; returns the file name. */
+export const backupMenu = async () => {
+  const res = await api.get('/api/menu/backup', { responseType: 'blob' })
+  const name = fileNameFrom(res, 'menu-backup.zip')
+  saveBlob(res.data, name)
+  return name
+}
+
+/** What clearing would do. Changes nothing. Admins only. */
+export const previewClearMenu = async (body) => data(await api.post('/api/menu/clear/preview', body))
+/** Clear the menu. Body: { mode: 'hide'|'empty', removeUnused, confirm: 'CLEAR MENU' }. */
+export const clearMenu = async (body) => data(await api.post('/api/menu/clear', body))
+
 const menuService = {
   getMenuOptions, listDishes, getDish, createDish, updateDish, bulkDishes,
   getDishPhoto, putDishPhoto, deleteDishPhoto,
   previewMenuImport, applyMenuImport, getMenuPrices, saveMenuPrices,
+  backupMenu, previewClearMenu, clearMenu,
 }
 export default menuService

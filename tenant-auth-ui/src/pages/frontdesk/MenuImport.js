@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { Link } from 'react-router-dom'
+import React, { useEffect, useRef, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import menuService from '../../services/menuService'
 import { readBrowserFiles, readFiles, payloadOf, loadSample, SAMPLE_FILES } from '../../utils/menuFile'
@@ -46,6 +46,9 @@ const FileLine = ({ kind, file }) => {
  * order, the header says which is which), check it, read the review, apply.
  * The check is the server running the real import and rolling it back, so
  * the review is exactly what applying will do.
+ *
+ * ?sample=1 (from the empty menu's "Load the sample menu") loads the sample
+ * straight away, so the next click is "Check file".
  */
 const MenuImport = () => {
   const [sorted, setSorted] = useState(null)
@@ -54,6 +57,8 @@ const MenuImport = () => {
   const [busy, setBusy] = useState('')
   const [filter, setFilter] = useState('all')
   const [over, setOver] = useState(false)
+  const [searchParams] = useSearchParams()
+  const sampleAsked = useRef(searchParams.get('sample') === '1')
 
   const take = async (files) => {
     try {
@@ -70,7 +75,7 @@ const MenuImport = () => {
     }
   }
 
-  const useSample = async () => {
+  const takeSample = async () => {
     setBusy('sample')
     try {
       setSorted(await loadSample())
@@ -81,6 +86,13 @@ const MenuImport = () => {
       setBusy('')
     }
   }
+
+  useEffect(() => {
+    if (!sampleAsked.current) return
+    sampleAsked.current = false
+    takeSample()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const check = async () => {
     setBusy('check')
@@ -167,7 +179,7 @@ const MenuImport = () => {
                 Choose files
                 <input type="file" accept=".csv,text/csv" multiple hidden onChange={(e) => { take(e.target.files); e.target.value = '' }} />
               </label>
-              <button type="button" className="mn-btn warn" onClick={useSample} disabled={busy === 'sample'}>
+              <button type="button" className="mn-btn warn" onClick={takeSample} disabled={busy === 'sample'}>
                 {busy === 'sample' ? 'Loading…' : 'Use our sample menu (31 dishes)'}
               </button>
             </div>
