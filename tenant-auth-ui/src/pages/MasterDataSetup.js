@@ -3,9 +3,10 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { bootstrapMasterData } from '../services/masterSetupService';
 import { getFieldLimits } from '../services/posService';
-import importService from '../services/importService';
+import menuService from '../services/menuService';
+import { readFile, loadSample, SAMPLE_FILES } from '../utils/menuFile';
 import { toCsv } from '../utils/csv';
-import { COLUMNS, TEMPLATE_ROWS, DEFAULT_TAX, checkFile, download, EXEMPT_TAX_GROUP, isExemptGroup } from '../utils/itemImport';
+import { DEFAULT_TAX, download, EXEMPT_TAX_GROUP, isExemptGroup } from '../utils/itemImport';
 import { useAuth } from '../context/AuthContext';
 import { isSetupPending } from '../utils/permissions';
 import { ROUTES } from '../constants/routes';
@@ -270,7 +271,10 @@ const MasterDataSetup = () => {
   const [csvText, setCsvText] = useState('');
   const [fileName, setFileName] = useState('');
   const [parsed, setParsed] = useState(null);
-  const [publishToBranch, setPublishToBranch] = useState(true);
+  // The add-ons and hours that come with the sample menu. A typed-in file is
+  // the menu alone; both can be imported later from Menu › Dishes › Import.
+  const [extras, setExtras] = useState({ addons: [], hours: [] });
+  const [loadingSample, setLoadingSample] = useState(false);
   const [showAllRows, setShowAllRows] = useState(false);
   const fileRef = useRef(null);
 
@@ -391,7 +395,11 @@ const MasterDataSetup = () => {
 
   // ── The file ───────────────────────────────────────────────────────────────
   const runCheck = (raw) => {
-    const outcome = checkFile(raw);
+    const outcome = readFile(raw);
+    if (outcome.kind && outcome.kind !== 'menu') {
+      toast.error('That is an add-ons or hours file. Choose the menu file — one row per dish — here.');
+      return;
+    }
     if (outcome.valid.length === 0 && outcome.invalid.length === 0) {
       toast.error(outcome.fileErrors[0] || 'That file has no rows');
       return;
@@ -413,6 +421,25 @@ const MasterDataSetup = () => {
 
   const clearFile = () => {
     setFileName(''); setCsvText(''); setParsed(null); setShowAllRows(false);
+    setExtras({ addons: [], hours: [] });
+  };
+
+  // The sample menu that ships with the app: 31 dishes with their add-ons and
+  // hours, ready to sell and to change.
+  const useSampleMenu = async () => {
+    setLoadingSample(true);
+    try {
+      const sample = await loadSample();
+      setFileName('menu-sample.csv');
+      setCsvText('');
+      setParsed(sample.menu);
+      setExtras({ addons: sample.addons?.rows || [], hours: sample.hours?.rows || [] });
+      setShowAllRows(false);
+    } catch (err) {
+      toast.error(err.message || 'The sample menu could not be loaded');
+    } finally {
+      setLoadingSample(false);
+    }
   };
 
   // Coerce number-typed fields and drop empty optional values before sending.
@@ -501,28 +528,13 @@ const MasterDataSetup = () => {
 
     // ── Pass two ─────────────────────────────────────────────────────────────
     let items = null;
-    let menu = null;
     if (uploadingItems && importRows.length > 0) {
       setPhase((p) => ({ ...p, items: 'running' }));
       try {
-        items = await importService.importItems(
-          importRows.map(({ line, ...row }) => row), 'skip',
-        );
-
-        if (publishToBranch && ids?.branch) {
-          // Only what actually landed, and each row carrying its OWN food type —
-          // sending one default for the whole file is what published a mixed
-          // menu as entirely Veg.
-          const byName = new Map(importRows.map((v) => [v.name, v.foodType]));
-          const landed = (items.rows || [])
-            .filter((r) => r.status === 'created' || r.status === 'updated' || r.status === 'skipped')
-            .map((r) => ({ name: r.name, foodType: byName.get(r.name) || undefined }));
-          if (landed.length) {
-            menu = await importService.publishMenuEntries({
-              branchDetailId: ids.branch, defaultFoodType: 'VEG', items: landed,
-            });
-          }
-        }
+        // The menu file, through the same import as Menu › Dishes › Import:
+        // dishes go onto the new branch, on every channel, with any category,
+        // tag, variant or tax group they name created alongside.
+        items = await menuService.applyMenuImport({ menu: importRows, addons: extras.addons, hours: extras.hours });
         setPhase((p) => ({ ...p, items: 'done' }));
       } catch (err) {
         // The tenancy stands. Say so rather than letting a failed second pass
@@ -530,12 +542,12 @@ const MasterDataSetup = () => {
         setPhase((p) => ({ ...p, items: 'failed' }));
         toast.warn(
           err.response?.data?.message
-          || 'Your tenancy was created, but the items could not be imported. You can import them from Admin → Data tables → Items.',
+          || 'Your tenancy was created, but the menu could not be imported. You can import it from Menu › Dishes › Import.',
         );
       }
     }
 
-    setResult({ ids, items, menu });
+    setResult({ ids, items });
     setSubmitting(false);
     toast.success('Master data created successfully.');
   };
@@ -560,7 +572,6 @@ const MasterDataSetup = () => {
           {result.items && (
             <ImportResult
               items={result.items}
-              menu={result.menu}
               fileName={fileName}
             />
           )}
@@ -662,7 +673,7 @@ const MasterDataSetup = () => {
               <ReviewItems
                 parsed={parsed}
                 fileName={fileName}
-                publishToBranch={publishToBranch}
+                extras={extras}
                 branchName={getVal(form, 'branch', 'Name')}
                 onChange={() => setStepIdx(STEPS.findIndex((s) => s.key === 'item'))}
               />
@@ -892,14 +903,15 @@ const MasterDataSetup = () => {
                 csvText={csvText}
                 parsed={parsed}
                 showAllRows={showAllRows}
-                publishToBranch={publishToBranch}
+                extras={extras}
+                loadingSample={loadingSample}
+                onSample={useSampleMenu}
                 branchName={getVal(form, 'branch', 'Name')}
                 onFile={onFile}
                 onPaste={setCsvText}
                 onCheck={() => runCheck(csvText)}
                 onClear={clearFile}
                 onShowAll={() => setShowAllRows(true)}
-                onPublishChange={setPublishToBranch}
               />
             )}
 
@@ -1129,8 +1141,8 @@ const TaxRates = ({ rates, invalid, onChange, exempt, problem }) => {
 
 // ── The file picker and its check ────────────────────────────────────────────
 const ItemFilePicker = ({
-  fileRef, fileName, csvText, parsed, showAllRows, publishToBranch, branchName,
-  onFile, onPaste, onCheck, onClear, onShowAll, onPublishChange,
+  fileRef, fileName, csvText, parsed, showAllRows, extras, loadingSample, branchName,
+  onFile, onPaste, onCheck, onClear, onShowAll, onSample,
 }) => {
   const counts = parsed?.counts;
   const rows = parsed ? [...parsed.invalid.map((r) => ({ ...r, bad: true })), ...parsed.valid] : [];
@@ -1141,25 +1153,24 @@ const ItemFilePicker = ({
       {!parsed ? (
         <>
           <button type="button" className="mds-drop" onClick={() => fileRef.current?.click()}>
-            <strong>Choose a CSV</strong>
-            name, category, unit and price are required — a blank tax_group sells tax-free
+            <strong>Choose your menu file (CSV)</strong>
+            One row per dish — name, category, unit, diet and price. Anything it names that does not exist yet is created.
           </button>
           <input ref={fileRef} type="file" accept=".csv,text/csv" hidden onChange={onFile} aria-label="Choose a CSV" />
+          <div className="mds-or">or start from ours</div>
+          <button type="button" className="mds-btn mds-btn-primary" onClick={onSample} disabled={loadingSample}>
+            {loadingSample ? 'Loading…' : 'Use our sample menu (31 dishes, ready to sell)'}
+          </button>
           <div className="mds-or">or paste rows</div>
           <textarea
             className="mds-paste"
             aria-label="Paste rows"
             value={csvText}
-            placeholder={'name,category,unit,price,tax_group\nPlain Tea,Tea,Glass,15,GST 5%'}
+            placeholder={'name,category,unit,diet,price,tax_group,tax_components\nMasala Dosa,Breakfast,Plate,Veg,120,GST 5%,CGST:2.5|SGST:2.5'}
             onChange={(e) => onPaste(e.target.value)}
           />
           <div className="mds-drop-actions">
-            <button
-              type="button" className="mds-linkish"
-              onClick={() => download('items-template.csv', toCsv(COLUMNS, TEMPLATE_ROWS))}
-            >
-              Download template
-            </button>
+            <a className="mds-linkish" href={SAMPLE_FILES.menu} download="menu-sample.csv">Download the sample menu.csv</a>
             <button
               type="button" className="mds-btn mds-btn-ghost mds-btn-sm"
               disabled={!csvText.trim()} onClick={onCheck}
@@ -1168,8 +1179,8 @@ const ItemFilePicker = ({
             </button>
           </div>
           <div className="mds-note">
-            Your file is read and checked <strong>in this browser</strong>. Nothing reaches the
-            server until you confirm on the next step.
+            Your file is read <strong>in this browser</strong>. Nothing reaches the server until you
+            confirm on the next step. The same file can be re-imported later from Menu › Dishes › Import.
           </div>
         </>
       ) : (
@@ -1181,23 +1192,16 @@ const ItemFilePicker = ({
           </div>
 
           <div className="mds-chips">
-            <span className="mds-chip ok">
-              {counts.valid} {counts.valid === 1 ? 'item' : 'items'} will be created
-            </span>
+            <span className="mds-chip ok">{counts.dishes} {counts.dishes === 1 ? 'dish' : 'dishes'}</span>
             <span className="mds-chip">{counts.categories} {counts.categories === 1 ? 'category' : 'categories'}</span>
             <span className="mds-chip">{counts.units} {counts.units === 1 ? 'unit' : 'units'}</span>
-            <span className="mds-chip">{counts.taxGroups} tax {counts.taxGroups === 1 ? 'group' : 'groups'}</span>
-            {counts.defaulted > 0 && (
-              <span className="mds-chip warn">
-                {counts.defaulted} {counts.defaulted === 1 ? 'row states' : 'rows state'} no tax rate
-                — {DEFAULT_TAX.replace(/\|/g, ' + ')} will be applied
-              </span>
-            )}
-            {counts.conflicts.map((g) => (
-              <span key={g} className="mds-chip bad">
-                Tax group “{g}” is given two different sets of rates
-              </span>
+            {counts.taxGroups > 0 && <span className="mds-chip">{counts.taxGroups} tax {counts.taxGroups === 1 ? 'group' : 'groups'}</span>}
+            {counts.variants > 0 && <span className="mds-chip">{counts.variants} variants</span>}
+            {counts.portals.filter((p) => p.listed > 0).map((p) => (
+              <span key={p.key} className="mds-chip">{p.listed} on {p.key}</span>
             ))}
+            {extras.addons.length > 0 && <span className="mds-chip">{extras.addons.length} add-ons</span>}
+            {extras.hours.length > 0 && <span className="mds-chip">opening hours</span>}
             {counts.invalid > 0 && (
               <span className="mds-chip bad">
                 {counts.invalid} {counts.invalid === 1 ? 'row' : 'rows'} cannot be read
@@ -1208,18 +1212,18 @@ const ItemFilePicker = ({
           <div className="mds-preview">
             <table>
               <thead>
-                <tr><th>#</th><th>Name</th><th>Category</th><th className="mds-num">Price</th><th>Outcome</th></tr>
+                <tr><th>#</th><th>Dish</th><th>Category</th><th className="mds-num">Price</th><th>Outcome</th></tr>
               </thead>
               <tbody>
                 {shown.map((r) => (
-                  <tr key={`r${r.line}`} className={r.bad ? 'is-bad' : undefined}>
-                    <td>{r.line}</td>
+                  <tr key={`r${r.line || r.__line}`} className={r.bad ? 'is-bad' : undefined}>
+                    <td>{r.line || r.__line}</td>
                     <td>{r.name}</td>
                     <td>{r.bad ? '' : r.category}</td>
                     <td className="mds-num">{r.bad ? '' : r.price}</td>
                     <td>
                       <span className={`mds-dot ${r.bad ? 'r' : 'g'}`} />
-                      {r.bad ? r.error : 'Create'}
+                      {r.bad ? r.error : 'Add to the menu'}
                     </td>
                   </tr>
                 ))}
@@ -1235,24 +1239,11 @@ const ItemFilePicker = ({
             )}
           </div>
 
-          <label className="mds-opt">
-            <input
-              type="checkbox" checked={publishToBranch}
-              onChange={(e) => onPublishChange(e.target.checked)}
-            />
-            <span>
-              <strong>Also publish these to the branch menu</strong>
-              <em>
-                Items are tenancy-wide; nothing sells until it is on a branch's menu.
-                {branchName ? ` They will go onto ${branchName}.` : ''}
-              </em>
-            </span>
-          </label>
-
           <div className="mds-note">
-            <strong>Nothing has been saved.</strong> This check runs entirely in your browser.
-            The items are created after you confirm on the next step — they cannot be created
-            before the tenancy they belong to exists.
+            <strong>Nothing has been saved.</strong> The dishes are added after you confirm on the next
+            step{branchName ? `, onto ${branchName} on every channel` : ''} — they cannot be created before
+            the tenancy they belong to exists. Categories, tags, variants and tax groups the file names are
+            created with them.
           </div>
         </>
       )}
@@ -1309,21 +1300,20 @@ const ReviewPanel = ({ form, includeItem, taxRates }) => {
 
 // The list gets its own block rather than another one-line row: a dozen items
 // is not a field, and the last chance to notice the wrong file is here.
-const ReviewItems = ({ parsed, fileName, publishToBranch, branchName, onChange }) => {
+const ReviewItems = ({ parsed, fileName, extras, branchName, onChange }) => {
   const { counts, valid } = parsed;
   return (
     <div className="mds-review-items">
       <div className="mds-review-items-head">
-        <h3>Items</h3>
+        <h3>Menu</h3>
         <span className="mds-hint">from {fileName || 'pasted rows'}</span>
         <button type="button" className="mds-linkish" onClick={onChange}>Change</button>
       </div>
       <div className="mds-chips">
-        <span className="mds-chip ok">{counts.valid} {counts.valid === 1 ? 'item' : 'items'}</span>
+        <span className="mds-chip ok">{counts.dishes} {counts.dishes === 1 ? 'dish' : 'dishes'}</span>
         <span className="mds-chip">{counts.categories} {counts.categories === 1 ? 'category' : 'categories'}</span>
-        <span className="mds-chip">{counts.units} {counts.units === 1 ? 'unit' : 'units'}</span>
-        <span className="mds-chip">{counts.taxGroups} tax {counts.taxGroups === 1 ? 'group' : 'groups'}</span>
-        {publishToBranch && branchName && <span className="mds-chip">published to {branchName}</span>}
+        {branchName && <span className="mds-chip">on {branchName}</span>}
+        {extras?.addons?.length > 0 && <span className="mds-chip">{extras.addons.length} add-ons</span>}
         {counts.invalid > 0 && <span className="mds-chip bad">{counts.invalid} rows left out</span>}
       </div>
       <p className="mds-review-items-list">
@@ -1418,29 +1408,27 @@ const PhaseProgress = ({ phase, itemCount }) => (
 );
 
 // ── What the second pass actually did ────────────────────────────────────────
-const ImportResult = ({ items, menu, fileName }) => {
+const ImportResult = ({ items, fileName }) => {
   const summary = items.summary || {};
-  const failed = (items.rows || []).filter((r) => r.status === 'failed');
+  const failed = (items.rows || []).filter((r) => r.action === 'error');
   return (
     <div className="mds-import-result">
       <div className="mds-review-items-head">
-        <h3>Items from {fileName || 'your list'}</h3>
-        <span className="mds-hint">created after the tenancy, one at a time</span>
+        <h3>Menu from {fileName || 'your list'}</h3>
+        <span className="mds-hint">added after the tenancy, one dish at a time</span>
       </div>
       <div className="mds-results">
-        <div className="mds-res ok"><span className="n">{summary.created || 0}</span><span className="l">created</span></div>
-        {summary.updated > 0 && (
-          <div className="mds-res"><span className="n">{summary.updated}</span><span className="l">updated</span></div>
+        <div className="mds-res ok"><span className="n">{summary.new || 0}</span><span className="l">dishes added</span></div>
+        {summary.changed > 0 && (
+          <div className="mds-res"><span className="n">{summary.changed}</span><span className="l">updated</span></div>
         )}
-        <div className="mds-res warn"><span className="n">{summary.skipped || 0}</span><span className="l">skipped</span></div>
-        <div className="mds-res bad"><span className="n">{summary.failed || 0}</span><span className="l">failed</span></div>
+        <div className="mds-res bad"><span className="n">{summary.errors || 0}</span><span className="l">skipped</span></div>
       </div>
 
-      {menu && (
+      {(summary.new || 0) + (summary.changed || 0) > 0 && (
         <div className="mds-next">
-          <strong>{menu.summary?.created || 0} published to the menu.</strong> They are on the
-          till now. Open one in Admin → Data tables → Items to re-price it, or in Menu Master to change
-          its channels and variants.
+          <strong>They are on the till now.</strong> Change any dish — price, photo, options, where it is
+          sold — in Menu › Dishes, or every price at once in Menu › Prices &amp; channels.
         </div>
       )}
 
@@ -1448,24 +1436,24 @@ const ImportResult = ({ items, menu, fileName }) => {
         <>
           <div className="mds-preview">
             <table>
-              <thead><tr><th>#</th><th>Name</th><th>Why</th></tr></thead>
+              <thead><tr><th>#</th><th>Dish</th><th>Why</th></tr></thead>
               <tbody>
                 {failed.map((r) => (
-                  <tr key={`f${r.row}`} className="is-bad">
-                    <td>{r.row}</td><td>{r.name}</td>
-                    <td><span className="mds-dot r" />{r.reason}</td>
+                  <tr key={`f${r.line}`} className="is-bad">
+                    <td>{r.line}</td><td>{r.name}</td>
+                    <td><span className="mds-dot r" />{r.error}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
           <p className="mds-hint">
-            These changed nothing. Fix them in a spreadsheet and import again from
-            Admin → Data tables → Items.
+            These changed nothing. Fix them in the spreadsheet and import the file again from
+            Menu › Dishes › Import — dishes already added are matched, not duplicated.
           </p>
           <button
             type="button" className="mds-btn mds-btn-ghost mds-btn-sm"
-            onClick={() => download('failed-rows.csv', toCsv(['name', 'reason'], failed.map((r) => [r.name, r.reason])))}
+            onClick={() => download('failed-rows.csv', toCsv(['line', 'name', 'reason'], failed.map((r) => [r.line, r.name, r.error])))}
           >
             Download the {failed.length} failed {failed.length === 1 ? 'row' : 'rows'}
           </button>

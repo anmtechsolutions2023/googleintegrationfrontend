@@ -73,7 +73,13 @@ export const WORKSPACES = [
   ] },
 
   { workspace: 'Menu', key: 'menu', hint: 'What is sold, when, where and for how much.', tabs: [
-    { key: 'items', label: 'Menu Master', path: '/menu/items', scopes: [SCOPES.POS_CONFIG_READ, A], legacy: ['/frontdesk/menu'] },
+    // A dish as ONE thing: the list, the one-page editor (new / :itemId) and
+    // the menu file import (nested pages, see workspaceScreens NESTED_SCREENS).
+    { key: 'dishes', label: 'Dishes', path: '/menu/dishes', scopes: [SCOPES.POS_CONFIG_READ, A], nested: true },
+    // Every price in one grid: base, per branch, per portal.
+    { key: 'prices', label: 'Prices & channels', path: '/menu/prices', scopes: [SCOPES.POS_CONFIG_READ, A] },
+    // The per-branch grid, kept for edits that differ by branch.
+    { key: 'items', label: 'Branch grid', path: '/menu/items', scopes: [SCOPES.POS_CONFIG_READ, A], legacy: ['/frontdesk/menu'] },
     { key: 'categories', path: '/menu/categories', tabLabel: 'Categories & hours', sections: [
       { key: 'hours', label: 'Category Hours', scopes: [SCOPES.POS_CONFIG_READ, A], legacy: ['/frontdesk/category-schedules'] },
       { key: 'categories', label: 'Categories', scopes: grid('categories'), grid: 'categories' },

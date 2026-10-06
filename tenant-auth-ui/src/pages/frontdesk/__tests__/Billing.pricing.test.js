@@ -230,7 +230,9 @@ describe('Billing — cart totals come from the server', () => {
       // `discount` rides along so the cart is priced with campaign offers and
       // hand-typed line discounts folded in — Tax and Total have to be the
       // discounted ones, not the list-price ones.
-      { costInfoId: CI_DOSA, quantity: 1, variantIds: [], addonIds: [], ref: 'm1', discount: null },
+      // itemMetaId names the menu row, so a variant the dish prices its own
+      // way is quoted at that price.
+      { costInfoId: CI_DOSA, itemMetaId: 'm1', quantity: 1, variantIds: [], addonIds: [], ref: 'm1', discount: null },
     ]);
   });
 

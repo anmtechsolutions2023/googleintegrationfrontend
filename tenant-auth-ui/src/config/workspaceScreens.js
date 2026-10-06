@@ -41,6 +41,10 @@ import AssetCategories from '../pages/frontdesk/AssetCategories'
 import Customers from '../pages/frontdesk/Customers'
 import Feedback from '../pages/frontdesk/Feedback'
 import Campaigns from '../pages/frontdesk/Campaigns'
+import Dishes from '../pages/frontdesk/Dishes'
+import DishEditor from '../pages/frontdesk/DishEditor'
+import MenuPrices from '../pages/frontdesk/MenuPrices'
+import MenuImport from '../pages/frontdesk/MenuImport'
 import CampaignDetail from '../pages/frontdesk/CampaignDetail'
 import Reports from '../pages/frontdesk/Reports'
 import ReportsHome from '../pages/ReportsHome'
@@ -69,6 +73,8 @@ export const SCREENS = {
   'service.counter.tracking': <Tracking />,
   'service.kitchen': <Kitchen />,
 
+  'menu.dishes': <Dishes />,
+  'menu.prices': <MenuPrices />,
   'menu.items': <MenuMaster />,
   'menu.categories.hours': <CategorySchedules />,
   'menu.options.variants': <Variants />,
@@ -120,6 +126,12 @@ export const SCREENS = {
  * Paths are relative to that tab or section.
  */
 export const NESTED_SCREENS = {
+  // Static paths first in intent; the router ranks 'new' and 'import' above ':itemId'.
+  'menu.dishes': [
+    { path: 'new', element: <DishEditor /> },
+    { path: 'import', element: <MenuImport /> },
+    { path: ':itemId', element: <DishEditor /> },
+  ],
   'menu.channels.portals': [{ path: ':portalId/menu', element: <PortalMenu /> }],
   'guests.offers': [{ path: ':id', element: <CampaignDetail /> }],
   'org.data': [{ path: ':moduleKey', element: <GenericCrudPage /> }],

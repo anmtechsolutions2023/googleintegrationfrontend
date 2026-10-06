@@ -437,11 +437,18 @@ const Billing = () => {
   )
 
   // Variants offered by a menu row, resolved against the master for name+price.
+  // A dish can price a variant its own way (Large +60 on biryani, +40 on
+  // lassi); VariantPrices carries those, and the server charges the same.
   const variantsFor = (meta) => {
     const ids = Array.isArray(meta?.VariantIds) ? meta.VariantIds : []
     if (ids.length === 0) return []
+    const own = meta?.VariantPrices || {}
     return ids
-      .map((id) => variants.find((v) => (v.id || v.Id) === id))
+      .map((id) => {
+        const v = variants.find((x) => (x.id || x.Id) === id)
+        if (!v) return null
+        return own[id] === undefined || own[id] === null ? v : { ...v, Price: Number(own[id]), price: Number(own[id]) }
+      })
       .filter(Boolean)
   }
 
@@ -733,6 +740,9 @@ const Billing = () => {
       .filter((c) => c.costInfoId)
       .map((c) => ({
         costInfoId: c.costInfoId,
+        // The menu row, so a variant this dish prices its own way is quoted
+        // at that price — the same price the saved order is charged.
+        itemMetaId: c.id || undefined,
         quantity: c.qty,
         // The server prices variants and add-ons from their masters; we only
         // name them. Sending prices instead would let a tampered tab decide

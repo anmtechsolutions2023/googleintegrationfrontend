@@ -18,6 +18,8 @@ export const SCREEN_WRITE_SCOPES = {
   '/service/counter/online': ['POS_OPS:WRITE'],
   '/service/counter/tracking': ['POS_OPS:WRITE'],
   '/service/kitchen': ['POS_KITCHEN:WRITE'],
+  '/menu/dishes': ['POS_CONFIG:WRITE'],
+  '/menu/prices': ['POS_CONFIG:WRITE'],
   '/menu/items': ['POS_CONFIG:WRITE'],
   '/menu/categories/hours': ['POS_CONFIG:WRITE'],
   '/menu/categories/categories': ['MASTER_DATA:WRITE'],

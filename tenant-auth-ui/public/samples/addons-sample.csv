@@ -1,0 +1,9 @@
+﻿group,min,max,addon,code,price,diet,sort
+Toppings,0,3,Extra cheese,,30,Veg,1
+Toppings,0,3,Grilled paneer,,50,Veg,2
+Toppings,0,3,Fried egg,,25,Egg,3
+Dips,0,2,Mint chutney,,15,Veg,1
+Dips,0,2,Garlic mayo,,25,Egg,2
+Dips,0,2,Coconut chutney,,15,Vegan,3
+Ice cream scoop,0,1,Vanilla,,40,Veg,1
+Ice cream scoop,0,1,Pistachio,,50,Veg,2

@@ -8,10 +8,10 @@ import { useAuth } from '../../context/AuthContext';
 jest.mock('../../services/masterSetupService', () => ({
   bootstrapMasterData: jest.fn(),
 }));
-// Pass two: the items, created only after the tenancy exists.
-jest.mock('../../services/importService', () => ({
+// Pass two: the menu file, imported only after the tenancy exists.
+jest.mock('../../services/menuService', () => ({
   __esModule: true,
-  default: { importItems: jest.fn(), publishMenuEntries: jest.fn(), previewChecks: jest.fn() },
+  default: { applyMenuImport: jest.fn() },
 }));
 jest.mock('react-toastify', () => ({
   toast: { success: jest.fn(), error: jest.fn(), warn: jest.fn() },
@@ -315,7 +315,7 @@ describe('setup gate behaviour', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 // Step 3 — the rates inside a tax group, and the CSV list
 // ─────────────────────────────────────────────────────────────────────────────
-const importService = require('../../services/importService').default;
+const menuService = require('../../services/menuService').default;
 const { toast } = require('react-toastify');
 
 const fillOrgAndBranch = () => {
@@ -516,10 +516,10 @@ describe('step 3 — uploading a list', () => {
   test('checking a file reports what it will do, and asks for nothing typed', () => {
     toItemStep();
     pasteAndCheck();
-    expect(screen.getByText('2 items will be created')).toBeInTheDocument();
+    expect(screen.getByText('2 dishes')).toBeInTheDocument();
     expect(screen.getByText('2 categories')).toBeInTheDocument();
     expect(screen.getByText('2 tax groups')).toBeInTheDocument();
-    // The single-item fields are gone — a file describes its own items.
+    // The single-item fields are gone — a file describes its own dishes.
     expect(screen.queryByLabelText(/Item Name/i)).not.toBeInTheDocument();
   });
 
@@ -527,7 +527,7 @@ describe('step 3 — uploading a list', () => {
   test('creates nothing while checking', () => {
     toItemStep();
     pasteAndCheck();
-    expect(importService.importItems).not.toHaveBeenCalled();
+    expect(menuService.applyMenuImport).not.toHaveBeenCalled();
     expect(masterSetupService.bootstrapMasterData).not.toHaveBeenCalled();
     expect(screen.getByText(/Nothing has been saved/i)).toBeInTheDocument();
   });
@@ -539,42 +539,39 @@ describe('step 3 — uploading a list', () => {
       'Plain Tea,Tea,Glass,15,GST 5%',
       'Cold Coffee,Coffee,Glass,1O9,GST 5%',
     ].join('\n'));
-    expect(screen.getByText('1 item will be created')).toBeInTheDocument();
+    expect(screen.getByText('1 dish')).toBeInTheDocument();
     expect(screen.getByText('1 row cannot be read')).toBeInTheDocument();
-    expect(screen.getByText(/price .1O9. is not a number/)).toBeInTheDocument();
+    expect(screen.getByText(/Price .1O9. is not a number/)).toBeInTheDocument();
   });
 
-  // A row stating no rate is not a row with no tax. Announced before it is
-  // applied, never discovered afterwards.
-  test('a blank tax_group is read as Exempt, not given the 5% default', () => {
+  // The add-ons and hours files have their own shape; in the menu slot they
+  // would be read as dishes with no names.
+  test('refuses an add-ons file in the menu slot', () => {
     toItemStep();
     pasteAndCheck([
-      'name,category,unit,price,tax_group',
-      'Plain Water,Drinks,Glass,20,',
+      'group,min,max,addon,price',
+      'Dips,0,2,Mint chutney,15',
     ].join('\n'));
-    expect(screen.getByText('1 item will be created')).toBeInTheDocument();
-    expect(screen.queryByText(/states no tax rate/)).not.toBeInTheDocument();
+    expect(toast.error).toHaveBeenCalledWith(expect.stringMatching(/add-ons or hours file/));
   });
 
-  test('announces the default split before applying it', () => {
+  // The quickest way to a working till: the sample menu that ships with the
+  // app, with its add-ons and opening hours.
+  test('offers the sample menu, with its add-ons and hours', async () => {
+    const files = {
+      '/samples/menu-sample.csv': 'name,category,unit,diet,price,zomato_listed\nMasala Dosa,Breakfast,Plate,Veg,120,Yes\nButter Naan,Breads,Piece,Veg,50,No\n',
+      '/samples/addons-sample.csv': 'group,min,max,addon,price\nDips,0,2,Mint chutney,15\n',
+      '/samples/hours-sample.csv': 'category,days,from,to\nBreakfast,Mon-Sun,07:00,11:30\n',
+    };
+    global.fetch = jest.fn((url) => Promise.resolve({ ok: true, text: () => Promise.resolve(files[url]) }));
     toItemStep();
-    pasteAndCheck([
-      'name,category,unit,price,tax_group',
-      'Plain Tea,Tea,Glass,15,GST 5%',
-    ].join('\n'));
-    expect(screen.getByText(/1 row states no tax rate — CGST:2.5 \+ SGST:2.5 will be applied/)).toBeInTheDocument();
-  });
-
-  // One group given two different sets of rates is a contradiction the server
-  // refuses mid-import, which would leave a half-written catalogue.
-  test('catches a tax group given two different sets of rates', () => {
-    toItemStep();
-    pasteAndCheck([
-      'name,category,unit,price,tax_group,tax_components',
-      'Plain Tea,Tea,Glass,15,GST 5%,CGST:2.5|SGST:2.5',
-      'Masala Chai,Tea,Glass,25,GST 5%,CGST:9|SGST:9',
-    ].join('\n'));
-    expect(screen.getByText(/Tax group .GST 5%. is given two different sets of rates/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('radio', { name: /Upload a list/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Use our sample menu/i }));
+    expect(await screen.findByText('2 dishes')).toBeInTheDocument();
+    expect(screen.getByText('menu-sample.csv')).toBeInTheDocument();
+    expect(screen.getByText('1 on zomato')).toBeInTheDocument();
+    expect(screen.getByText('1 add-ons')).toBeInTheDocument();
+    expect(screen.getByText('opening hours')).toBeInTheDocument();
   });
 
   test('will not move on from an empty upload', () => {
@@ -631,71 +628,45 @@ describe('"Create everything" — two passes, in order', () => {
     fireEvent.click(screen.getByRole('button', { name: /Create everything/i }));
   };
 
-  test('the tenancy first, the items only after it', async () => {
-    importService.importItems.mockResolvedValue({
-      summary: { created: 2, updated: 0, skipped: 0, failed: 0 },
-      rows: [{ row: 1, name: 'Plain Tea', status: 'created' },
-        { row: 2, name: 'Cold Brew Kit', status: 'created' }],
-    });
-    importService.publishMenuEntries.mockResolvedValue({ summary: { created: 2 } });
-
+  test('the tenancy first, the menu only after it', async () => {
+    menuService.applyMenuImport.mockResolvedValue({ summary: { new: 2, changed: 0, unchanged: 0, errors: 0 }, rows: [] });
     await runBoth();
-
-    await waitFor(() => expect(importService.importItems).toHaveBeenCalled());
+    await waitFor(() => expect(menuService.applyMenuImport).toHaveBeenCalled());
     const bootstrapAt = masterSetupService.bootstrapMasterData.mock.invocationCallOrder[0];
-    const importAt = importService.importItems.mock.invocationCallOrder[0];
+    const importAt = menuService.applyMenuImport.mock.invocationCallOrder[0];
     expect(bootstrapAt).toBeLessThan(importAt);
   });
 
-  // The bulk endpoint is behind the setup gate. Without the refreshed token in
+  // The menu endpoint is behind the setup gate. Without the refreshed token in
   // hand first, pass two is refused.
   test('applies the refreshed token before the import runs', async () => {
-    importService.importItems.mockResolvedValue({ summary: {}, rows: [] });
+    menuService.applyMenuImport.mockResolvedValue({ summary: {}, rows: [] });
     await runBoth();
     await waitFor(() => expect(applyToken).toHaveBeenCalledWith('fresh-token'));
     expect(applyToken.mock.invocationCallOrder[0])
-      .toBeLessThan(importService.importItems.mock.invocationCallOrder[0]);
+      .toBeLessThan(menuService.applyMenuImport.mock.invocationCallOrder[0]);
   });
 
-  test('sends the checked rows, without the line numbers', async () => {
-    importService.importItems.mockResolvedValue({ summary: {}, rows: [] });
+  // The rows go as the menu file — the same import Menu › Dishes › Import
+  // uses — so each keeps its own diet and tax rates, and the dishes land on
+  // the new branch without a separate publish step.
+  test('sends the checked rows as the menu file, in one call', async () => {
+    menuService.applyMenuImport.mockResolvedValue({ summary: {}, rows: [] });
     await runBoth();
-    await waitFor(() => expect(importService.importItems).toHaveBeenCalled());
-    const [rows] = importService.importItems.mock.calls[0];
-    expect(rows).toHaveLength(2);
-    expect(rows[0]).not.toHaveProperty('line');
-    expect(rows[0].name).toBe('Plain Tea');
-    // Each row keeps its own rates — the whole point of the second slab.
-    expect(rows[1].taxGroup).toBe('GST 18%');
-    expect(rows[1].taxComponents).toEqual([{ name: 'CGST', value: 9 }, { name: 'SGST', value: 9 }]);
-  });
-
-  // Publishing uses the branch the wizard just created, by ID, and each row
-  // carries its OWN food type — one default for the whole file is what
-  // published a mixed menu as entirely Veg.
-  test('publishes onto the branch it just created', async () => {
-    importService.importItems.mockResolvedValue({
-      summary: { created: 2 },
-      rows: [{ row: 1, name: 'Plain Tea', status: 'created' },
-        { row: 2, name: 'Cold Brew Kit', status: 'created' }],
-    });
-    importService.publishMenuEntries.mockResolvedValue({ summary: { created: 2 } });
-    await runBoth();
-    await waitFor(() => expect(importService.publishMenuEntries).toHaveBeenCalled());
-    const [payload] = importService.publishMenuEntries.mock.calls[0];
-    expect(payload.branchDetailId).toBe('br-1');
-    expect(payload.items).toEqual([
-      { name: 'Plain Tea', foodType: 'Veg' },
-      { name: 'Cold Brew Kit', foodType: 'Veg' },
-    ]);
+    await waitFor(() => expect(menuService.applyMenuImport).toHaveBeenCalledTimes(1));
+    const [payload] = menuService.applyMenuImport.mock.calls[0];
+    expect(payload.menu).toHaveLength(2);
+    expect(payload.menu[0].name).toBe('Plain Tea');
+    expect(payload.menu[1].taxgroup).toBe('GST 18%');
+    expect(payload.menu[1].taxcomponents).toBe('CGST:9|SGST:9');
+    expect(payload.menu[1].foodtype).toBe('Veg');
+    expect(payload.addons).toEqual([]);
   });
 
   // The one thing this screen must not get wrong. A failed second pass is not
   // a failed setup: the tenancy stands and the app is unlocked.
-  test('keeps the tenancy when the items fail', async () => {
-    importService.importItems.mockRejectedValue({
-      response: { data: { message: 'nope' } },
-    });
+  test('keeps the tenancy when the menu fails', async () => {
+    menuService.applyMenuImport.mockRejectedValue({ response: { data: { message: 'nope' } } });
     await runBoth();
     await waitFor(() =>
       expect(screen.getByRole('heading', { name: /Tenancy setup complete/i })).toBeInTheDocument());
@@ -714,23 +685,22 @@ describe('"Create everything" — two passes, in order', () => {
     fireEvent.click(screen.getByRole('button', { name: /Create everything/i }));
 
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Branch name already exists'));
-    expect(importService.importItems).not.toHaveBeenCalled();
+    expect(menuService.applyMenuImport).not.toHaveBeenCalled();
     expect(screen.getByRole('button', { name: /Create everything/i })).toBeInTheDocument();
   });
 
   test('reports both passes on the way out', async () => {
-    importService.importItems.mockResolvedValue({
-      summary: { created: 1, updated: 0, skipped: 0, failed: 1 },
-      rows: [{ row: 1, name: 'Plain Tea', status: 'created' },
-        { row: 2, name: 'Cold Brew Kit', status: 'failed', reason: 'price cannot be negative' }],
+    menuService.applyMenuImport.mockResolvedValue({
+      summary: { new: 1, changed: 0, unchanged: 0, errors: 1 },
+      rows: [{ line: 2, name: 'Plain Tea', action: 'new', changes: [] },
+        { line: 3, name: 'Cold Brew Kit', action: 'error', error: 'Price should be a number of 0 or more, not “-5”.', changes: [] }],
     });
-    importService.publishMenuEntries.mockResolvedValue({ summary: { created: 1 } });
     await runBoth();
 
     await waitFor(() =>
       expect(screen.getByRole('heading', { name: /Tenancy setup complete/i })).toBeInTheDocument());
-    expect(screen.getByText('created')).toBeInTheDocument();
-    expect(screen.getByText('price cannot be negative')).toBeInTheDocument();
+    expect(screen.getByText('dishes added')).toBeInTheDocument();
+    expect(screen.getByText(/Price should be a number of 0 or more/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Download the 1 failed row/i })).toBeInTheDocument();
   });
 
@@ -750,7 +720,7 @@ describe('"Create everything" — two passes, in order', () => {
 
     await waitFor(() =>
       expect(screen.getByRole('heading', { name: /Tenancy setup complete/i })).toBeInTheDocument());
-    expect(importService.importItems).not.toHaveBeenCalled();
+    expect(menuService.applyMenuImport).not.toHaveBeenCalled();
   });
 });
 
