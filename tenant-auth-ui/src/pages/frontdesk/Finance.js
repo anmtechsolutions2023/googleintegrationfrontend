@@ -7,6 +7,7 @@ import TimeframePicker from '../../components/frontdesk/TimeframePicker'
 import GstFilingTab from './GstFilingTab'
 import { APP_CONFIG } from '../../constants'
 import { fullStamp, billDate, writeOffsCsv, downloadCsv } from '../../utils/writeOffs'
+import ExportButton from '../../components/export/ExportButton'
 import './finance.css'
 
 const { MAX_LIMIT } = APP_CONFIG.PAGINATION
@@ -40,6 +41,22 @@ const TAB_GROUPS = [
   { key: 'money',  label: 'Money & tax' },
   { key: 'guests', label: 'Guests & venue' },
 ]
+
+// Which file each tab's Export button writes. A tab with no entry has no CSV
+// of its own: GST has its filing pack, Written off its register's export.
+const TAB_EXPORTS = {
+  overview: 'sales',
+  sales: 'sales',
+  products: 'products',
+  channels: 'channels',
+  pending: 'dues',
+  tenders: 'tenders',
+  expenses: 'expenses',
+  discounts: 'discounts',
+  customers: ['customers', 'lapsed'],
+  visits: 'visits',
+  venue: 'venue',
+}
 
 const TABS = [
   { key: 'overview', label: 'Overview',  icon: '💰', group: 'sales' },
@@ -207,6 +224,15 @@ const Finance = ({ defaultTab = 'overview' } = {}) => {
             Read from the accounting ledger — the same documents the accountant sees.
           </p>
         </div>
+        {TAB_EXPORTS[tab] && (
+          <ExportButton
+            exportKey={TAB_EXPORTS[tab]}
+            context={{
+              preset: range.preset, fromDate: range.fromDate, toDate: range.toDate,
+              branchId: range.branchId, bucket: range.bucket,
+            }}
+          />
+        )}
       </div>
 
       <TimeframePicker

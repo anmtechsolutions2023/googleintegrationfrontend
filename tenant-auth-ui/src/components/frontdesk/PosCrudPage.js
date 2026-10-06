@@ -85,11 +85,14 @@ const PAGE_SIZE = APP_CONFIG.PAGINATION.DEFAULT_LIMIT
 // given `api` (selection, visible rows, refresh, patchRows); `leadingColumns(api)`
 // returns columns drawn before the configured ones. Selection is offered only
 // to someone who can write.
+//
+// `headerActions` is optional: extra buttons drawn beside Add (an Export
+// button, say). Absent, the header is exactly as before.
 const idOf = (row) => row?.id || row?.Id
 
 const PosCrudPage = ({
   moduleConfig, writeScopes, onView, filterPanel: FilterPanel = null,
-  bulkBar: BulkBar = null, leadingColumns = null,
+  bulkBar: BulkBar = null, leadingColumns = null, headerActions = null,
 }) => {
   const { user } = useAuth()
   const canWrite = hasScope(user, writeScopes || [SCOPES.TENANT_ADMIN])
@@ -359,6 +362,7 @@ const PosCrudPage = ({
       <div className="content-header">
         <h1>{moduleConfig.icon} {moduleConfig.name}</h1>
         <div className="content-header-actions">
+          {headerActions}
           {/* With a filter panel the plain search bar goes, so Refresh moves up here. */}
           {FilterPanel && (
             <button className="btn btn-secondary" onClick={fetchData} disabled={loading}>

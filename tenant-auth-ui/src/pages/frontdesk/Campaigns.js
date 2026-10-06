@@ -5,6 +5,7 @@ import posService from '../../services/posService'
 import { SCOPES, APP_CONFIG } from '../../constants'
 import { useCan } from '../../hooks/useCan'
 import CampaignForm, { DAYS } from './CampaignForm'
+import ExportButton from '../../components/export/ExportButton'
 import './campaigns.css'
 
 const { MAX_LIMIT } = APP_CONFIG.PAGINATION
@@ -146,9 +147,12 @@ const Campaigns = () => {
             pauses all of them at once.
           </p>
         </div>
-        {canEdit && (
-          <button className="fd-btn fd-btn-primary" onClick={() => setCreating(true)}>+ New campaign</button>
-        )}
+        <div className="fd-header-actions">
+          <ExportButton exportKey="campaigns" context={{ preset: 'month' }} />
+          {canEdit && (
+            <button className="fd-btn fd-btn-primary" onClick={() => setCreating(true)}>+ New campaign</button>
+          )}
+        </div>
       </div>
 
       <div className="cmp-kpis">

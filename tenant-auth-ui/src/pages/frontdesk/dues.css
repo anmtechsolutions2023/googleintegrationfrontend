@@ -98,3 +98,4 @@
   .fd-dues-table-wrap { display: none; }
   .fd-dues-cards { display: flex; }
 }
+.fd-dues-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }

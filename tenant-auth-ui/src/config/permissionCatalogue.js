@@ -45,6 +45,8 @@ export const PERMISSION_GROUPS = [
   ] },
   { rail: 'Guests', subjects: [
     { key: 'POS_CRM', name: 'Customers, loyalty & feedback' },
+    { key: 'CUSTOMER', name: 'Customer data',
+      note: 'Downloads every guest\'s name, mobile and email as a file.' },
   ] },
   { rail: 'Insights', subjects: [
     { key: 'POS_REPORTS', name: 'Front-desk reports' },
@@ -55,8 +57,8 @@ export const PERMISSION_GROUPS = [
   ] },
 ]
 
-export const LEVELS = ['READ', 'WRITE', 'APPROVE']
-export const LEVEL_LABEL = { READ: 'View', WRITE: 'Manage', UPDATE: 'Manage', APPROVE: 'Approve' }
+export const LEVELS = ['READ', 'WRITE', 'APPROVE', 'EXPORT']
+export const LEVEL_LABEL = { READ: 'View', WRITE: 'Manage', UPDATE: 'Manage', APPROVE: 'Approve', EXPORT: 'Export' }
 
 const SUBJECT = Object.fromEntries(
   PERMISSION_GROUPS.flatMap((g) => g.subjects.map((s) => [s.key, { ...s, rail: g.rail }])),

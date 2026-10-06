@@ -5,6 +5,7 @@ import posService from '../../services/posService'
 import TimeframePicker from '../../components/frontdesk/TimeframePicker'
 import { SCOPES } from '../../constants'
 import { useCan } from '../../hooks/useCan'
+import ExportButton from '../../components/export/ExportButton'
 import './returns.css'
 
 /**
@@ -209,6 +210,20 @@ const Returns = () => {
             period cannot move.
           </p>
         </div>
+        <ExportButton
+          exportKey="returns"
+          context={{
+            preset: range.preset, fromDate: range.fromDate, toDate: range.toDate, branchId: range.branchId,
+            filters: {
+              reasonId: filters.reasonId,
+              isFault: filters.isFault === '' ? undefined : filters.isFault,
+            },
+            filterLabels: [
+              filters.reasonId && `Reason: ${reasons.find((r) => (r.Id || r.id) === filters.reasonId)?.Name || 'selected'}`,
+              filters.isFault !== '' && (String(filters.isFault) === 'true' ? 'Our fault' : 'Not our fault'),
+            ].filter(Boolean),
+          }}
+        />
       </div>
 
       <TimeframePicker

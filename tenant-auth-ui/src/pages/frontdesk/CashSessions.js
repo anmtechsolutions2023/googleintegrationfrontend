@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext'
 import { hasScope } from '../../utils/permissions'
 import { SCOPES, APP_CONFIG } from '../../constants'
 import posService from '../../services/posService'
+import ExportButton from '../../components/export/ExportButton'
 import './finance.css'
 
 const { MAX_LIMIT } = APP_CONFIG.PAGINATION
@@ -170,11 +171,14 @@ const CashSessions = () => {
             ledger, so the variance at close is a real number, not a guess.
           </p>
         </div>
-        {canWrite && (
-          <button className="fd-btn fd-btn-primary" onClick={() => setShowOpen(true)}>
-            + Open till
-          </button>
-        )}
+        <div className="fd-header-actions">
+          <ExportButton exportKey="cash-sessions" context={{ preset: 'month' }} />
+          {canWrite && (
+            <button className="fd-btn fd-btn-primary" onClick={() => setShowOpen(true)}>
+              + Open till
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="fd-section-title">Open tills</div>

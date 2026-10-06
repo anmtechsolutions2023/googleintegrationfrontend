@@ -1,0 +1,59 @@
+/* The Export button and dialog. The dialog sits in the .fd-collect shell
+   (collect.css), which already becomes a bottom sheet on a phone. */
+
+.fd-export-wrap { position: relative; display: inline-flex; }
+.fd-export-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; white-space: nowrap; }
+.fd-export-btn svg { flex: 0 0 auto; }
+
+.fd-export-menu {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 30; min-width: 260px; max-width: calc(100vw - 32px);
+  background: #fff; border: 1px solid #e1e5eb; border-radius: 10px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.14);
+  padding: 6px; display: flex; flex-direction: column;
+}
+.fd-export-menu button {
+  font: inherit; text-align: left; background: none; border: 0; border-radius: 7px; padding: 9px 10px;
+  display: flex; flex-direction: column; gap: 2px; cursor: pointer; color: #2c3e50; min-height: 44px;
+}
+.fd-export-menu button:hover, .fd-export-menu button:focus-visible { background: #f1f3f6; outline: none; }
+.fd-export-menu b { font-size: 14px; }
+.fd-export-menu span { font-size: 12px; color: #7f8c8d; }
+
+.fd-collect.fd-export { max-width: 480px; }
+.fd-export select,
+.fd-export input[type="date"] {
+  font: inherit; font-size: 14px; padding: 9px 10px; border: 1px solid #d0d4da;
+  border-radius: 8px; background: #fff; color: #2c3e50; min-height: 40px; box-sizing: border-box;
+}
+
+.fd-export-pii {
+  display: flex; flex-direction: column; gap: 3px; font-size: 13px; line-height: 1.45;
+  background: #fff4e5; color: #6b3a07; border: 1px solid #f2d2ae; border-radius: 9px; padding: 10px 12px;
+}
+
+.fd-export-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.fd-export-chip {
+  font: inherit; font-size: 13px; min-height: 36px; padding: 0 12px; border-radius: 999px;
+  border: 1px solid #d0d4da; background: #fff; color: #2c3e50; cursor: pointer;
+}
+.fd-export-chip.is-on { background: #0f3460; border-color: #0f3460; color: #fff; }
+.fd-export-chip:focus-visible { outline: 2px solid #0f3460; outline-offset: 2px; }
+
+.fd-export-dates { display: flex; flex-wrap: wrap; gap: 10px; }
+.fd-export-dates label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #5a6c7d; flex: 1 1 140px; }
+
+.fd-export-option { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 1.4; cursor: pointer; }
+.fd-export-option input { margin-top: 3px; width: 16px; height: 16px; flex: 0 0 auto; }
+.fd-export-option em { font-style: normal; color: #7f8c8d; }
+.fd-export-sub { display: block; font-size: 12.5px; margin-top: 2px; }
+
+.fd-export-file { display: flex; flex-direction: column; gap: 3px; background: #f4f5f7; border-radius: 8px; padding: 9px 11px; }
+.fd-export-file span { font-size: 11.5px; color: #7f8c8d; }
+.fd-export-file code { font-size: 12.5px; overflow-wrap: anywhere; color: #2c3e50; background: none; }
+
+@media (max-width: 600px) {
+  .fd-export .fd-collect-foot .fd-collect-btns { width: 100%; }
+  .fd-export .fd-collect-foot .fd-btn { flex: 1 1 0; min-height: 44px; }
+}
+
+/* A screen header's right side: Export beside the screen's own primary action. */
+.fd-header-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }

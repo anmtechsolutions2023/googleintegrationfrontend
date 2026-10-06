@@ -3,6 +3,7 @@ import PosCrudPage from '../../components/frontdesk/PosCrudPage'
 import CustomerProfile from '../../components/frontdesk/CustomerProfile'
 import { POS_MODULES } from '../../config/posModules'
 import { SCOPES } from '../../constants'
+import ExportButton from '../../components/export/ExportButton'
 
 /**
  * The CRM list, plus a profile behind each row.
@@ -20,6 +21,7 @@ const Customers = () => {
         moduleConfig={POS_MODULES.posCustomers}
         writeScopes={[SCOPES.POS_CRM_WRITE, SCOPES.TENANT_ADMIN]}
         onView={(row) => setProfileId(row.Id || row.id)}
+        headerActions={<ExportButton exportKey={['customers', 'loyalty']} className="btn btn-secondary" />}
       />
       <CustomerProfile customerId={profileId} onClose={() => setProfileId(null)} />
     </>

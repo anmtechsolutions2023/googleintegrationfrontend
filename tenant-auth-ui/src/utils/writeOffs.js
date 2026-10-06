@@ -100,6 +100,19 @@ export const billDate = (d) => {
   return y && m && day ? `${day}/${m}/${y}` : String(d)
 }
 
+/**
+ * The export's own formats, the same as every other CSV the app writes
+ * (server: modules/export/export.format.js): ISO dates that sort and that
+ * Excel reads in any locale, and local time to the minute.
+ */
+const isoDate = (d) => (d ? String(d).slice(0, 10) : '')
+const isoStamp = (iso) => {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
 const csvCell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`
 
 /**
@@ -114,7 +127,7 @@ export const writeOffsCsv = (documents = []) => {
     'Bill', 'Paid', 'Written off', 'Reason', 'Note', 'Written off by',
   ]
   const body = documents.map((d) => [
-    fullStamp(d.WrittenOffAt), d.TransactionNo, billDate(d.TransactionDate),
+    isoStamp(d.WrittenOffAt), d.TransactionNo, isoDate(d.TransactionDate),
     d.CustomerName || 'Walk-in', d.CustomerMobile || '', d.BranchName || '',
     Number(d.GrossAmount || 0).toFixed(2), Number(d.Collected || 0).toFixed(2),
     Number(d.WrittenOff || 0).toFixed(2), d.ReasonLabel || d.Reason || '', d.Note || '',
@@ -125,7 +138,8 @@ export const writeOffsCsv = (documents = []) => {
 
 /** Hands a CSV to the browser as a file. */
 export const downloadCsv = (filename, csv) => {
-  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
+  // The byte-order mark is what makes Excel read ₹ and non-Latin names as UTF-8.
+  const url = URL.createObjectURL(new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8' }))
   const a = document.createElement('a')
   a.href = url
   a.download = filename

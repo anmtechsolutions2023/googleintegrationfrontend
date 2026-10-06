@@ -14,6 +14,8 @@ export const REQUIRES = {
   'EXPENSE:APPROVE': ['POS_OPS:READ'],
   // Refunds are made from the Ledger and Returns screens (TRANSACTIONS:READ).
   'REFUND:APPROVE': ['TRANSACTIONS:READ'],
+  // Customer exports are downloaded from Guests › Customers (POS_CRM:READ).
+  'CUSTOMER:EXPORT': ['POS_CRM:READ'],
 }
 
 /** The permissions a key needs, one level deep. */

@@ -52,6 +52,10 @@ export const SCOPES = {
   // The asset register is finance-owned reference data, not floor operations.
   ASSET_READ:         'ASSET:READ',
   ASSET_WRITE:        'ASSET:WRITE',
+  // Taking customer data out in bulk — customers, loyalty and lapsed lists as
+  // files — and un-masking mobiles in any export. POS_CRM:READ is looking one
+  // guest up; this is walking off with all of them.
+  CUSTOMER_EXPORT:    'CUSTOMER:EXPORT',
 }
 
 export default SCOPES

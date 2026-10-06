@@ -4,6 +4,7 @@ import posService from '../../services/posService'
 import { useAuth } from '../../context/AuthContext'
 import { hasScope } from '../../utils/permissions'
 import { SCOPES } from '../../constants'
+import ExportButton from '../../components/export/ExportButton'
 import './dailyStock.css'
 
 /**
@@ -203,6 +204,10 @@ const DailyStock = () => {
         <label htmlFor="ds-date">Day</label>
         <input id="ds-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
         <button type="button" className="fd-btn" onClick={load} disabled={loading}>Refresh</button>
+        <ExportButton
+          exportKey="daily-stock"
+          context={{ preset: 'custom', fromDate: date, toDate: date, branchId }}
+        />
       </div>
 
       {(unset > 0 || out > 0) && !loading && (

@@ -10,7 +10,7 @@
   box-sizing: border-box;
 }
 
-.rp-head { margin-bottom: 16px; }
+.rp-head { margin-bottom: 16px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 12px; }
 .rp-page h1 { font-size: 22px; color: #2c3e50; margin: 0; font-weight: 700; }
 .rp-lead {
   font-size: 13px;

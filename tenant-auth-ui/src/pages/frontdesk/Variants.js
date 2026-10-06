@@ -1,6 +1,7 @@
 import React from 'react'
 import PosCrudPage from '../../components/frontdesk/PosCrudPage'
 import { SCOPES } from '../../constants'
+import ExportButton from '../../components/export/ExportButton'
 
 // Variant master config — wires to /api/pos/variants (item variants: Half/Full, sizes…)
 const VARIANT_CONFIG = {
@@ -25,6 +26,7 @@ const Variants = () => (
   <PosCrudPage
     moduleConfig={VARIANT_CONFIG}
     writeScopes={[SCOPES.POS_CONFIG_WRITE, SCOPES.TENANT_ADMIN]}
+    headerActions={<ExportButton exportKey="menu-options" className="btn btn-secondary" />}
   />
 )
 

@@ -8,6 +8,7 @@ import CollectFlow from '../../components/frontdesk/CollectFlow'
 import DebtorDialog from '../../components/frontdesk/DebtorDialog'
 import WriteOffRegister from '../../components/frontdesk/WriteOffRegister'
 import { thisMonthRange } from '../../utils/writeOffs'
+import ExportButton from '../../components/export/ExportButton'
 import './ledger.css'
 import './dues.css'
 
@@ -164,12 +165,23 @@ const Dues = () => {
               : 'Bills paid short, oldest first. Each stays here until the rest is collected or written off.'}
           </p>
         </div>
-        <button
-          type="button" className="fd-btn fd-btn-outline"
-          onClick={refresh} disabled={view === 'owed' && loading}
-        >
-          Refresh
-        </button>
+        <div className="fd-dues-actions">
+          {view === 'owed' && (
+            <ExportButton
+              exportKey="dues"
+              context={{
+                filters: { age, search: search.trim() },
+                filterLabels: [age && `Age: ${age}`, search.trim() && `Search: “${search.trim()}”`].filter(Boolean),
+              }}
+            />
+          )}
+          <button
+            type="button" className="fd-btn fd-btn-outline"
+            onClick={refresh} disabled={view === 'owed' && loading}
+          >
+            Refresh
+          </button>
+        </div>
       </div>
 
       {canSeeWriteOffs && (

@@ -8,6 +8,7 @@ describe('permission requirements', () => {
     expect(requirementsOf('POS_ORDER:WRITE')).toEqual(['POS_ORDER:READ']);
     expect(requirementsOf('EXPENSE:APPROVE')).toEqual(['POS_OPS:READ']);
     expect(requirementsOf('REFUND:APPROVE')).toEqual(['TRANSACTIONS:READ']);
+    expect(requirementsOf('CUSTOMER:EXPORT')).toEqual(['POS_CRM:READ']);
     expect(requirementsOf('POS_ORDER:READ')).toEqual([]);
   });
 
@@ -33,6 +34,7 @@ describe('permission requirements', () => {
     expect(REQUIRES).toEqual({
       'EXPENSE:APPROVE': ['POS_OPS:READ'],
       'REFUND:APPROVE': ['TRANSACTIONS:READ'],
+      'CUSTOMER:EXPORT': ['POS_CRM:READ'],
     });
   });
 });

@@ -7,6 +7,7 @@ import useMenuFilters from '../../hooks/useMenuFilters'
 import { genericPatch } from '../../services/posService'
 import { effectiveTags, categoryNameOf, isOnSale } from '../../utils/menuFilters'
 import { SCOPES } from '../../constants'
+import ExportButton from '../../components/export/ExportButton'
 
 // Item meta module config - wires to /api/pos/item-meta.
 // Channels/Variants are multi-selects backed by the posChannel/posVariant masters
@@ -466,6 +467,7 @@ const MenuMaster = () => (
     filterPanel={MenuMasterFilters}
     bulkBar={MenuBulkBar}
     leadingColumns={leadingColumns}
+    headerActions={<ExportButton exportKey={['menu-items', 'menu-branch']} className="btn btn-secondary" />}
   />
 )
 

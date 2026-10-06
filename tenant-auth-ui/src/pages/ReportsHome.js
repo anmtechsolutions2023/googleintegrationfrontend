@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { visibleGroups, matchesQuery, ALL_REPORTS, canSee } from '../config/reportsCatalogue'
+import ReportsBundleButton from '../components/export/ReportsBundleButton'
 import './reportsHome.css'
 
 /**
@@ -73,6 +74,7 @@ const ReportsHome = () => {
             {total} available to you.
           </p>
         </div>
+        <ReportsBundleButton />
       </div>
 
       <input

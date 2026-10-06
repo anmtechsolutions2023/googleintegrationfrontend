@@ -12,6 +12,7 @@ import usePrintReceipt from '../../components/frontdesk/receipt/usePrintReceipt'
 import BalanceBlock from '../../components/frontdesk/BalanceBlock'
 import CollectFlow from '../../components/frontdesk/CollectFlow'
 import { fullStamp } from '../../utils/writeOffs'
+import ExportButton from '../../components/export/ExportButton'
 import './ledger.css'
 
 const money = (n) => (Number(n) || 0).toFixed(2)
@@ -31,6 +32,9 @@ const DOC_TYPES = [
   { value: 'POS Return', label: 'Credit notes' },
   { value: 'Expense', label: 'Expenses' },
 ]
+
+// The ledger export's own words for the same filter.
+const EXPORT_TYPE = { 'POS Sale': 'sale', 'POS Return': 'return', Expense: 'expense' }
 
 // A separate axis from status, because a partly-refunded sale is still SETTLED
 // — which is exactly what lets a second return happen against it.
@@ -319,6 +323,19 @@ const Ledger = () => {
         >
           Dues only {duesSummary ? <em>{duesSummary.count}</em> : null}
         </button>
+        <ExportButton
+          exportKey={['ledger-documents', 'ledger-lines', 'payments']}
+          context={{
+            ...(fromDate || toDate
+              ? { preset: 'custom', fromDate: fromDate || toDate, toDate: toDate || fromDate }
+              : { preset: 'month' }),
+            filters: { type: EXPORT_TYPE[docType], status },
+            filterLabels: [
+              docType && DOC_TYPES.find((t) => t.value === docType)?.label,
+              status && `Status: ${status}`,
+            ].filter(Boolean),
+          }}
+        />
         {(status || search || docType || refundStateFilter || fromDate || toDate || duesOnly) && (
           <button
             className="fd-btn fd-btn-outline"

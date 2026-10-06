@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext'
 import { hasScope } from '../../utils/permissions'
 import { SCOPES, APP_CONFIG } from '../../constants'
 import posService from '../../services/posService'
+import ExportButton from '../../components/export/ExportButton'
 import './finance.css'
 
 const { MAX_LIMIT } = APP_CONFIG.PAGINATION
@@ -228,9 +229,19 @@ const Expenses = () => {
             ledger — a claim is not a cost until the money leaves.
           </p>
         </div>
-        {canWrite && (
-          <button className="fd-btn fd-btn-primary" onClick={openCreate}>+ New expense</button>
-        )}
+        <div className="fd-header-actions">
+          <ExportButton
+            exportKey="expenses"
+            context={{
+              preset: 'month',
+              filters: { status: filter },
+              filterLabels: [filter && `Status: ${FILTERS.find((f) => f.value === filter)?.label || filter}`].filter(Boolean),
+            }}
+          />
+          {canWrite && (
+            <button className="fd-btn fd-btn-primary" onClick={openCreate}>+ New expense</button>
+          )}
+        </div>
       </div>
 
       <div className="fd-kpi-grid fd-kpi-compact">

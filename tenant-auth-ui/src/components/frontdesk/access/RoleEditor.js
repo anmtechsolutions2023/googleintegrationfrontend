@@ -185,7 +185,7 @@ const RoleEditor = ({
             <span className="ac-perm-name">People &amp; Access</span>
             <span className="ac-perm-opens">Opens: Admin › People &amp; Access</span>
           </span>
-          <span className="ac-perm-opens" style={{ gridColumn: 'span 3' }}>
+          <span className="ac-perm-opens" style={{ gridColumn: `span ${LEVELS.length}` }}>
             Set by the Admin switch on a person, not by a role
           </span>
         </div>

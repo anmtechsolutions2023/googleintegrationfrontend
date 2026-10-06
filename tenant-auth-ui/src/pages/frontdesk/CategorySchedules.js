@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext'
 import { hasScope } from '../../utils/permissions'
 import { SCOPES } from '../../constants'
 import LoadingSpinner from '../../components/LoadingSpinner'
+import ExportButton from '../../components/export/ExportButton'
 import './categorySchedules.css'
 
 // The API answers with two envelopes: list endpoints put rows in `data`,
@@ -273,6 +274,7 @@ const CategorySchedules = () => {
         </header>
 
         <div className="cs-toolbar">
+          <ExportButton exportKey="category-hours" />
           <input
             className="cs-search"
             type="search"

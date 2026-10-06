@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext'
 import { hasScope } from '../../utils/permissions'
 import { SCOPES, APP_CONFIG } from '../../constants'
 import posService from '../../services/posService'
+import ExportButton from '../../components/export/ExportButton'
 import './finance.css'
 
 const { MAX_LIMIT } = APP_CONFIG.PAGINATION
@@ -166,9 +167,19 @@ const Assets = () => {
             depreciation is not tracked.
           </p>
         </div>
-        {canWrite && (
-          <button className="fd-btn fd-btn-primary" onClick={openCreate}>+ Register asset</button>
-        )}
+        <div className="fd-header-actions">
+          <ExportButton
+            exportKey="assets"
+            context={{
+              branchId: branchFilter,
+              filters: { status: statusFilter },
+              filterLabels: [statusFilter && `Status: ${STATUSES.find((s) => s.value === statusFilter)?.label || statusFilter}`].filter(Boolean),
+            }}
+          />
+          {canWrite && (
+            <button className="fd-btn fd-btn-primary" onClick={openCreate}>+ Register asset</button>
+          )}
+        </div>
       </div>
 
       {summary && (

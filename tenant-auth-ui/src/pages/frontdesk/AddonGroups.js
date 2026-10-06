@@ -2,6 +2,7 @@ import React from 'react'
 import PosCrudPage from '../../components/frontdesk/PosCrudPage'
 import { POS_MODULES } from '../../config/posModules'
 import { SCOPES } from '../../constants'
+import ExportButton from '../../components/export/ExportButton'
 
 // Add-on group master — wires to /api/pos/addon-groups.
 // A group is NOT a variant: a variant REPLACES the item's price (Half/Full),
@@ -12,6 +13,7 @@ const AddonGroups = () => (
   <PosCrudPage
     moduleConfig={POS_MODULES.posAddonGroups}
     writeScopes={[SCOPES.POS_CONFIG_WRITE, SCOPES.TENANT_ADMIN]}
+    headerActions={<ExportButton exportKey="menu-options" className="btn btn-secondary" />}
   />
 )
 
