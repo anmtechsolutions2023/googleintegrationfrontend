@@ -19,6 +19,7 @@ jest.mock('../../../services/posService', () => ({
     getVenueReport: jest.fn(),
     getChannelReport: jest.fn(),
     getDiscountReport: jest.fn(),
+    getWriteOffs: jest.fn(),
     getCustomerReport: jest.fn(),
     getVisitPatternReport: jest.fn(),
     getLapsedReport: jest.fn(),
@@ -693,5 +694,127 @@ describe('visit pattern — when they actually come in', () => {
     ['Sunday', 'Monday', 'Wednesday', 'Saturday'].forEach((d) => {
       expect(screen.getAllByText(d).length).toBeGreaterThan(0);
     });
+  });
+});
+
+// ── Written off ─────────────────────────────────────────────────────────────
+// Balances given up on, by the day each was written off. Beside Invoiced,
+// Collected and Outstanding on the Overview, and a report of their own.
+
+const WRITE_OFF_SUMMARY = {
+  WrittenOff: 1305.08, Bills: 5, Average: 261.02, Largest: 1000, LargestNo: 'INV-0006',
+  LargestReason: "Staff or owner's guest", OnEarlierBills: 200, EarlierBills: 1,
+  OnThisPeriodBills: 1105.08, Invoiced: 184250, ShareOfInvoiced: 0.71,
+};
+const BY_REASON = [
+  { Code: 'STAFF_GUEST', Label: "Staff or owner's guest", Bills: 1, Amount: 1000, Share: 76.62 },
+  { Code: 'CUSTOMER_LEFT', Label: 'Customer left without paying', Bills: 2, Amount: 205.08, Share: 15.71 },
+];
+const WO_DOC = (over) => ({
+  Id: 'log-3', TransactionNo: 'INV-0003', TransactionDate: '2026-10-04', GrossAmount: 15, Collected: 9.92,
+  WrittenOff: 5.08, Reason: 'CUSTOMER_LEFT', ReasonLabel: 'Customer left without paying', Note: null,
+  WrittenOffAt: '2026-10-04T07:42:00.000Z', WrittenOffByKey: 'm-karan', WrittenOffByName: 'Karan S.',
+  OnEarlierBill: false, CustomerName: 'slef', Source: { kind: 'table', label: 'T3' },
+  ...over,
+});
+
+// "Written off" is also a tab and a Given-up tile; the card is the KPI label.
+const woCard = () => screen.getByText('Written off', { selector: '.kpi-label' }).closest('.fd-kpi-card');
+
+describe('written off — on the overview', () => {
+  test('stands beside invoiced, collected and outstanding, and says what is on earlier bills', async () => {
+    posService.getFinanceOverview.mockResolvedValue({
+      ...OVERVIEW,
+      writeOffs: { ...WRITE_OFF_SUMMARY, byReason: BY_REASON, latest: [WO_DOC()] },
+    });
+    await renderFinance();
+    const card = woCard();
+    expect(card.querySelector('.kpi-value').textContent).toBe('₹1,305.08');
+    expect(card).toHaveTextContent("₹1,105.08 on this period's bills, ₹200.00 on earlier ones");
+    expect(card).toHaveAttribute('href', '/money/overview?tab=writeoffs');
+  });
+
+  test('shows at ₹0 too, so its absence is never a question', async () => {
+    posService.getFinanceOverview.mockResolvedValue({
+      ...OVERVIEW,
+      writeOffs: { ...WRITE_OFF_SUMMARY, WrittenOff: 0, Bills: 0, OnEarlierBills: 0, byReason: [], latest: [] },
+    });
+    await renderFinance();
+    expect(woCard().querySelector('.kpi-value').textContent).toBe('₹0.00');
+    expect(screen.queryByText('Latest write-offs')).toBeNull();
+  });
+
+  test('puts discounts, write-offs and returns side by side, each opening its report', async () => {
+    posService.getFinanceOverview.mockResolvedValue({
+      ...OVERVIEW,
+      sales: { ...OVERVIEW.sales, GrossAmount: 1000, DiscountAmount: 26, ReturnedAmount: 6 },
+      writeOffs: { ...WRITE_OFF_SUMMARY, WrittenOff: 7, byReason: BY_REASON, latest: [WO_DOC()] },
+    });
+    await renderFinance();
+    expect(screen.getByText('Given up this period')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Discounts.*2\.6% of invoiced/ })).toHaveAttribute('href', '/money/overview?tab=discounts');
+    expect(screen.getByRole('link', { name: /Written off.*0\.7% of invoiced/ })).toHaveAttribute('href', '/money/overview?tab=writeoffs');
+    expect(screen.getByRole('link', { name: /Returns.*0\.6% of invoiced/ })).toHaveAttribute('href', '/money/returns');
+  });
+
+  test('lists the reasons and the latest write-offs', async () => {
+    posService.getFinanceOverview.mockResolvedValue({
+      ...OVERVIEW,
+      writeOffs: { ...WRITE_OFF_SUMMARY, byReason: BY_REASON, latest: [WO_DOC()] },
+    });
+    await renderFinance();
+    const reasons = screen.getByRole('region', { name: 'Written off by reason' });
+    expect(within(reasons).getByText("Staff or owner's guest")).toBeInTheDocument();
+    const latest = screen.getByRole('region', { name: 'Latest write-offs' });
+    expect(within(latest).getByText('INV-0003')).toBeInTheDocument();
+    expect(within(latest).getByRole('link', { name: 'See all 5 →' })).toBeInTheDocument();
+  });
+});
+
+describe('written off — its own report', () => {
+  beforeEach(() => {
+    posService.getWriteOffs.mockResolvedValue({
+      range: RANGE,
+      summary: WRITE_OFF_SUMMARY,
+      byReason: BY_REASON,
+      byUser: [{ Key: 'm-karan', Name: 'Karan S.', Bills: 4, Amount: 1105.08, Share: 84.68 }],
+      byDay: [{ Bucket: '2026-10-04', Bills: 1, Amount: 5.08 }],
+      repeats: [{ CustomerName: 'Rahul M.', CustomerMobile: '90000 55555', Times: 2, Amount: 240, LastAt: '2026-10-02T16:00:00.000Z' }],
+      documents: [
+        WO_DOC(),
+        WO_DOC({ Id: 'log-1', TransactionNo: 'INV-0001', TransactionDate: '2026-09-29', WrittenOff: 200, OnEarlierBill: true, Note: 'Said he would pay' }),
+      ],
+      truncated: false,
+    });
+  });
+
+  test('opens from the URL and asks with the shared timeframe', async () => {
+    await renderFinance('/money/overview?tab=writeoffs');
+    expect(posService.getWriteOffs).toHaveBeenCalledWith(expect.objectContaining({ preset: 'today' }));
+    expect(kpiValue('On earlier bills')).toBe('₹200.00');
+    expect(kpiValue('Share of invoiced')).toBe('0.7%');
+  });
+
+  test('breaks it down by reason, by who, and the names written off more than once', async () => {
+    await renderFinance('/money/overview?tab=writeoffs');
+    expect(rowStartingWith("Staff or owner's guest")).toHaveTextContent('76.6%');
+    expect(rowStartingWith('Karan S.')).toHaveTextContent('₹1,105.08');
+    expect(rowStartingWith('Rahul M.')).toHaveTextContent('2');
+  });
+
+  test('lists every write-off with its reason, note and who', async () => {
+    await renderFinance('/money/overview?tab=writeoffs');
+    expect(screen.getByRole('link', { name: 'INV-0001' })).toHaveAttribute('href', '/money/ledger?doc=log-1');
+    expect(screen.getByText('“Said he would pay”')).toBeInTheDocument();
+    expect(screen.getByText(/· earlier bill/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Open in Dues' })).toHaveAttribute('href', '/money/dues?view=written-off');
+  });
+
+  test('a period with nothing written off says so', async () => {
+    posService.getWriteOffs.mockResolvedValue({
+      range: RANGE, summary: { WrittenOff: 0, Bills: 0 }, byReason: [], byUser: [], byDay: [], repeats: [], documents: [],
+    });
+    await renderFinance('/money/overview?tab=writeoffs');
+    expect(screen.getByText('Nothing was written off in this period.')).toBeInTheDocument();
   });
 });

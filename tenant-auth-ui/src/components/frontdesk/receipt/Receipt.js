@@ -489,7 +489,9 @@ const Receipt = ({ doc, format, shop = {}, data, inline = false }) => {
 
   const paper = (
     <div className={`rc-paper rc-w${width}`} data-testid={`receipt-${doc}`}>
-      <Body format={format} shop={printedShop(shop, data)} data={data} />
+      {/* `|| {}` as well as the default: a default only covers undefined, and
+          a caller with no format yet passes null. */}
+      <Body format={format} shop={printedShop(shop || {}, data)} data={data} />
     </div>
   )
 

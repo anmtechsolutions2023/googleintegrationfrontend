@@ -29,7 +29,7 @@ describe('what a user is offered', () => {
   test('an admin gets every report, grouped by the question it answers', () => {
     asUser([SCOPES.TENANT_ADMIN])
     show()
-    expect(cards()).toHaveLength(24)
+    expect(cards()).toHaveLength(25)
     // Each group name is deliberately in two places — a filter chip and the
     // heading it scrolls to — so headings are read as headings.
     const headings = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)
@@ -111,7 +111,7 @@ describe('finding one', () => {
     expect(screen.getByText(/Nothing matches/i)).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /Clear/i }))
-    expect(cards()).toHaveLength(24)
+    expect(cards()).toHaveLength(25)
   })
 })
 

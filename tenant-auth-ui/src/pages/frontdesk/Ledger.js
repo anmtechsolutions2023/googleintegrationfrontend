@@ -11,6 +11,7 @@ import Receipt from '../../components/frontdesk/receipt/Receipt'
 import usePrintReceipt from '../../components/frontdesk/receipt/usePrintReceipt'
 import BalanceBlock from '../../components/frontdesk/BalanceBlock'
 import CollectFlow from '../../components/frontdesk/CollectFlow'
+import { fullStamp } from '../../utils/writeOffs'
 import './ledger.css'
 
 const money = (n) => (Number(n) || 0).toFixed(2)
@@ -622,7 +623,9 @@ const Ledger = () => {
                     writeOffNote={[
                       selected.WriteOffReasonLabel,
                       selected.WriteOffNote,
-                      selected.WrittenOffBy,
+                      // A name, not the mobile it is stored as.
+                      selected.WrittenOffByName && `by ${selected.WrittenOffByName}`,
+                      selected.WrittenOffAt && fullStamp(selected.WrittenOffAt),
                     ].filter(Boolean).join(' · ')}
                     payments={selected.Tenders}
                     onCollect={canCollect ? () => openCollect(selected) : undefined}

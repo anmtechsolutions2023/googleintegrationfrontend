@@ -124,6 +124,12 @@
   min-height: 64px; resize: vertical; width: 100%; box-sizing: border-box;
 }
 .fd-collect-explain { margin: 0; font-size: 13.5px; color: #5a6c7d; line-height: 1.5; }
+/* The running total, in front of whoever is about to add to it. */
+.fd-collect-sofar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  background: #f3f5f9; border-radius: 9px; padding: 9px 12px; font-size: 13px; color: #2c3e50;
+}
+.fd-collect-sofar a { margin-left: auto; font-weight: 700; color: #0f3460; }
 
 /* On a phone the sheet docks to the bottom, so the amount and the Record button
    sit within thumb reach and the list it came from stays visible above. */

@@ -506,3 +506,48 @@
 .fd-kpi-card.is-link { text-decoration: none; color: inherit; cursor: pointer; transition: box-shadow 0.15s ease; }
 .fd-kpi-card.is-link:hover { box-shadow: 0 2px 10px rgba(15, 52, 96, 0.12); }
 .fd-kpi-card.is-link:focus-visible { outline: 2px solid #0f3460; outline-offset: 2px; }
+
+/* ── Given up this period ─────────────────────────────────────────────────
+   Discounts, write-offs and returns side by side, each opening its report. */
+.fd-givenup { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.fd-givenup-tile {
+  display: flex; flex-direction: column; gap: 6px; min-width: 0;
+  background: #fff; border-radius: 8px; padding: 14px 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  text-decoration: none; color: inherit; transition: box-shadow 0.15s ease;
+}
+.fd-givenup-tile:hover { box-shadow: 0 2px 10px rgba(15, 52, 96, 0.12); }
+.fd-givenup-tile:focus-visible { outline: 2px solid #0f3460; outline-offset: 2px; }
+.fd-givenup-label { font-size: 12px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: #5a6c7d; }
+.fd-givenup-value { font-size: 22px; font-weight: 700; color: #2c3e50; font-variant-numeric: tabular-nums; }
+.fd-givenup-tile.is-writeoffs .fd-givenup-value { color: #b42318; }
+.fd-givenup-tile .fd-mix-bar > span { background: #2c3e50; }
+.fd-givenup-foot { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: 12px; color: #5a6c7d; }
+.fd-givenup-link { font-weight: 700; color: #0f3460; }
+
+/* Written off on the Overview: by reason beside the latest three. */
+.fd-wo-overview {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 16px;
+}
+.fd-wo-overview > section { background: #fff; border-radius: 8px; padding: 14px 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); min-width: 0; }
+.fd-wo-overview .fd-mix-bar > span { background: #2c3e50; }
+.fd-wo-overview .fd-mix-head a { font-size: 12px; font-weight: 700; color: #0f3460; }
+.fd-wo-latest { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.fd-wo-latest li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; font-size: 13px; }
+.fd-wo-latest .num { text-align: right; font-variant-numeric: tabular-nums; }
+.fd-wo-latest-no { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 700; font-size: 12.5px; }
+
+/* A section title with actions beside it. */
+.fd-section-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.fd-section-head .fd-section-title { margin-bottom: 12px; }
+.fd-section-actions { display: inline-flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.fd-section-actions .fd-btn { text-decoration: none; display: inline-flex; align-items: center; }
+
+@media (max-width: 720px) {
+  .fd-givenup, .fd-wo-overview { grid-template-columns: minmax(0, 1fr); }
+  .fd-section-actions { width: 100%; }
+  .fd-section-actions .fd-btn { flex: 1; justify-content: center; min-height: 44px; }
+}
+
+/* Eight columns of text: below a desk's width it scrolls in its box rather
+   than squeezing every reason and note into a one-word column. */
+.fd-table.fd-wo-every { min-width: 960px; }

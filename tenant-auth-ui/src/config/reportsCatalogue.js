@@ -52,6 +52,7 @@ export const REPORT_GROUPS = [
       { key: 'tenders', name: 'Tenders (Z-report)', answers: 'Cash, card, UPI and portal settlement, and the account each landed in', to: finance('tenders'), scopes: LEDGER },
       { key: 'cashflow', name: 'Cash flow', answers: 'Money in and money out, per account', to: finance('cashflow'), scopes: LEDGER },
       { key: 'pending', name: 'Outstanding', answers: 'Invoiced but not yet collected', to: finance('pending'), scopes: LEDGER },
+      { key: 'write-offs', name: 'Written off', answers: 'Balances given up on: how much, why, and by whom', to: finance('writeoffs'), scopes: LEDGER },
       { key: 'expenses', name: 'Expenses', answers: 'Spend by category over the range', to: finance('expenses'), scopes: LEDGER },
       { key: 'cash-sessions', name: 'Cash sessions', answers: 'Counted against expected, per cashier shift, and the variance', to: '/money/cash', scopes: [SCOPES.POS_BILLING_READ, T] },
     ],

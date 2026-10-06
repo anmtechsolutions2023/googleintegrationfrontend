@@ -20,6 +20,7 @@ jest.mock('../../../services/posService', () => ({
     fireKot: jest.fn(), createBill: jest.fn(), settleBill: jest.fn(),
     getPosSettings: jest.fn(),
     getWaiters: jest.fn(), setOrderServiceDetails: jest.fn(), markBillPrinted: jest.fn(),
+    getPosBranches: jest.fn(),
   },
 }));
 jest.mock('react-toastify', () => ({
@@ -28,9 +29,12 @@ jest.mock('react-toastify', () => ({
 jest.mock('../../../context/AuthContext', () => ({ useAuth: jest.fn() }));
 // The printer itself is not under test — only what the till hands it.
 const mockPrint = jest.fn();
+// Which branch the till asks to print under — the format, and so the masthead,
+// is loaded for exactly this.
+const mockPrintBranch = jest.fn();
 jest.mock('../../../components/frontdesk/receipt/usePrintReceipt', () => ({
   __esModule: true,
-  default: () => ({
+  default: (branchId) => (mockPrintBranch(branchId), {
     job: null, format: null, shop: null, taxMode: 'gst',
     print: mockPrint, failed: false, failedReason: null, clearFailed: () => {},
   }),
@@ -63,6 +67,8 @@ const round = (id, extra = {}) => ({
 
 beforeEach(() => {
   mockPrint.mockReset();
+  mockPrintBranch.mockReset();
+  posService.getPosBranches.mockResolvedValue([{ Id: BRANCH, BranchName: 'Main' }]);
   useAuth.mockReturnValue({ user: { tid: 't1', onboardingStatus: 'APPROVED', scopes: ['POS_ORDER:WRITE', 'POS_BILLING:WRITE'] } });
   posService.getTables.mockResolvedValue([
     { Id: 'tbl-1', Name: 'T-1', Status: 'free', Capacity: 4, BranchDetailId: BRANCH },
@@ -270,5 +276,38 @@ describe('the phone sheet', () => {
 
     expect(await screen.findByText('T-1 · Round 2')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'View order' })).toBeInTheDocument();
+  });
+});
+
+// A single-outlet tenancy rarely sets a branch on its tables, so neither the
+// table nor its rounds name one. The till used to load no receipt format at all
+// — and printing crashed on the missing masthead.
+describe('the branch a bill prints under', () => {
+  const SOLE = 'bbbbbbbb-0000-0000-0000-00000000000a';
+
+  beforeEach(() => {
+    posService.getTables.mockResolvedValue([{ Id: 'tbl-1', Name: 'T-1', Status: 'occupied', Capacity: 4, BranchDetailId: null }]);
+    posService.getOrders.mockResolvedValue([round('o1', { BranchDetailId: null })]);
+  });
+
+  test('falls back to the tenancy\'s only branch', async () => {
+    posService.getPosBranches.mockResolvedValue([{ Id: SOLE, BranchName: "Mayini's Kitchen" }]);
+    await openTable();
+    await waitFor(() => expect(mockPrintBranch).toHaveBeenLastCalledWith(SOLE));
+  });
+
+  test('guesses nothing when the tenancy has several', async () => {
+    posService.getPosBranches.mockResolvedValue([{ Id: SOLE }, { Id: BRANCH }]);
+    await openTable();
+    await waitFor(() => expect(posService.getPosBranches).toHaveBeenCalled());
+    expect(mockPrintBranch).not.toHaveBeenCalledWith(SOLE);
+    expect(mockPrintBranch).not.toHaveBeenCalledWith(BRANCH);
+  });
+
+  test('a branch on the round still wins over the fallback', async () => {
+    posService.getPosBranches.mockResolvedValue([{ Id: SOLE }]);
+    posService.getOrders.mockResolvedValue([round('o1')]);
+    await openTable();
+    await waitFor(() => expect(mockPrintBranch).toHaveBeenLastCalledWith(BRANCH));
   });
 });

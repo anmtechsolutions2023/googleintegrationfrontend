@@ -766,6 +766,10 @@ export const getExpenseReport = ledgerReport('expenses')
 export const getVenueReport = ledgerReport('venue')
 // What was given away, split into per-dish decisions and bill-wide reductions.
 export const getDiscountReport = ledgerReport('discounts')
+// Balances given up on, by the day they were written off: totals, by reason,
+// by who, by day, and every bill. Books readers and admins only — the server
+// refuses a cashier, so callers check before asking.
+export const getWriteOffs = ledgerReport('write-offs')
 /** Revenue by where the sale happened: dine-in, counter, delivery. */
 const getChannelRevenue = ledgerReport('channels')
 /** Who buys, how often, and how reliably — the credibility view. */
@@ -1098,7 +1102,7 @@ const posService = {
   createOffer, updateOffer, deleteOffer, previewOffers,
   getFinanceOverview, getSalesReport, getProductReport, getOptionsReport, getPendingReport,
   getTenderReport, getCashFlowReport, getExpenseReport,
-  getVenueReport, getDiscountReport, getChannelReport, getTokenStats,
+  getVenueReport, getDiscountReport, getWriteOffs, getChannelReport, getTokenStats,
   getCashSessions, getCashSession, getCashSessionSummary,
   openCashSession, closeCashSession,
   getAssets, getAssetSummary, createAsset, updateAsset, deleteAsset, getAssetCategories,

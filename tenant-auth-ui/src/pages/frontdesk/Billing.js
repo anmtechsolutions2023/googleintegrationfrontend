@@ -197,6 +197,11 @@ const Billing = () => {
   // The moment the customer is standing at the counter with their money out.
   // Until now this screen minted an invoice number and offered only "Done".
   const [printBranchId, setPrintBranchId] = useState(null)
+  // The tenancy's branch, when it has exactly one. A single-outlet tenancy
+  // seldom sets a branch on its tables or dishes, so nothing on the till names
+  // one — and with no branch no receipt format loads, which printed bills with
+  // no shop name or GSTIN (and, before the receipt guarded it, crashed).
+  const [soleBranchId, setSoleBranchId] = useState(null)
   // The menu's search, category, diet and tag filters live in useMenuFilters
   // below — the same hook Menu Master uses.
   const [printing, setPrinting] = useState(false)
@@ -228,7 +233,9 @@ const Billing = () => {
   const [noCutlery, setNoCutlery] = useState(false)
   // The cart line whose note is open for editing, or null.
   const [noteLine, setNoteLine] = useState(null)
-  const { job, format, shop, taxMode, print, failed: printFailed, failedReason: printFailedReason, clearFailed } = usePrintReceipt(printBranchId)
+  // The tenancy's only branch stands in ONLY while nothing on the till names
+  // one: it never becomes the held print branch, so a real one always wins.
+  const { job, format, shop, taxMode, print, failed: printFailed, failedReason: printFailedReason, clearFailed } = usePrintReceipt(printBranchId || soleBranchId)
   const [settling, setSettling] = useState(false)
   // Live discounted preview from the server (discount applied BEFORE tax), so the
   // payable the cashier sees matches the bill that will be raised.
@@ -825,8 +832,22 @@ const Billing = () => {
     cartItems.find((c) => c.meta?.BranchDetailId)?.meta.BranchDetailId
     || tableRounds[0]?.order?.BranchDetailId
     || counterRounds[0]?.order?.BranchDetailId
+    || selectedTableRow?.BranchDetailId
     || null
-  ), [cartItems, tableRounds, counterRounds])
+  ), [cartItems, tableRounds, counterRounds, selectedTableRow])
+
+  useEffect(() => {
+    let live = true
+    // Decoration for the print path only: no list just means no fallback.
+    Promise.resolve()
+      .then(() => posService.getPosBranches())
+      .then((list) => {
+        const branches = Array.isArray(list) ? list : []
+        if (live) setSoleBranchId(branches.length === 1 ? (branches[0].Id || branches[0].id || null) : null)
+      })
+      .catch(() => { if (live) setSoleBranchId(null) })
+    return () => { live = false }
+  }, [])
 
   // Settling sets this to the branch the document was actually posted under,
   // which is the authority — so this only fills the gap before that happens.
@@ -1822,6 +1843,9 @@ const Billing = () => {
       const printBranch = settled?.BranchDetailId
         || sessionRounds[0]?.order?.BranchDetailId
         || cartItems.find((c) => c.meta?.BranchDetailId)?.meta.BranchDetailId
+        // The table's. With none, null — and the till prints under the
+        // tenancy's only branch, if it has just one.
+        || activeBranchId
         || null
       const settledItemCount = sessionRounds.reduce(
         (n, r) => n + (r.items || []).length, 0,

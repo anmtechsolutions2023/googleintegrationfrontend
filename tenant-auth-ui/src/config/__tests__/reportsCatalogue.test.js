@@ -9,7 +9,7 @@ import { SCOPES } from '../../constants'
 
 describe('the catalogue is complete', () => {
   test('covers every report the app has', () => {
-    expect(ALL_REPORTS).toHaveLength(24)
+    expect(ALL_REPORTS).toHaveLength(25)
   })
 
   test('every report says what question it answers', () => {
@@ -79,7 +79,7 @@ describe('scopes are the data\'s own', () => {
   test('an accountant sees the ledger reports and not the POS-only ones', () => {
     const groups = visibleGroups([SCOPES.TRANSACTIONS_READ])
     const keys = groups.flatMap((g) => g.reports.map((r) => r.key))
-    expect(keys).toEqual(expect.arrayContaining(['sales', 'tenders', 'ledger']))
+    expect(keys).toEqual(expect.arrayContaining(['sales', 'tenders', 'ledger', 'write-offs']))
     expect(keys).not.toContain('today')
     expect(keys).not.toContain('assets')
   })

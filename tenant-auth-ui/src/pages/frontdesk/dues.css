@@ -17,6 +17,35 @@
 .fd-dues-kpi b.is-due { color: #856404; }
 .fd-dues-kpi em { font-style: normal; font-size: 12px; color: #7f8c8d; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* With the write-off card, four across. */
+.fd-dues-kpis.has-writeoffs { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.fd-dues-kpi b.is-written { color: #b42318; }
+.fd-dues-kpi.is-writeoff {
+  border: 1.5px solid #e9b8b2; text-align: left; font: inherit; color: inherit; cursor: pointer;
+}
+.fd-dues-kpi.is-writeoff:hover { box-shadow: 0 2px 10px rgba(15, 52, 96, 0.12); }
+.fd-dues-kpi.is-writeoff:focus-visible { outline: 2px solid #0f3460; outline-offset: 2px; }
+.fd-dues-kpi.is-writeoff strong { font-size: 12.5px; font-weight: 700; color: #0f3460; }
+
+/* Owed now / Written off. Shown to the books and admins only. */
+.fd-dues-views {
+  display: inline-flex; gap: 4px; padding: 4px; border-radius: 10px; background: #e3e8ee; margin-bottom: 14px;
+  max-width: 100%; box-sizing: border-box;
+}
+.fd-dues-view {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 16px;
+  border: 0; border-radius: 8px; background: transparent; font: inherit; font-size: 14px; font-weight: 700;
+  color: #5a6c7d; cursor: pointer; white-space: nowrap;
+}
+.fd-dues-view.is-on { background: #fff; color: #2c3e50; box-shadow: 0 1px 3px rgba(11, 18, 32, 0.16); }
+.fd-dues-view:focus-visible { outline: 2px solid #0f3460; outline-offset: 2px; }
+.fd-dues-view em {
+  font-style: normal; font-size: 12px; font-weight: 800; padding: 1px 8px; border-radius: 999px;
+  background: #dde3ea; color: #5a6c7d;
+}
+.fd-dues-view em.is-due { background: #fff3cd; color: #856404; }
+.fd-dues-view em.is-written { background: #fdecea; color: #b42318; }
+
 .fd-dues-filters { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
 .fd-dues-chips { display: flex; gap: 6px; flex-wrap: wrap; }
 .fd-dues-chip {
@@ -54,8 +83,14 @@
 .fd-dues-card-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 .fd-dues-card .fd-btn-sm { padding: 9px 16px; font-size: 14px; font-weight: 700; }
 
+@media (max-width: 1023px) {
+  .fd-dues-kpis.has-writeoffs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 @media (max-width: 720px) {
-  .fd-dues-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fd-dues-kpis, .fd-dues-kpis.has-writeoffs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fd-dues-views { display: flex; width: 100%; }
+  .fd-dues-view { flex: 1; justify-content: center; padding: 0 10px; }
   .fd-dues-kpi:first-child { grid-column: 1 / -1; }
   .fd-dues-search { max-width: none; width: 100%; margin-left: 0; }
   .fd-dues-chips { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; }

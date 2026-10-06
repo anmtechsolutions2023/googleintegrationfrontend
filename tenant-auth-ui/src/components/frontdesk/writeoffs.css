@@ -1,0 +1,160 @@
+/* ── Write-offs ──────────────────────────────────────────────────────────────
+   Dues › Written off (the register) and the detail of one write-off. Built on
+   the Dues look (dues.css): the same summary cards, chips, table and phone
+   cards, so the two views of one page read as one page. A drawer on a desk, a
+   bottom sheet on a phone. */
+
+.fd-wo { display: flex; flex-direction: column; gap: 14px; }
+
+.fd-wo-period { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.fd-wo-window { font-size: 13px; font-weight: 600; color: #5a6c7d; }
+.fd-wo-dates { display: inline-flex; gap: 8px; flex-wrap: wrap; }
+.fd-wo-dates label { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: #5a6c7d; font-weight: 600; }
+.fd-wo-dates input { height: 34px; border: 1px solid #d0d4da; border-radius: 8px; padding: 0 8px; font: inherit; }
+
+.fd-wo-filters { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.fd-wo-filters select {
+  height: 36px; border: 1px solid #d0d4da; border-radius: 8px; padding: 0 10px;
+  background: #fff; font: inherit; font-size: 13.5px; color: #2c3e50;
+}
+.fd-wo-search { max-width: 300px; margin: 0; }
+.fd-wo-export { margin-left: auto; }
+
+/* Compound, so it outranks .fd-dues-kpis whichever stylesheet loads last. */
+.fd-dues-kpis.fd-wo-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 0; }
+.fd-wo-basis { margin: -4px 0 0; font-size: 12.5px; color: #5a6c7d; }
+
+/* By reason / by who: rows that are also filters. */
+.fd-wo-splits { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.fd-wo-panel {
+  background: #fff; border: 1px solid #e1e5eb; border-radius: 10px; padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 2px; min-width: 0;
+}
+.fd-wo-panel h2 {
+  margin: 0 0 6px; display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+  font-size: 12px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #5a6c7d;
+}
+.fd-wo-panel h2 em { font-style: normal; font-weight: 600; letter-spacing: 0; text-transform: none; }
+.fd-wo-bar {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(60px, 140px) 40px 96px; align-items: center; gap: 12px;
+  width: 100%; min-height: 40px; padding: 4px 6px; border: 1px solid transparent; border-radius: 8px;
+  background: transparent; font: inherit; color: inherit; text-align: left; cursor: pointer;
+}
+.fd-wo-bar:hover { background: #f5f7fa; }
+.fd-wo-bar.is-on { background: #eaf2fb; border-color: #0f3460; }
+.fd-wo-bar:focus-visible { outline: 2px solid #0f3460; outline-offset: 1px; }
+.fd-wo-bar-name { font-size: 13.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fd-wo-bar-name em { font-style: normal; font-weight: 500; color: #5a6c7d; }
+.fd-wo-bar-track { display: block; height: 8px; border-radius: 4px; background: #eef1f5; overflow: hidden; }
+.fd-wo-bar-track span { display: block; height: 100%; border-radius: 4px; background: #2c3e50; }
+.fd-wo-bar-pct { font-size: 12.5px; font-weight: 700; color: #5a6c7d; text-align: right; }
+.fd-wo-bar b { font-size: 13.5px; text-align: right; font-variant-numeric: tabular-nums; }
+
+.fd-wo-narrowed {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  font-size: 12.5px; color: #5a6c7d; background: #f3f5f9; border-radius: 8px; padding: 8px 12px;
+}
+
+.fd-wo-table td { vertical-align: middle; }
+.fd-wo-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; white-space: nowrap; }
+.fd-wo-open {
+  background: none; border: 0; padding: 0; font: inherit; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 700; font-size: 12.5px; color: #0f3460; text-decoration: underline; text-underline-offset: 3px; cursor: pointer;
+}
+.fd-wo-open:focus-visible { outline: 2px solid #0f3460; outline-offset: 2px; }
+.fd-wo-amount { color: #b42318; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fd-wo-note { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+.fd-wo-earlier {
+  display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 6px;
+  background: #fff3cd; color: #856404; font-size: 11px; font-weight: 700; white-space: nowrap;
+}
+
+/* Phone cards: the card is the button. */
+.fd-wo-card { width: 100%; box-sizing: border-box; text-align: left; font: inherit; color: inherit; cursor: pointer; }
+.fd-wo-card:focus-visible { outline: 2px solid #0f3460; outline-offset: 2px; }
+.fd-wo-card-line { font-size: 13.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fd-wo-card .fd-wo-amount { font-size: 16px; }
+
+/* ── One write-off ─────────────────────────────────────────────────────── */
+.fd-wo-backdrop {
+  position: fixed; inset: 0; z-index: 500; background: rgba(0, 0, 0, 0.45);
+  display: flex; justify-content: flex-end;
+}
+.fd-wo-drawer {
+  width: min(520px, 100%); height: 100%; background: #fff; display: flex; flex-direction: column;
+  box-shadow: -12px 0 32px rgba(11, 18, 32, 0.25);
+}
+.fd-wo-drawer-head {
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
+  padding: 18px 20px; border-bottom: 1px solid #e1e5eb;
+}
+.fd-wo-drawer-head > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.fd-wo-eyebrow { font-size: 11.5px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #5a6c7d; }
+.fd-wo-drawer h2 { margin: 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 21px; color: #2c3e50; }
+.fd-wo-no { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.fd-wo-settled {
+  display: inline-block; padding: 2px 10px; border-radius: 999px; background: #e3f5ec; color: #0b7a55;
+  font-size: 11.5px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
+}
+.fd-wo-sub { font-size: 13px; color: #5a6c7d; }
+.fd-wo-x {
+  flex: 0 0 auto; width: 44px; height: 44px; border-radius: 8px; border: 1px solid #d0d4da; background: #fff;
+  font-size: 22px; line-height: 1; cursor: pointer; color: #2c3e50;
+}
+.fd-wo-drawer-body { flex: 1; min-height: 0; overflow-y: auto; padding: 18px 20px; display: flex; flex-direction: column; gap: 18px; }
+.fd-wo-headline { display: flex; flex-direction: column; gap: 4px; }
+.fd-wo-headline b { font-size: 28px; font-weight: 800; color: #b42318; font-variant-numeric: tabular-nums; }
+.fd-wo-headline span { font-size: 15px; font-weight: 700; color: #2c3e50; }
+
+.fd-wo-split { display: flex; flex-direction: column; gap: 6px; }
+.fd-wo-split-bar { display: flex; height: 14px; border-radius: 7px; overflow: hidden; background: #eef1f5; }
+.fd-wo-split-bar span { display: block; height: 100%; }
+/* Told apart by lightness as well as hue: a dark blue, a light amber. */
+.fd-wo-split .is-paid { background: #2347f5; }
+.fd-wo-split .is-returned { background: #94a3b8; }
+.fd-wo-split .is-written { background: #ffb020; }
+.fd-wo-split-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; font-weight: 700; color: #2c3e50; }
+.fd-wo-split-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.fd-wo-split-legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+
+.fd-wo-facts { margin: 0; display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 9px 14px; font-size: 13.5px; }
+.fd-wo-facts dt { color: #5a6c7d; font-weight: 600; }
+.fd-wo-facts dd { margin: 0; font-weight: 600; color: #2c3e50; overflow-wrap: anywhere; }
+
+.fd-wo-story h3 { margin: 0 0 10px; font-size: 12px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #5a6c7d; }
+.fd-wo-story ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.fd-wo-story li {
+  display: grid; grid-template-columns: 128px minmax(0, 1fr); gap: 10px; font-size: 13.5px; line-height: 1.45;
+  padding-left: 14px; position: relative;
+}
+.fd-wo-story li::before {
+  content: ''; position: absolute; left: 0; top: 6px; width: 8px; height: 8px; border-radius: 50%; background: #2347f5;
+}
+.fd-wo-story li.is-writeoff::before { background: #ffb020; }
+.fd-wo-story li.muted { display: block; }
+.fd-wo-story li.muted::before { background: #cbd5e1; }
+.fd-wo-when { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: #5a6c7d; padding-top: 1px; }
+
+.fd-wo-final { margin: 0; font-size: 12.5px; line-height: 1.5; color: #5a6c7d; background: #f3f5f9; border-radius: 8px; padding: 10px 12px; }
+.fd-wo-drawer-foot { display: flex; gap: 10px; flex-wrap: wrap; padding: 14px 20px; border-top: 1px solid #e1e5eb; }
+.fd-wo-drawer-foot .fd-btn { min-height: 44px; display: inline-flex; align-items: center; text-decoration: none; }
+
+@media (max-width: 1023px) {
+  .fd-dues-kpis.fd-wo-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fd-wo-splits { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 720px) {
+  .fd-wo-filters select { flex: 1 1 140px; }
+  .fd-wo-search { max-width: none; flex: 1 1 100%; }
+  .fd-wo-export { margin-left: 0; }
+  .fd-wo-period .fd-dues-chips { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; }
+  .fd-wo-bar { grid-template-columns: minmax(0, 1fr) 36px 84px; }
+  .fd-wo-bar-track { display: none; }
+
+  /* The detail rises from the bottom, under the thumb. */
+  .fd-wo-backdrop { align-items: flex-end; }
+  .fd-wo-drawer { width: 100%; height: auto; max-height: 92vh; border-radius: 18px 18px 0 0; }
+  .fd-wo-story li { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .fd-wo-drawer-foot .fd-btn { flex: 1 1 100%; justify-content: center; }
+}

@@ -37,7 +37,8 @@ export const PERMISSION_GROUPS = [
     { key: 'PAYMENTS', name: 'Payment records & modes' },
   ] },
   { rail: 'Money', subjects: [
-    { key: 'TRANSACTIONS', name: 'Ledger, returns & numbering' },
+    { key: 'TRANSACTIONS', name: 'Ledger, returns & numbering',
+      note: 'Also shows what was written off, and by whom, in Dues and Finance.' },
     { key: 'REFUND', name: 'Refunds & returns' },
     { key: 'EXPENSE', name: 'Expense approval' },
     { key: 'ASSET', name: 'Asset register' },

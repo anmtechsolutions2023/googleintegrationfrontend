@@ -6,6 +6,7 @@ import narrowOptions from '../../utils/optionsReport'
 import TimeframePicker from '../../components/frontdesk/TimeframePicker'
 import GstFilingTab from './GstFilingTab'
 import { APP_CONFIG } from '../../constants'
+import { fullStamp, billDate, writeOffsCsv, downloadCsv } from '../../utils/writeOffs'
 import './finance.css'
 
 const { MAX_LIMIT } = APP_CONFIG.PAGINATION
@@ -53,6 +54,8 @@ const TABS = [
   { key: 'expenses', label: 'Expenses',  icon: '💸', group: 'money' },
   // Money given away, so it sits with money.
   { key: 'discounts', label: 'Discounts', icon: '🏷️', group: 'money' },
+  // Balances given up on — the other money billed and not kept.
+  { key: 'writeoffs', label: 'Written off', icon: '📉', group: 'money' },
   // GST returns: the CA pack for a month, and sales with / without GST.
   { key: 'gst',       label: 'GST', icon: '🧾', group: 'money' },
   // The rest answer WHAT was sold. These answer WHO bought it, and where.
@@ -81,6 +84,7 @@ const LOADERS = {
   venue:     posService.getVenueReport,
   channels:  posService.getChannelReport,
   discounts: posService.getDiscountReport,
+  writeoffs: posService.getWriteOffs,
   cashflow: posService.getCashFlowReport,
   gst:      posService.getGstSplit,
   expenses: posService.getExpenseReport,
@@ -213,7 +217,7 @@ const Finance = ({ defaultTab = 'overview' } = {}) => {
         branches={branches}
         floors={floors}
         tables={tables}
-        showBucket={tab === 'overview' || tab === 'sales' || tab === 'expenses'}
+        showBucket={tab === 'overview' || tab === 'sales' || tab === 'expenses' || tab === 'writeoffs'}
       />
 
       <div className="fd-tabs" role="tablist" aria-label="Finance reports">
@@ -262,6 +266,7 @@ const Finance = ({ defaultTab = 'overview' } = {}) => {
           {tab === 'venue'    && <VenueTab data={data} />}
           {tab === 'channels' && <ChannelsTab data={data} />}
           {tab === 'discounts' && <DiscountsTab data={data} />}
+          {tab === 'writeoffs' && <WrittenOffTab data={data} range={range} />}
           {tab === 'cashflow' && <CashFlowTab data={data} />}
           {tab === 'expenses' && <ExpensesTab data={data} range={range} />}
           {tab === 'customers' && <CustomersTab data={data} />}
@@ -276,9 +281,57 @@ const Finance = ({ defaultTab = 'overview' } = {}) => {
 /* ── Overview ─────────────────────────────────────────────────────────────── */
 // Only answerable because expenses post to the same ledger as sales: money in
 // and money out are rows in one table, so "what's left" is a subtraction.
+const WRITE_OFFS_TAB = '/money/overview?tab=writeoffs'
+const bills = (n) => (Number(n) === 1 ? '1 bill' : `${Number(n) || 0} bills`)
+
+/**
+ * The written-off card's hint. Counted by the day it was written off, so part
+ * of it can sit on bills from before the window — said out loud, because that
+ * part is exactly what stops Invoiced − Collected − Outstanding from matching.
+ */
+const writeOffHint = (wo) => {
+  if (!Number(wo.Bills)) return 'Nothing given up on · Open →'
+  return Number(wo.OnEarlierBills) > 0
+    ? `${bills(wo.Bills)} · ${money(wo.OnThisPeriodBills)} on this period's bills, ${money(wo.OnEarlierBills)} on earlier ones · Open →`
+    : `${bills(wo.Bills)} · Balances not collected · Open →`
+}
+
+/**
+ * Discounts, write-offs and returns side by side: everything billed and not
+ * kept, each as a share of invoiced, each opening its own report.
+ */
+const GivenUp = ({ sales, wo }) => {
+  const invoiced = Number(sales.GrossAmount) || 0
+  const items = [
+    { key: 'discounts', label: 'Discounts', value: Number(sales.DiscountAmount) || 0, to: '/money/overview?tab=discounts', link: 'Open Discounts' },
+    { key: 'writeoffs', label: 'Written off', value: Number(wo?.WrittenOff) || 0, to: WRITE_OFFS_TAB, link: 'Open Written off' },
+    { key: 'returns', label: 'Returns', value: Number(sales.ReturnedAmount) || 0, to: '/money/returns', link: 'Open Returns' },
+  ]
+  const most = Math.max(...items.map((i) => i.value), 0)
+  return (
+    <>
+      <div className="fd-section-title">Given up this period</div>
+      <div className="fd-givenup">
+        {items.map((i) => (
+          <Link key={i.key} to={i.to} className={`fd-givenup-tile is-${i.key}`}>
+            <span className="fd-givenup-label">{i.label}</span>
+            <span className="fd-givenup-value">{money(i.value)}</span>
+            <Bar value={most > 0 ? (i.value / most) * 100 : 0} />
+            <span className="fd-givenup-foot">
+              <span>{invoiced > 0 ? `${((i.value / invoiced) * 100).toFixed(1)}%` : '0.0%'} of invoiced</span>
+              <span className="fd-givenup-link">{i.link} →</span>
+            </span>
+          </Link>
+        ))}
+      </div>
+    </>
+  )
+}
+
 const OverviewTab = ({ data, range }) => {
   const s = data.sales || {}
   const net = Number(data.netPosition) || 0
+  const wo = data.writeOffs
   return (
     <>
       <div className="fd-kpi-grid">
@@ -288,6 +341,13 @@ const OverviewTab = ({ data, range }) => {
              hint="What was actually taken" />
         <Kpi label="Outstanding" value={money(s.Outstanding)} accent="accent-orange"
              hint="Invoiced but unpaid · Open Dues →" to="/money/dues" />
+        {/* Beside the three it explains: invoiced money is collected, still
+            owed, or given up on. Shown at ₹0 too, so its absence is never a
+            question. */}
+        {wo && (
+          <Kpi label="Written off" value={money(wo.WrittenOff)} accent="accent-red"
+               hint={writeOffHint(wo)} to={WRITE_OFFS_TAB} />
+        )}
         <Kpi label="Spent" value={money(data.expenses?.total)} accent="accent-red"
              hint="Settled expenses" />
         <Kpi label="Net position" value={money(net)} accent={net < 0 ? 'accent-red' : 'accent-green'}
@@ -295,6 +355,41 @@ const OverviewTab = ({ data, range }) => {
         <Kpi label="Cash movement" value={money(data.cash?.NetMovement)}
              hint={`In ${money(data.cash?.Inflow)} · Out ${money(data.cash?.Outflow)}`} />
       </div>
+
+      <GivenUp sales={s} wo={wo} />
+
+      {Number(wo?.Bills) > 0 && (
+        <div className="fd-wo-overview">
+          <section aria-label="Written off by reason">
+            <div className="fd-mix-head"><span>Written off · by reason</span><span>{money(wo.WrittenOff)} on {bills(wo.Bills)}</span></div>
+            <div className="fd-mix">
+              {(wo.byReason || []).map((r) => (
+                <div className="fd-mix-row" key={r.Code}>
+                  <span className="fd-mix-name">{r.Label}</span>
+                  <Bar value={r.Share} />
+                  <span className="num">{bills(r.Bills)}</span>
+                  <span className="num strong">{money(r.Amount)}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+          <section aria-label="Latest write-offs">
+            <div className="fd-mix-head">
+              <span>Latest write-offs</span>
+              <Link to={WRITE_OFFS_TAB}>See all {wo.Bills} →</Link>
+            </div>
+            <ul className="fd-wo-latest">
+              {(wo.latest || []).map((d) => (
+                <li key={d.Id}>
+                  <span className="fd-wo-latest-no">{d.TransactionNo}</span>
+                  <span className="fd-mix-name">{d.ReasonLabel}{d.WrittenOffByName ? ` · ${d.WrittenOffByName}` : ''}</span>
+                  <span className="num strong">{money(d.WrittenOff)}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        </div>
+      )}
 
       <div className="fd-section-title">Where the money is</div>
       {!data.accounts?.length ? <Empty>No account movement in this period.</Empty> : (
@@ -369,10 +464,12 @@ const SalesTab = ({ data, range }) => {
              accent={Number(s.Outstanding) > 0 ? 'accent-red' : ''}
              hint={Number(s.Outstanding) > 0 ? 'Open Dues →' : null}
              to={Number(s.Outstanding) > 0 ? '/money/dues' : undefined} />
-        {/* Balances given up on. Their own figure, never hidden in discount. */}
+        {/* Balances given up on. Their own figure, never hidden in discount.
+            By BILL date here, like every figure beside it — the Written off
+            tab counts by the day each was written off. */}
         {Number(s.WrittenOff) > 0 && (
           <Kpi label="Written off" value={money(s.WrittenOff)} accent="accent-red"
-               hint="Balances not collected" />
+               hint="On this period's bills · Open Written off →" to={WRITE_OFFS_TAB} />
         )}
         <Kpi label="Round off" value={money(s.RoundOff)} hint="Cash cannot pay paise" />
       </div>
@@ -1106,6 +1203,170 @@ const DiscountsTab = ({ data }) => {
             </tbody>
           </table>
         </div>
+      )}
+    </>
+  )
+}
+
+/* ── Written off ──────────────────────────────────────────────────────────── */
+// Balances given up on, counted by the day each was WRITTEN OFF — not the
+// bill's date, which is how the Sales tab counts its own Written off card. The
+// part on bills from before the window is its own figure, so an earlier
+// period's books can be checked again. The same read as Dues › Written off, laid
+// out for reading rather than working.
+const WrittenOffTab = ({ data, range }) => {
+  const s = data.summary || {}
+  const docs = data.documents || []
+  const trend = data.byDay || []
+  const most = Math.max(...trend.map((t) => Number(t.Amount) || 0), 0)
+
+  return (
+    <>
+      <div className="fd-kpi-grid">
+        <Kpi label="Written off" value={money(s.WrittenOff)} accent="accent-red" hint="Balances given up on" />
+        <Kpi label="Bills" value={s.Bills || 0} hint={`Average ${money(s.Average)}`} />
+        <Kpi label="Share of invoiced" value={`${(Number(s.ShareOfInvoiced) || 0).toFixed(1)}%`}
+             hint={`of ${money(s.Invoiced)} invoiced`} />
+        <Kpi label="Largest" value={money(s.Largest)}
+             hint={[s.LargestNo, s.LargestReason].filter(Boolean).join(' · ') || null} />
+        <Kpi label="On earlier bills" value={money(s.OnEarlierBills)}
+             accent={Number(s.OnEarlierBills) > 0 ? 'accent-orange' : ''}
+             hint={Number(s.EarlierBills) > 0 ? `${bills(s.EarlierBills)} from before this period` : 'None'} />
+      </div>
+      <p className="fd-footnote">
+        Counted by the day each balance was written off. A write-off is neither a payment nor a
+        discount: sales keep the billed total, and the balance is reported here on its own.
+      </p>
+
+      {!Number(s.Bills) ? <Empty>Nothing was written off in this period.</Empty> : (
+        <>
+          <div className="fd-section-title">By reason</div>
+          <div className="fd-table-scroll">
+            <table className="fd-table">
+              <thead>
+                <tr><th>Reason</th><th className="num">Bills</th><th>Share</th><th className="num">Written off</th></tr>
+              </thead>
+              <tbody>
+                {(data.byReason || []).map((r) => (
+                  <tr key={r.Code}>
+                    <td className="strong">{r.Label}</td>
+                    <td className="num">{r.Bills}</td>
+                    <td><span className="fd-rate"><Bar value={r.Share} /><b>{(Number(r.Share) || 0).toFixed(1)}%</b></span></td>
+                    <td className="num strong">{money(r.Amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="fd-section-title">Written off by</div>
+          <div className="fd-table-scroll">
+            <table className="fd-table">
+              <thead>
+                <tr><th>Who</th><th className="num">Bills</th><th>Share</th><th className="num">Written off</th></tr>
+              </thead>
+              <tbody>
+                {(data.byUser || []).map((u) => (
+                  <tr key={u.Key}>
+                    <td className="strong">{u.Name}</td>
+                    <td className="num">{u.Bills}</td>
+                    <td><span className="fd-rate"><Bar value={u.Share} /><b>{(Number(u.Share) || 0).toFixed(1)}%</b></span></td>
+                    <td className="num strong">{money(u.Amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="fd-section-title">Trend</div>
+          <div className="fd-table-scroll">
+            <table className="fd-table">
+              <thead>
+                <tr><th>Period</th><th className="num">Bills</th><th>Written off</th><th className="num">Amount</th></tr>
+              </thead>
+              <tbody>
+                {trend.map((t) => (
+                  <tr key={t.Bucket}>
+                    <td>{bucketLabel(range.bucket, t.Bucket)}</td>
+                    <td className="num">{t.Bills}</td>
+                    <td><Bar value={most > 0 ? (Number(t.Amount) / most) * 100 : 0} /></td>
+                    <td className={`num ${Number(t.Amount) ? 'strong' : 'muted'}`}>{money(t.Amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {(data.repeats || []).length > 0 && (
+            <>
+              <div className="fd-section-title">Written off more than once</div>
+              <div className="fd-table-scroll">
+                <table className="fd-table">
+                  <thead>
+                    <tr><th>Customer</th><th>Mobile</th><th className="num">Times</th><th className="num">Total</th><th>Last</th></tr>
+                  </thead>
+                  <tbody>
+                    {data.repeats.map((r) => (
+                      <tr key={`${r.CustomerMobile || ''}|${r.CustomerName || ''}`}>
+                        <td className="strong">{r.CustomerName || <span className="muted">No name</span>}</td>
+                        <td>{r.CustomerMobile || <span className="muted">—</span>}</td>
+                        <td className="num">{r.Times}</td>
+                        <td className="num strong">{money(r.Amount)}</td>
+                        <td>{fullStamp(r.LastAt)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+
+          <div className="fd-section-head">
+            <div className="fd-section-title">Every write-off</div>
+            <span className="fd-section-actions">
+              <Link className="fd-btn fd-btn-outline" to="/money/dues?view=written-off">Open in Dues</Link>
+              <button
+                type="button" className="fd-btn fd-btn-outline"
+                onClick={() => downloadCsv(`write-offs-${data.range?.from}-to-${data.range?.to}.csv`, writeOffsCsv(docs))}
+              >
+                Export CSV
+              </button>
+            </span>
+          </div>
+          {data.truncated && (
+            <p className="fd-footnote">More write-offs than the list holds; the totals above still count every one.</p>
+          )}
+          <div className="fd-table-scroll">
+            <table className="fd-table fd-wo-every">
+              <thead>
+                <tr>
+                  <th>Written off</th><th>Invoice</th><th>Billed</th><th>Customer</th>
+                  <th>Reason</th><th>By</th><th className="num">Bill</th><th className="num">Written off</th>
+                </tr>
+              </thead>
+              <tbody>
+                {docs.map((d) => (
+                  <tr key={d.Id}>
+                    <td>{fullStamp(d.WrittenOffAt)}</td>
+                    <td><Link to={`/money/ledger?doc=${d.Id}`}>{d.TransactionNo}</Link></td>
+                    <td>
+                      {billDate(d.TransactionDate)}
+                      {d.OnEarlierBill && <span className="muted"> · earlier bill</span>}
+                    </td>
+                    <td>{d.CustomerName || <span className="muted">Walk-in</span>}</td>
+                    <td>
+                      {d.ReasonLabel}
+                      {d.Note && <div className="muted small">“{d.Note}”</div>}
+                    </td>
+                    <td>{d.WrittenOffByName}</td>
+                    <td className="num">{money(d.GrossAmount)}</td>
+                    <td className="num strong">{money(d.WrittenOff)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </>
   )

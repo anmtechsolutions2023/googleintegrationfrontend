@@ -28,6 +28,10 @@ const logger = { warn: (...a) => console.warn(...a) }
 
 const PAGE_STYLE_ID = 'rc-page-size'
 
+// The masthead when there is none. One frozen object, so callers that memoise
+// on `shop` do not see a new one on every render.
+const NO_SHOP = Object.freeze({})
+
 // Ten minutes. Long enough that a busy till is not re-fetching for nothing, short
 // enough that "I fixed the GSTIN" reaches the paper within one customer's visit.
 const FORMAT_TTL_MS = 10 * 60 * 1000
@@ -299,7 +303,11 @@ export const usePrintReceipt = (branchId) => {
   return {
     job,
     format: docFormat,
-    shop,
+    // Never null. With no format (no branch yet, or the fetch failed) there is
+    // no masthead, and the bill must still print — "print what exists". Handed
+    // on as null it reached <Receipt>, which read shop.paymentQrUrl and took
+    // the whole till down with it.
+    shop: shop || NO_SHOP,
     taxMode: format?.taxMode || null,
     print,
     ready,

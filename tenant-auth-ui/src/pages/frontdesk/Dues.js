@@ -1,13 +1,19 @@
 import React, { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import posService from '../../services/posService'
 import { SCOPES } from '../../constants'
 import { useCan } from '../../hooks/useCan'
 import CollectFlow from '../../components/frontdesk/CollectFlow'
 import DebtorDialog from '../../components/frontdesk/DebtorDialog'
+import WriteOffRegister from '../../components/frontdesk/WriteOffRegister'
+import { thisMonthRange } from '../../utils/writeOffs'
 import './ledger.css'
 import './dues.css'
+
+// The view lives in the address, so Finance and the write-off toast can link
+// straight to the register.
+const WRITTEN_OFF_VIEW = 'written-off'
 
 const money = (n) => (Number(n) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const dateOnly = (d) => {
@@ -35,10 +41,28 @@ const BUCKETS = [
  * through: who owes what, since when, how to reach them, and a Collect button
  * on every row. The summary covers EVERY due whatever the filter, so the total
  * does not change because the list was narrowed to today.
+ *
+ * A written-off bill is settled and leaves this list at once, so the page has
+ * a second view — Written off — that keeps the record: how much this month, why
+ * and by whom, and every bill. It is for the books and for admins; a cashier
+ * who can only collect sees the list exactly as before.
  */
 const Dues = () => {
   // Taking the money is the cashier's job; giving it up is an admin's.
   const canCollect = useCan([SCOPES.POS_BILLING_WRITE, SCOPES.TRANSACTIONS_WRITE])
+  // What was given up, and who gave it up, is read from the books.
+  const canSeeWriteOffs = useCan([SCOPES.TRANSACTIONS_READ, SCOPES.TRANSACTIONS_WRITE])
+  const [params, setParams] = useSearchParams()
+  const view = canSeeWriteOffs && params.get('view') === WRITTEN_OFF_VIEW ? 'written-off' : 'owed'
+  const setView = (next) => setParams((prev) => {
+    const p = new URLSearchParams(prev)
+    if (next === 'written-off') p.set('view', WRITTEN_OFF_VIEW)
+    else p.delete('view')
+    return p
+  }, { replace: true })
+  // This month's write-offs, for the card and the switch. Null until known.
+  const [month, setMonth] = useState(null)
+  const [registerKey, setRegisterKey] = useState(0)
   const [data, setData] = useState({ summary: { outstanding: 0, count: 0, oldestDays: 0, buckets: {} }, documents: [] })
   const [loading, setLoading] = useState(true)
   const [age, setAge] = useState('')
@@ -65,6 +89,32 @@ const Dues = () => {
     const t = setTimeout(load, search ? 250 : 0)
     return () => clearTimeout(t)
   }, [load, search])
+
+  // Decoration, not the page: if it cannot be read, the card and the count
+  // simply stay away and the dues list carries on.
+  const loadMonth = useCallback(async () => {
+    if (!canSeeWriteOffs) return
+    try {
+      const r = await posService.getWriteOffs(thisMonthRange())
+      setMonth(r?.summary || null)
+    } catch {
+      setMonth(null)
+    }
+  }, [canSeeWriteOffs])
+
+  useEffect(() => { loadMonth() }, [loadMonth])
+
+  // After a collection or a write-off: the list, the month, and the register.
+  const changed = () => {
+    load()
+    loadMonth()
+    setRegisterKey((k) => k + 1)
+  }
+  const refresh = () => {
+    if (view === 'written-off') setRegisterKey((k) => k + 1)
+    else load()
+    loadMonth()
+  }
 
   const { summary, documents } = data
   const open = (d, how = 'collect') => {
@@ -101,19 +151,49 @@ const Dues = () => {
     </span>
   )
 
+  const monthName = new Date().toLocaleString('en-IN', { month: 'long' })
+
   return (
     <div className="fd-dues">
       <div className="fd-dues-head">
         <div>
           <h1>Dues</h1>
           <p className="fd-dues-lead">
-            Bills paid short, oldest first. Each stays here until the rest is collected or written off.
+            {view === 'written-off'
+              ? 'Balances given up on: how much, why, by whom, and on which bills. A write-off cannot be undone.'
+              : 'Bills paid short, oldest first. Each stays here until the rest is collected or written off.'}
           </p>
         </div>
-        <button type="button" className="fd-btn fd-btn-outline" onClick={load} disabled={loading}>Refresh</button>
+        <button
+          type="button" className="fd-btn fd-btn-outline"
+          onClick={refresh} disabled={view === 'owed' && loading}
+        >
+          Refresh
+        </button>
       </div>
 
-      <div className="fd-dues-kpis">
+      {canSeeWriteOffs && (
+        <div className="fd-dues-views" role="group" aria-label="Dues views">
+          <button
+            type="button" className={`fd-dues-view ${view === 'owed' ? 'is-on' : ''}`}
+            aria-pressed={view === 'owed'} onClick={() => setView('owed')}
+          >
+            Owed now <em className="is-due">{summary.count}</em>
+          </button>
+          <button
+            type="button" className={`fd-dues-view ${view === 'written-off' ? 'is-on' : ''}`}
+            aria-pressed={view === 'written-off'} onClick={() => setView('written-off')}
+          >
+            Written off {month && <em className="is-written">{month.Bills} this month</em>}
+          </button>
+        </div>
+      )}
+
+      {view === 'written-off' ? (
+        <WriteOffRegister refreshKey={registerKey} />
+      ) : (
+      <>
+      <div className={`fd-dues-kpis ${canSeeWriteOffs && month ? 'has-writeoffs' : ''}`}>
         <div className="fd-dues-kpi">
           <span>Outstanding</span>
           <b className="is-due">₹{money(summary.outstanding)}</b>
@@ -130,6 +210,16 @@ const Dues = () => {
           <b>{summary.count ? ageLabel(summary.oldestDays) : '—'}</b>
           {summary.oldestNo && <em>{[summary.oldestNo, summary.oldestName].filter(Boolean).join(' · ')}</em>}
         </div>
+        {/* What left this list by being given up on, this month. Like the
+            cards beside it, it ignores the age chips and the search. */}
+        {canSeeWriteOffs && month && (
+          <button type="button" className="fd-dues-kpi is-writeoff" onClick={() => setView('written-off')}>
+            <span>Written off · {monthName}</span>
+            <b className="is-written">₹{money(month.WrittenOff)}</b>
+            <em>{month.Bills === 1 ? '1 invoice' : `${month.Bills} invoices`} this month</em>
+            <strong>See every write-off →</strong>
+          </button>
+        )}
       </div>
 
       <div className="fd-dues-filters">
@@ -218,8 +308,10 @@ const Dues = () => {
           </ul>
         </>
       )}
+      </>
+      )}
 
-      <CollectFlow doc={target} start={start} onClose={() => setTarget(null)} onChanged={load} />
+      <CollectFlow doc={target} start={start} onClose={() => setTarget(null)} onChanged={changed} />
       <DebtorDialog
         doc={naming}
         onClose={() => setNaming(null)}

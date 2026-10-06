@@ -467,3 +467,20 @@ describe('the logo at the top of the bill', () => {
     expect(html.indexOf('rc-logo')).toBeLessThan(html.indexOf('rc-shop'))
   })
 })
+
+// A till with no receipt format yet (no branch named, or the fetch failed) has
+// no masthead. The bill must still print — it used to crash the whole till on
+// shop.paymentQrUrl the moment "Print bill" was pressed.
+describe('no masthead at all', () => {
+  ['bill', 'creditNote', 'tokenSlip'].forEach((doc) => {
+    test(`a ${doc} prints with shop={null}`, () => {
+      expect(() => render(<Receipt doc={doc} format={null} shop={null} data={SALE({ tokenLabel: '12' })} inline />)).not.toThrow();
+      expect(screen.getByTestId(`receipt-${doc}`)).toBeInTheDocument();
+    });
+  });
+
+  test('an issued bill still prints the GSTIN it was issued under', () => {
+    render(<Receipt doc="bill" format={FORMAT()} shop={null} data={SALE({ SellerGstin: '29AABCS1429B1ZQ' })} inline />);
+    expect(screen.getByText(/29AABCS1429B1ZQ/)).toBeInTheDocument();
+  });
+});

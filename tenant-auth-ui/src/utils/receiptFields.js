@@ -93,7 +93,8 @@ export const dt = (value, mode) => {
 export const printedShop = (shop = {}, data = {}) => (
   data && Object.prototype.hasOwnProperty.call(data, 'SellerGstin')
     ? { ...shop, gstin: data.SellerGstin || '' }
-    : shop
+    // Never null: every body reads fields straight off it.
+    : (shop || {})
 )
 
 const receiptFields = {

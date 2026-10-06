@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import posService from '../../services/posService'
+import { thisMonthRange } from '../../utils/writeOffs'
 import './collect.css'
 
 const money = (n) => (Number(n) || 0).toFixed(2)
+const REGISTER = '/money/dues?view=written-off'
 
 // Mirrors LEDGER.WRITE_OFF_REASONS on the server, which validates the code.
 // [code, label, noteRequired]
@@ -22,7 +25,9 @@ export const WRITE_OFF_REASONS = [
  * a payment collected a moment ago by someone else cannot be written off too.
  *
  * The copy says plainly what happens to the books, because this is the one
- * action on these screens that cannot be undone.
+ * action on these screens that cannot be undone. It also says what has already
+ * been written off this month, so the running total is in front of whoever is
+ * about to add to it.
  *
  * @param {Object} props
  * @param {Object} props.doc - { Id, TransactionNo, GrossAmount, Paid, Due, CustomerName }
@@ -34,12 +39,27 @@ const WriteOffDialog = ({ doc, onClose, onDone }) => {
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
+  // { WrittenOff, Bills } this month, or null — the line simply stays away
+  // when it cannot be read.
+  const [soFar, setSoFar] = useState(null)
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape' && !busy) onClose() }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [onClose, busy])
+
+  const docId = doc?.Id
+  useEffect(() => {
+    if (!docId) return undefined
+    let live = true
+    setSoFar(null)
+    Promise.resolve()
+      .then(() => posService.getWriteOffs(thisMonthRange()))
+      .then((r) => { if (live) setSoFar(r?.summary || null) })
+      .catch(() => { if (live) setSoFar(null) })
+    return () => { live = false }
+  }, [docId])
 
   if (!doc) return null
   const noteRequired = WRITE_OFF_REASONS.find(([c]) => c === reason)?.[2]
@@ -52,7 +72,12 @@ const WriteOffDialog = ({ doc, onClose, onDone }) => {
     setError(null)
     try {
       const result = await posService.writeOffLedgerBalance(doc.Id, { Reason: reason, Note: note.trim() || null })
-      toast.success(`₹${money(result.writtenOff)} written off. ${result.transactionNo || doc.TransactionNo} is closed.`)
+      toast.success(
+        <span>
+          ₹{money(result.writtenOff)} written off. {result.transactionNo || doc.TransactionNo} is closed.{' '}
+          <Link to={REGISTER}>See it in Written off</Link>
+        </span>,
+      )
       onDone?.(result)
     } catch (err) {
       setError(err?.response?.data?.message || 'The balance could not be written off. Try again.')
@@ -81,6 +106,15 @@ const WriteOffDialog = ({ doc, onClose, onDone }) => {
           </div>
           <button type="button" className="fd-collect-x" onClick={onClose} aria-label="Close" disabled={busy}>×</button>
         </div>
+
+        {soFar && (
+          <div className="fd-collect-sofar">
+            <span>
+              Written off this month so far: <b>₹{money(soFar.WrittenOff)} on {soFar.Bills === 1 ? '1 bill' : `${soFar.Bills} bills`}</b>.
+            </span>
+            {soFar.Bills > 0 && <Link to={REGISTER} onClick={onClose}>See them</Link>}
+          </div>
+        )}
 
         <p className="fd-collect-explain">
           This closes the invoice as Settled and records ₹{money(doc.Due)} as a write-off. Sales stay at
