@@ -9,7 +9,7 @@ import Billing from '../Billing';
 jest.mock('../../../services/posService', () => ({
   __esModule: true,
   default: {
-    getTables: jest.fn(), getFloors: jest.fn(), getItemMeta: jest.fn(),
+    getTables: jest.fn(), getFloors: jest.fn(), getItemMeta: jest.fn(), getAllItemMeta: jest.fn(),
     getOrders: jest.fn(), getItemDetail: jest.fn(), getVariants: jest.fn(),
     getAddonGroups: jest.fn(), getAddons: jest.fn(),
     getPaymentModes: jest.fn(), getBranchPaymentMethods: jest.fn(), getKots: jest.fn(),
@@ -55,7 +55,7 @@ beforeEach(() => {
   useAuth.mockReturnValue({ user: { tid: 't1', onboardingStatus: 'APPROVED', scopes: ['POS_ORDER:WRITE', 'POS_BILLING:WRITE'] } });
   posService.getTables.mockResolvedValue(TABLES);
   posService.getFloors.mockResolvedValue([{ Id: 'ground', Name: 'Ground' }, { Id: 'first', Name: 'First' }]);
-  posService.getItemMeta.mockResolvedValue([]);
+  posService.getAllItemMeta.mockResolvedValue([]);
   posService.getItemDetail.mockResolvedValue({});
   posService.getOrders.mockResolvedValue(ORDERS);
   posService.getVariants.mockResolvedValue([]);

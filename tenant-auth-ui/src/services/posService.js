@@ -62,6 +62,28 @@ export const getItemMeta = async (params = {}) => {
   const res = await api.get('/api/pos/item-meta', { params })
   return toArray(res.data)
 }
+
+/**
+ * The WHOLE menu, every page of it. The list endpoint caps a page at 100, and
+ * a till that stops at the first page silently drops the rest — a 467-dish
+ * menu showed 100 dishes, and search could not find the others. Pages are
+ * fetched one after another, not in parallel: the database pool is small and
+ * the till loads other lists at the same moment.
+ *
+ * @returns {Promise<Array>} Every menu entry, newest first, as the server orders them.
+ */
+export const getAllItemMeta = async () => {
+  const PAGE = 100
+  const all = []
+  for (let page = 1; page <= 200; page += 1) {
+    const res = await api.get('/api/pos/item-meta', { params: { page, limit: PAGE } })
+    const rows = toArray(res.data)
+    all.push(...rows)
+    const totalPages = Number(res.data?.pagination?.totalPages)
+    if (rows.length < PAGE || (Number.isFinite(totalPages) && page >= totalPages)) break
+  }
+  return all
+}
 export const createItemMeta = async (data) => {
   const res = await api.post('/api/pos/item-meta', data)
   return toObject(res.data)
@@ -1059,7 +1081,7 @@ export const previewOffers = async (lines, branchId, posCustomerId = null) => {
 const posService = {
   getFloors, createFloor, updateFloor, deleteFloor,
   getTables, createTable, updateTable, deleteTable, setTableOccupancy,
-  getItemMeta, createItemMeta, updateItemMeta, deleteItemMeta,
+  getItemMeta, getAllItemMeta, createItemMeta, updateItemMeta, deleteItemMeta,
   getCustomers, createCustomer, updateCustomer, deleteCustomer,
   searchCustomers, getCustomerProfile,
   getCustomerReport, getVisitPatternReport, getLapsedReport,

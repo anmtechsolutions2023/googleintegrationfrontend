@@ -314,7 +314,8 @@ const Billing = () => {
       const [t, f, m, orders, v, k, modes, ag, ao, w] = (await Promise.allSettled([
         posService.getTables({ limit: MAX_LIMIT }),
         posService.getFloors({ limit: MAX_LIMIT }),
-        posService.getItemMeta({ limit: MAX_LIMIT }),
+        // Every page: a menu can be far longer than one page of 100.
+        posService.getAllItemMeta(),
         posService.getOrders({ limit: MAX_LIMIT }),
         posService.getVariants(),
         posService.getKots({ limit: MAX_LIMIT }),

@@ -14,7 +14,7 @@ import { toast } from 'react-toastify';
 jest.mock('../../../services/posService', () => ({
   __esModule: true,
   default: {
-    getTables: jest.fn(), getFloors: jest.fn(), getItemMeta: jest.fn(),
+    getTables: jest.fn(), getFloors: jest.fn(), getItemMeta: jest.fn(), getAllItemMeta: jest.fn(),
     getOrders: jest.fn(), getItemDetail: jest.fn(), getVariants: jest.fn(),
     getAddonGroups: jest.fn(), getAddons: jest.fn(),
     getPaymentModes: jest.fn(), getBranchPaymentMethods: jest.fn(), getKots: jest.fn(), quotePricing: jest.fn(),
@@ -72,7 +72,7 @@ beforeEach(() => {
   posService.getTables.mockResolvedValue([]);
   posService.getFloors.mockResolvedValue([]);
   posService.getOrders.mockResolvedValue([]);
-  posService.getItemMeta.mockResolvedValue(MENU);
+  posService.getAllItemMeta.mockResolvedValue(MENU);
   posService.getVariants.mockResolvedValue([]);
   posService.getAddonGroups.mockResolvedValue([]);
   posService.getAddons.mockResolvedValue([]);

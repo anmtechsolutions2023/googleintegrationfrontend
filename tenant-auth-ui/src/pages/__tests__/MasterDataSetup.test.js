@@ -123,10 +123,10 @@ test('item step can be skipped via the toggle', () => {
   typeInto('First Name', 'Ravi');
   typeInto('Last Name', 'K');
   fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-  // On Item step — uncheck "Add a starter item"
+  // On the Menu step — uncheck "Add my menu"
   const toggle = screen.getByRole('checkbox');
   fireEvent.click(toggle);
-  expect(screen.getByText(/Item creation skipped/i)).toBeInTheDocument();
+  expect(screen.getByText(/Menu skipped/i)).toBeInTheDocument();
   // Advancing to Review works even though item fields are empty
   fireEvent.click(screen.getByRole('button', { name: 'Next' }));
   expect(screen.getByRole('heading', { name: /Review/i })).toBeInTheDocument();
@@ -206,35 +206,6 @@ test('submitting from Review calls the bootstrap API and shows the id map', asyn
   await waitFor(() => expect(screen.getByRole('heading', { name: /Tenancy setup complete/i })).toBeInTheDocument());
   expect(screen.getByText('ANM Tech')).toBeInTheDocument();
   expect(screen.queryByText('org-1')).not.toBeInTheDocument();
-});
-
-test('item step hides the Unit of Measure section and sends UnitName as hardcoded "Primary"', async () => {
-  masterSetupService.bootstrapMasterData.mockResolvedValue({
-    data: { data: { organization: 'org-1', branch: 'br-1', item: 'it-1' } },
-  });
-  renderWizard();
-  typeInto('Legal / group name', 'ANM Tech');
-  fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-  typeInto('Outlet name', 'Main');
-  typeInto('Address Line 1', '12 MG Road');
-  typeInto('First Name', 'Ravi');
-  typeInto('Last Name', 'K');
-  fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-
-  // On the Item step: keep the starter item, fill required fields.
-  // Unit of Measure is hidden (hardcoded to 'Primary').
-  expect(screen.queryByText('Unit of Measure', { selector: 'legend' })).not.toBeInTheDocument();
-  expect(screen.queryByLabelText(/Unit Name/i)).not.toBeInTheDocument();
-  typeInto('Item Name', 'Paneer Tikka');
-  typeInto('Category Name', 'Starter');
-  typeInto('Amount', '250');
-  fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-
-  fireEvent.click(screen.getByRole('button', { name: /Create everything/i }));
-  await waitFor(() => expect(masterSetupService.bootstrapMasterData).toHaveBeenCalledTimes(1));
-  const payload = masterSetupService.bootstrapMasterData.mock.calls[0][0];
-  expect(payload.item.uom).toEqual({ UnitName: 'Primary' });
-  expect(payload.item.category).toEqual({ Name: 'Starter' });
 });
 
 // ── First-time setup gate ────────────────────────────────────────────────────
@@ -337,180 +308,18 @@ const CSV = [
 ].join('\n');
 
 const pasteAndCheck = (text = CSV) => {
-  fireEvent.click(screen.getByRole('radio', { name: /Upload a list/i }));
   fireEvent.change(screen.getByLabelText('Paste rows'), { target: { value: text } });
   fireEvent.click(screen.getByRole('button', { name: /Check rows/i }));
 };
 
-describe('tax rates on the typed starter item', () => {
-  // A tax group is a CONTAINER — the rates live in the tax types mapped into
-  // it. Naming one "GST 18%" and stopping there created a group that charged
-  // nothing, on every bill, silently. The form must never produce that.
-  // Optional now: the group starts as the tenant's Exempt (0%), which carries no
-  // rates, and the standard split is one click away.
-  test('starts as Exempt (0%) with no rates', () => {
-    toItemStep();
-    expect(screen.getByLabelText('Tax Group Name')).toHaveValue('Exempt (0%)');
-    expect(screen.queryByLabelText('Rate 1 name')).not.toBeInTheDocument();
-    expect(screen.getByText(/No rates — this item is sold tax-free/)).toBeInTheDocument();
-    expect(screen.getByText('Total 0%')).toBeInTheDocument();
-  });
-
-  test('offers the standard split in one click', () => {
-    toItemStep();
-    fireEvent.click(screen.getByRole('button', { name: /Use CGST 2.5% \+ SGST 2.5%/i }));
-    expect(screen.getByLabelText('Rate 1 name')).toHaveValue('CGST');
-    expect(screen.getByLabelText('Rate 2 name')).toHaveValue('SGST');
-    expect(screen.getByText('Total 5%')).toBeInTheDocument();
-  });
-
-  test('left untouched, the item is sent under Exempt (0%) with no rates', async () => {
-    masterSetupService.bootstrapMasterData.mockResolvedValue({
-      data: { data: { organization: 'org-1', branch: 'br-1' } },
-    });
-    toItemStep();
-    typeInto('Item Name', 'Plain Water');
-    typeInto('Category Name', 'Drinks');
-    typeInto('Amount', '20');
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-    expect(screen.getByText('Exempt (0%) · sold tax-free')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /Create everything/i }));
-
-    await waitFor(() => expect(masterSetupService.bootstrapMasterData).toHaveBeenCalled());
-    const [payload] = masterSetupService.bootstrapMasterData.mock.calls[0];
-    expect(payload.item.costInfo.taxGroup).toEqual({ Name: 'Exempt (0%)' });
-  });
-
-  test('a blank tax group name is Exempt too', async () => {
-    masterSetupService.bootstrapMasterData.mockResolvedValue({
-      data: { data: { organization: 'org-1', branch: 'br-1' } },
-    });
-    toItemStep();
-    typeInto('Item Name', 'Plain Water');
-    typeInto('Category Name', 'Drinks');
-    typeInto('Amount', '20');
-    typeInto('Tax Group Name', '');
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-    fireEvent.click(screen.getByRole('button', { name: /Create everything/i }));
-    await waitFor(() => expect(masterSetupService.bootstrapMasterData).toHaveBeenCalled());
-    expect(masterSetupService.bootstrapMasterData.mock.calls[0][0].item.costInfo.taxGroup)
-      .toEqual({ Name: 'Exempt (0%)' });
-  });
-
-  test('a named group with no rates cannot move on', () => {
-    toItemStep();
-    typeInto('Item Name', 'Paneer Tikka');
-    typeInto('Category Name', 'Starters');
-    typeInto('Amount', '240');
-    typeInto('Tax Group Name', 'GST 18%');
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-    expect(screen.getByText(/Add the rates for “GST 18%”/)).toBeInTheDocument();
-    // Still on the item step: the review never opened.
-    expect(screen.queryByRole('button', { name: /Create everything/i })).not.toBeInTheDocument();
-  });
-
-  test('the Exempt group cannot carry rates', () => {
-    toItemStep();
-    typeInto('Item Name', 'Paneer Tikka');
-    typeInto('Category Name', 'Starters');
-    typeInto('Amount', '240');
-    fireEvent.click(screen.getByRole('button', { name: /Use CGST 2.5% \+ SGST 2.5%/i }));
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-    expect(screen.getByText(/Exempt \(0%\) carries no rates/)).toBeInTheDocument();
-  });
-
-  test('totals the rates as they are edited', () => {
-    toItemStep();
-    fireEvent.click(screen.getByRole('button', { name: /Use CGST 2.5% \+ SGST 2.5%/i }));
-    fireEvent.change(screen.getByLabelText('Rate 1 percent'), { target: { value: '9' } });
-    fireEvent.change(screen.getByLabelText('Rate 2 percent'), { target: { value: '9' } });
-    expect(screen.getByText('Total 18%')).toBeInTheDocument();
-  });
-
-  // Inter-state is one IGST row, not a split. The default never produces it,
-  // so removing a row has to be possible.
-  test('a rate can be removed and another added', () => {
-    toItemStep();
-    fireEvent.click(screen.getByRole('button', { name: /Use CGST 2.5% \+ SGST 2.5%/i }));
-    fireEvent.click(screen.getByRole('button', { name: /Remove rate 2/i }));
-    expect(screen.queryByLabelText('Rate 2 name')).not.toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText('Rate 1 name'), { target: { value: 'IGST' } });
-    fireEvent.change(screen.getByLabelText('Rate 1 percent'), { target: { value: '18' } });
-    expect(screen.getByText('Total 18%')).toBeInTheDocument();
-  });
-
-  // Removing every rate is allowed now — it is how a group goes back to 0% — and
-  // the step guard, not a disabled button, stops a NAMED group leaving with none.
-  test('every rate can be removed', () => {
-    toItemStep();
-    fireEvent.click(screen.getByRole('button', { name: /Use CGST 2.5% \+ SGST 2.5%/i }));
-    fireEvent.click(screen.getByRole('button', { name: /Remove rate 2/i }));
-    fireEvent.click(screen.getByRole('button', { name: /Remove rate 1/i }));
-    expect(screen.queryByLabelText('Rate 1 name')).not.toBeInTheDocument();
-  });
-
-  test('refuses to move on with a rate that has no percentage', () => {
-    toItemStep();
-    typeInto('Item Name', 'Paneer Tikka');
-    typeInto('Category Name', 'Starters');
-    typeInto('Amount', '240');
-    typeInto('Tax Group Name', 'GST 18%');
-    fireEvent.click(screen.getByRole('button', { name: /Use CGST 2.5% \+ SGST 2.5%/i }));
-    fireEvent.change(screen.getByLabelText('Rate 1 percent'), { target: { value: '' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-    expect(screen.getByText(/Every rate needs a name and a percentage/i)).toBeInTheDocument();
-  });
-
-  // THE assertion. Without taxTypes on the payload the group is created empty
-  // and the item bills nothing.
-  test('sends the rates with the tax group', async () => {
-    masterSetupService.bootstrapMasterData.mockResolvedValue({
-      data: { data: { organization: 'org-1', branch: 'br-1' } },
-    });
-    toItemStep();
-    typeInto('Item Name', 'Paneer Tikka');
-    typeInto('Category Name', 'Starters');
-    typeInto('Amount', '240');
-    typeInto('Tax Group Name', 'GST 18%');
-    fireEvent.click(screen.getByRole('button', { name: /Use CGST 2.5% \+ SGST 2.5%/i }));
-    fireEvent.change(screen.getByLabelText('Rate 1 percent'), { target: { value: '9' } });
-    fireEvent.change(screen.getByLabelText('Rate 2 percent'), { target: { value: '9' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-    fireEvent.click(screen.getByRole('button', { name: /Create everything/i }));
-
-    await waitFor(() => expect(masterSetupService.bootstrapMasterData).toHaveBeenCalled());
-    const [payload] = masterSetupService.bootstrapMasterData.mock.calls[0];
-    expect(payload.item.costInfo.taxGroup).toEqual({
-      Name: 'GST 18%',
-      taxTypes: [{ Name: 'CGST', Value: '9' }, { Name: 'SGST', Value: '9' }],
-    });
-  });
-
-  // The group is named, not id'd. The review must show the NAME the user typed
-  // and the rates it will actually charge — not one without the other.
-  test('the review shows the group name AND what it charges', () => {
-    toItemStep();
-    typeInto('Item Name', 'Paneer Tikka');
-    typeInto('Category Name', 'Starters');
-    typeInto('Amount', '240');
-    typeInto('Tax Group Name', 'GST 18%');
-    fireEvent.click(screen.getByRole('button', { name: /Use CGST 2.5% \+ SGST 2.5%/i }));
-    fireEvent.change(screen.getByLabelText('Rate 1 percent'), { target: { value: '9' } });
-    fireEvent.change(screen.getByLabelText('Rate 2 percent'), { target: { value: '9' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-
-    expect(screen.getByText('GST 18%')).toBeInTheDocument();
-    expect(screen.getByText('CGST 9% + SGST 9% = 18%')).toBeInTheDocument();
-  });
-});
-
 describe('step 3 — uploading a list', () => {
-  test('offers both ways in, with the typed item still the default', () => {
+  test('offers only the file — no typed item form', () => {
     toItemStep();
-    expect(screen.getByRole('radio', { name: /Type one item/i })).toHaveAttribute('aria-checked', 'true');
-    expect(screen.getByRole('radio', { name: /Upload a list/i })).toHaveAttribute('aria-checked', 'false');
-    // The existing single-item path is untouched and still on screen.
-    expect(screen.getByLabelText(/Item Name/i)).toBeInTheDocument();
+    expect(screen.queryByRole('radio', { name: /Type one item/i })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Item Name/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Tax Group Name/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: /Add my menu/i })).toBeChecked();
+    expect(screen.getByRole('button', { name: /Use our sample menu/i })).toBeInTheDocument();
   });
 
   test('checking a file reports what it will do, and asks for nothing typed', () => {
@@ -565,7 +374,6 @@ describe('step 3 — uploading a list', () => {
     };
     global.fetch = jest.fn((url) => Promise.resolve({ ok: true, text: () => Promise.resolve(files[url]) }));
     toItemStep();
-    fireEvent.click(screen.getByRole('radio', { name: /Upload a list/i }));
     fireEvent.click(screen.getByRole('button', { name: /Use our sample menu/i }));
     expect(await screen.findByText('2 dishes')).toBeInTheDocument();
     expect(screen.getByText('menu-sample.csv')).toBeInTheDocument();
@@ -576,7 +384,6 @@ describe('step 3 — uploading a list', () => {
 
   test('will not move on from an empty upload', () => {
     toItemStep();
-    fireEvent.click(screen.getByRole('radio', { name: /Upload a list/i }));
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
     expect(screen.getByLabelText('Paste rows')).toBeInTheDocument();
   });
@@ -594,15 +401,15 @@ describe('Enter moves the step on', () => {
   // Enter expecting to move on.
   test('on the item step with the box unchecked', () => {
     toItemStep();
-    fireEvent.click(screen.getByRole('checkbox', { name: /Add a starter item/i }));
-    fireEvent.keyDown(screen.getByText(/Item creation skipped/i), { key: 'Enter' });
+    fireEvent.click(screen.getByRole('checkbox', { name: /Add my menu/i }));
+    fireEvent.keyDown(screen.getByText(/Menu skipped/i), { key: 'Enter' });
     expect(screen.getByRole('heading', { name: /Review/i })).toBeInTheDocument();
   });
 
   // Deliberately NOT on Review: that button commits a transaction.
   test('but never commits the transaction from Review', () => {
     toItemStep();
-    fireEvent.click(screen.getByRole('checkbox', { name: /Add a starter item/i }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /Add my menu/i }));
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
     fireEvent.keyDown(screen.getByRole('heading', { name: /Review/i }), { key: 'Enter' });
     expect(masterSetupService.bootstrapMasterData).not.toHaveBeenCalled();
@@ -610,7 +417,6 @@ describe('Enter moves the step on', () => {
 
   test('and does not fire from inside the paste box, where a newline is a row', () => {
     toItemStep();
-    fireEvent.click(screen.getByRole('radio', { name: /Upload a list/i }));
     fireEvent.keyDown(screen.getByLabelText('Paste rows'), { key: 'Enter' });
     expect(screen.getByLabelText('Paste rows')).toBeInTheDocument();
   });
@@ -704,23 +510,20 @@ describe('"Create everything" — two passes, in order', () => {
     expect(screen.getByRole('button', { name: /Download the 1 failed row/i })).toBeInTheDocument();
   });
 
-  // No file, no second pass — the existing single-item path must not gain one.
-  test('runs one pass only when the item was typed', async () => {
+  // No menu, no second pass.
+  test('runs one pass only when the menu is skipped', async () => {
     masterSetupService.bootstrapMasterData.mockResolvedValue({
       data: { data: { ...IDS, setupToken: 't' } },
     });
     toItemStep();
-    typeInto('Item Name', 'Paneer Tikka');
-    typeInto('Category Name', 'Starters');
-    typeInto('Amount', '240');
-    // The tax group is left as Exempt (0%) — naming one without rates is now
-    // refused, and this test is about the passes, not the tax.
+    fireEvent.click(screen.getByRole('checkbox', { name: /Add my menu/i }));
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
     fireEvent.click(screen.getByRole('button', { name: /Create everything/i }));
 
     await waitFor(() =>
       expect(screen.getByRole('heading', { name: /Tenancy setup complete/i })).toBeInTheDocument());
     expect(menuService.applyMenuImport).not.toHaveBeenCalled();
+    expect(masterSetupService.bootstrapMasterData.mock.calls[0][0].item).toBeUndefined();
   });
 });
 

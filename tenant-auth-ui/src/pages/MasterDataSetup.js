@@ -6,7 +6,7 @@ import { getFieldLimits } from '../services/posService';
 import menuService from '../services/menuService';
 import { readFile, loadSample, SAMPLE_FILES } from '../utils/menuFile';
 import { toCsv } from '../utils/csv';
-import { DEFAULT_TAX, download, EXEMPT_TAX_GROUP, isExemptGroup } from '../utils/itemImport';
+import { download } from '../utils/itemImport';
 import { useAuth } from '../context/AuthContext';
 import { isSetupPending } from '../utils/permissions';
 import { ROUTES } from '../constants/routes';
@@ -160,50 +160,15 @@ const STEPS = [
     ],
   },
   {
+    // The menu comes from a file (or the sample) — never typed here. Dishes can
+    // be added one at a time later, under Menu › Dishes.
     key: 'item',
-    title: 'Item',
+    title: 'Menu',
     optional: true,
-    groups: [
-      { title: 'Item', path: 'item', fields: [
-        { name: 'Name', label: 'Item Name', required: true, limitKey: 'itemdetail.Name' },
-        { name: 'Code', limitKey: 'itemdetail.Code' },
-      ] },
-      { title: 'Category', path: 'item.category', fields: [
-        { name: 'Name', label: 'Category Name', required: true, limitKey: 'categorydetail.Name', hint: 'e.g. Starter, Main course' },
-      ] },
-      // Unit of Measure is fixed to 'Primary' for onboarding — hidden from the UI,
-      // sent to the API. The whole section is skipped since its only field is hidden.
-      { title: 'Unit of Measure', path: 'item.uom', fields: [
-        { name: 'UnitName', label: 'Unit Name', required: true, hidden: true, value: 'Primary' },
-      ] },
-      { title: 'Cost Info', path: 'item.costInfo', fields: [
-        { name: 'Amount', label: 'Amount', type: 'number', required: true },
-      ] },
-      { title: 'Tax Group', path: 'item.costInfo.taxGroup', fields: [
-        // Optional, and starts as the tenant's Exempt (0%) group: a starter item
-        // is sold tax-free unless somebody names a group and gives it rates.
-        { name: 'Name', label: 'Tax Group Name', limitKey: 'taxgroup.Name', hint: `Optional — ${EXEMPT_TAX_GROUP} sells it tax-free. Name a group and add its rates to charge tax.` },
-      ] },
-    ],
+    groups: [],
   },
   { key: 'review', title: 'Review' },
 ];
-
-// Where the starter items come from. Two genuinely different acts: one item
-// typed by hand, created inside the same transaction as the branch; or a list,
-// which cannot be created until that transaction has committed.
-const SOURCE = { SINGLE: 'single', FILE: 'file' };
-
-// The rates a typed tax group starts with.
-//
-// A tax group is a CONTAINER — the rates live in the tax types mapped into it,
-// and a group with none prices at 0%. Typing "GST 18%" and nothing else is what
-// produced a starter item that billed no tax at all, on every bill, silently.
-// So the form starts from the standard intra-state split rather than empty.
-const DEFAULT_RATES = DEFAULT_TAX.split('|').map((part) => {
-  const [Name, Value] = part.split(':');
-  return { Name, Value };
-});
 
 // ── Small immutable helpers for nested path get/set ──────────────────────────
 const getVal = (obj, path, name) => {
@@ -222,19 +187,12 @@ const setVal = (obj, path, name, value) => {
   return next;
 };
 
-const rateTotal = (rates) => rates.reduce((sum, r) => {
-  const n = Number(r.Value);
-  return sum + (Number.isNaN(n) ? 0 : n);
-}, 0);
-
 const MasterDataSetup = () => {
   const { user, applyToken } = useAuth() || {};
   const navigate = useNavigate();
   const [started, setStarted] = useState(false);
   const [stepIdx, setStepIdx] = useState(0);
-  // The starter item's tax group begins as the tenant's Exempt (0%) group, so
-  // the Tax Group section can be left untouched.
-  const [form, setForm] = useState({ item: { costInfo: { taxGroup: { Name: EXEMPT_TAX_GROUP } } } });
+  const [form, setForm] = useState({});
   const [includeItem, setIncludeItem] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
@@ -265,9 +223,6 @@ const MasterDataSetup = () => {
   const [gstAnswer, setGstAnswer] = useState(null);
 
   // ── Step 3 ─────────────────────────────────────────────────────────────────
-  const [itemSource, setItemSource] = useState(SOURCE.SINGLE);
-  // Empty: the tax group starts as Exempt (0%), which carries no rates.
-  const [taxRates, setTaxRates] = useState([]);
   const [csvText, setCsvText] = useState('');
   const [fileName, setFileName] = useState('');
   const [parsed, setParsed] = useState(null);
@@ -290,8 +245,7 @@ const MasterDataSetup = () => {
   const step = STEPS[stepIdx];
   const isItemStep = step.key === 'item';
   const isReview = step.key === 'review';
-  const typingItem = includeItem && itemSource === SOURCE.SINGLE;
-  const uploadingItems = includeItem && itemSource === SOURCE.FILE;
+  const uploadingItems = includeItem;
   // Memoised: it feeds a useMemo below, and a fresh [] each render would
   // recompute canAdvance on every keystroke.
   const importRows = useMemo(() => parsed?.valid || [], [parsed]);
@@ -303,7 +257,7 @@ const MasterDataSetup = () => {
   // own.
   const missing = useMemo(() => {
     if (isReview) return [];
-    if (isItemStep && !typingItem) return [];
+    if (isItemStep) return [];
     const out = [];
     step.groups?.forEach((g) => g.fields.forEach((f) => {
       if (f.hidden) return; // hidden fields carry a hardcoded value — never "missing"
@@ -313,13 +267,13 @@ const MasterDataSetup = () => {
       }
     }));
     return out;
-  }, [form, step, isReview, isItemStep, typingItem]);
+  }, [form, step, isReview, isItemStep]);
 
   // Optional fields that were filled in wrongly — a GSTIN with a typo. Blank is
   // never a problem here; that is what `missing` is for.
   const problems = useMemo(() => {
     if (isReview) return {};
-    if (isItemStep && !typingItem) return {};
+    if (isItemStep) return {};
     const out = {};
     step.groups?.forEach((g) => g.fields.forEach((f) => {
       if (f.hidden || !f.validate) return;
@@ -328,33 +282,7 @@ const MasterDataSetup = () => {
       if (message) out[`${fp}.${f.name}`] = message;
     }));
     return out;
-  }, [form, step, isReview, isItemStep, typingItem]);
-
-  // A rate row is only usable if it names something and states a number.
-  const badRates = useMemo(() => {
-    if (!typingItem) return [];
-    return taxRates
-      .map((r, i) => ({ r, i }))
-      .filter(({ r }) => String(r.Name).trim() === '' || String(r.Value).trim() === ''
-        || Number.isNaN(Number(r.Value)) || Number(r.Value) < 0)
-      .map(({ i }) => i);
-  }, [taxRates, typingItem]);
-
-  // The tax group and its rates have to agree. Exempt (0%) — or a blank name —
-  // carries no rates; any other group has to carry some, or it is a group named
-  // "GST 18%" that charges nothing.
-  const taxGroupName = String(getVal(form, 'item.costInfo.taxGroup', 'Name')).trim();
-  const exemptGroup = isExemptGroup(taxGroupName);
-  const taxProblem = useMemo(() => {
-    if (!typingItem) return null;
-    if (exemptGroup && taxRates.length > 0) {
-      return `${EXEMPT_TAX_GROUP} carries no rates. Give this group its own name to charge tax, or remove the rates.`;
-    }
-    if (!exemptGroup && taxRates.length === 0) {
-      return `Add the rates for “${taxGroupName}”, or set the group back to ${EXEMPT_TAX_GROUP}.`;
-    }
-    return null;
-  }, [typingItem, exemptGroup, taxRates, taxGroupName]);
+  }, [form, step, isReview, isItemStep]);
 
   // Can this step move on? Stated once, because both the button and the Enter
   // key ask it.
@@ -362,12 +290,11 @@ const MasterDataSetup = () => {
     if (isReview) return false;
     if (missing.length > 0) return false;
     if (Object.keys(problems).length > 0) return false;
-    if (isItemStep && typingItem) return badRates.length === 0 && !taxProblem;
     // A file was chosen but has nothing usable in it: moving on would silently
     // mean "no items", which is what the checkbox above is for.
     if (isItemStep && uploadingItems) return importRows.length > 0;
     return true;
-  }, [isReview, missing, problems, isItemStep, typingItem, uploadingItems, badRates, taxProblem, importRows]);
+  }, [isReview, missing, problems, isItemStep, uploadingItems, importRows]);
 
   const update = (path, name, value) => setForm((prev) => setVal(prev, path, name, value));
 
@@ -475,23 +402,6 @@ const MasterDataSetup = () => {
     } else if (gstAnswer === 'composition' || gstAnswer === 'unregistered') {
       payload.taxSetting = { gstCharging: false, offReason: gstAnswer };
     }
-    // Only the TYPED item rides inside the transaction. A file's items are
-    // created afterwards — the bulk endpoint sits behind the first-time setup
-    // gate and cannot be called until this tenancy exists.
-    if (typingItem && seeded.item) {
-      payload.item = clean(seeded.item);
-      // The rates the group is named for. Sent as the group's own field so the
-      // orchestrator maps them in; without them the group prices at 0%.
-      payload.item.costInfo = payload.item.costInfo || {};
-      payload.item.costInfo.taxGroup = exemptGroup
-        // Sold tax-free under the tenant's Exempt group, which the server
-        // provisions in this same transaction. No rates: none apply.
-        ? { Name: EXEMPT_TAX_GROUP }
-        : {
-          ...(payload.item.costInfo.taxGroup || {}),
-          taxTypes: taxRates.map((r) => ({ Name: String(r.Name).trim(), Value: String(r.Value).trim() })),
-        };
-    }
     return payload;
   };
 
@@ -568,7 +478,7 @@ const MasterDataSetup = () => {
             rest of the application is now unlocked, and this wizard will not be
             shown again.
           </p>
-          <ReviewPanel form={form} includeItem={typingItem} taxRates={taxRates} />
+          <ReviewPanel form={form} />
           {result.items && (
             <ImportResult
               items={result.items}
@@ -668,7 +578,7 @@ const MasterDataSetup = () => {
       <div className="mds-card">
         {isReview ? (
           <>
-            <ReviewPanel form={form} includeItem={typingItem} taxRates={taxRates} />
+            <ReviewPanel form={form} />
             {uploadingItems && importRows.length > 0 && (
               <ReviewItems
                 parsed={parsed}
@@ -686,39 +596,13 @@ const MasterDataSetup = () => {
               <>
                 <label className="mds-toggle">
                   <input type="checkbox" checked={includeItem} onChange={(e) => setIncludeItem(e.target.checked)} />
-                  <span>Add a starter item now (you can also add items later)</span>
+                  <span>Add my menu now (you can also add dishes later)</span>
                 </label>
 
-                {includeItem && (
-                  <div className="mds-source" role="radiogroup" aria-label="Where the items come from">
-                    <button
-                      type="button" role="radio" aria-checked={itemSource === SOURCE.SINGLE}
-                      className={`mds-source-opt ${itemSource === SOURCE.SINGLE ? 'is-on' : ''}`}
-                      onClick={() => setItemSource(SOURCE.SINGLE)}
-                    >
-                      <span className="mds-source-radio" aria-hidden="true" />
-                      <span>
-                        <strong>Type one item</strong>
-                        <em>The starter item, filled in by hand. Created inside the same transaction as the branch.</em>
-                      </span>
-                    </button>
-                    <button
-                      type="button" role="radio" aria-checked={itemSource === SOURCE.FILE}
-                      className={`mds-source-opt ${itemSource === SOURCE.FILE ? 'is-on' : ''}`}
-                      onClick={() => setItemSource(SOURCE.FILE)}
-                    >
-                      <span className="mds-source-radio" aria-hidden="true" />
-                      <span>
-                        <strong>Upload a list</strong>
-                        <em>A CSV of your whole menu. Checked here, created after you confirm.</em>
-                      </span>
-                    </button>
-                  </div>
-                )}
               </>
             )}
 
-            {(!isItemStep || typingItem) && step.groups
+            {!isItemStep && step.groups
               .filter((g) => !g.optional && g.fields.some((f) => !f.hidden))
               .map((g) => (
               <fieldset className="mds-group" key={g.path + g.title}>
@@ -768,18 +652,6 @@ const MasterDataSetup = () => {
                   })}
                 </div>
 
-                {/* The rates live under the tax group they belong to. A group
-                    with none prices at 0%, so this is not an optional extra —
-                    it is what makes the group mean anything. */}
-                {g.path === 'item.costInfo.taxGroup' && (
-                  <TaxRates
-                    rates={taxRates}
-                    invalid={showErrors ? badRates : []}
-                    onChange={setTaxRates}
-                    exempt={exemptGroup}
-                    problem={showErrors ? taxProblem : null}
-                  />
-                )}
               </fieldset>
             ))}
 
@@ -917,9 +789,9 @@ const MasterDataSetup = () => {
 
             {isItemStep && !includeItem && (
               <>
-                <p className="mds-skip-note">Item creation skipped — only the Organization and Branch will be created.</p>
+                <p className="mds-skip-note">Menu skipped — only the Organization and Branch will be created.</p>
                 <div className="mds-note">
-                  You can import a whole menu at any time from <strong>Admin → Data tables → Items</strong>.
+                  You can import a menu or add dishes at any time from <strong>Menu › Dishes</strong>.
                   Nothing here is a one-off.
                 </div>
               </>
@@ -1075,71 +947,6 @@ const GstQuestion = ({ value, onChange }) => (
   </div>
 );
 
-const TaxRates = ({ rates, invalid, onChange, exempt, problem }) => {
-  const set = (i, key, value) => onChange(rates.map((r, j) => (j === i ? { ...r, [key]: value } : r)));
-  const total = rateTotal(rates);
-
-  return (
-    <div className="mds-rates">
-      <div className="mds-rates-head">
-        <span className="mds-rates-title">Rates</span>
-        <span className="mds-hint">CGST + SGST for an intra-state sale</span>
-        <span className="mds-rates-total">Total {total}%</span>
-      </div>
-      {rates.length === 0 && (
-        <p className="mds-rates-empty">
-          {exempt
-            ? 'No rates — this item is sold tax-free.'
-            : 'No rates yet. A named group charges only the rates added here.'}
-        </p>
-      )}
-      <div className="mds-rates-rows">
-        {rates.map((r, i) => (
-          // eslint-disable-next-line react/no-array-index-key
-          <React.Fragment key={`rate-${i}`}>
-            <input
-              aria-label={`Rate ${i + 1} name`}
-              className={invalid.includes(i) ? 'is-invalid' : ''}
-              value={r.Name}
-              onChange={(e) => set(i, 'Name', e.target.value)}
-            />
-            <input
-              aria-label={`Rate ${i + 1} percent`}
-              className={invalid.includes(i) ? 'is-invalid' : ''}
-              type="number" step="any" min="0"
-              value={r.Value}
-              onChange={(e) => set(i, 'Value', e.target.value)}
-            />
-            <button
-              type="button" className="mds-rate-x" aria-label={`Remove rate ${i + 1}`}
-              onClick={() => onChange(rates.filter((_, j) => j !== i))}
-            >
-              ×
-            </button>
-          </React.Fragment>
-        ))}
-      </div>
-      <span className="mds-rates-actions">
-        <button type="button" className="mds-linkish" onClick={() => onChange([...rates, { Name: '', Value: '' }])}>
-          + Add a rate
-        </button>
-        {rates.length === 0 && (
-          <button type="button" className="mds-linkish" onClick={() => onChange(DEFAULT_RATES.map((r) => ({ ...r })))}>
-            + Use CGST 2.5% + SGST 2.5%
-          </button>
-        )}
-      </span>
-      {invalid.length > 0 && <small className="mds-error">Every rate needs a name and a percentage</small>}
-      {problem && <small className="mds-error">{problem}</small>}
-      <small className="mds-hint mds-rates-note">
-        The group's name is a label — these rates are what actually gets charged. Replace
-        both with a single IGST row for an inter-state sale.
-      </small>
-    </div>
-  );
-};
-
-// ── The file picker and its check ────────────────────────────────────────────
 const ItemFilePicker = ({
   fileRef, fileName, csvText, parsed, showAllRows, extras, loadingSample, branchName,
   onFile, onPaste, onCheck, onClear, onShowAll, onSample,
@@ -1252,7 +1059,7 @@ const ItemFilePicker = ({
 };
 
 // ── Review ───────────────────────────────────────────────────────────────────
-const ReviewPanel = ({ form, includeItem, taxRates }) => {
+const ReviewPanel = ({ form }) => {
   const rows = [];
   const push = (label, node, keys) => {
     const vals = keys.map((k) => node?.[k]).filter((v) => v !== undefined && String(v).trim() !== '');
@@ -1264,26 +1071,6 @@ const ReviewPanel = ({ form, includeItem, taxRates }) => {
   push('Address', form.branch?.address, ['AddressLine1', 'City', 'State', 'Pincode']);
   push('Address Type', form.branch?.address?.contactAddressType, ['Name']);
   push('Contact', form.branch?.contact, ['FirstName', 'LastName', 'Email']);
-  if (includeItem) {
-    push('Item', form.item, ['Name', 'Code']);
-    push('Category', form.item?.category, ['Name']);
-    push('Unit', form.item?.uom, ['UnitName']);
-    push('Cost', form.item?.costInfo, ['Amount']);
-    // A blank name is Exempt (0%), and says so rather than leaving the row out.
-    if (isExemptGroup(form.item?.costInfo?.taxGroup?.Name)) {
-      rows.push({ label: 'Tax Group', value: `${EXEMPT_TAX_GROUP} · sold tax-free` });
-    } else {
-      push('Tax Group', form.item?.costInfo?.taxGroup, ['Name']);
-    }
-    // The rates, not just the group's name — the name is a label and this is
-    // the last chance to notice it says 18% while the rates add up to 5%.
-    if (taxRates?.length) {
-      rows.push({
-        label: 'Tax Rates',
-        value: `${taxRates.map((r) => `${r.Name} ${r.Value}%`).join(' + ')} = ${rateTotal(taxRates)}%`,
-      });
-    }
-  }
   return (
     <div className="mds-review">
       <h3>Review &amp; confirm</h3>

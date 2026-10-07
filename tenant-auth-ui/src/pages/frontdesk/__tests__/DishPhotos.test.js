@@ -125,3 +125,18 @@ describe('guest QR menu', () => {
     expect(onOpenItem).toHaveBeenCalledWith(expect.objectContaining({ id: 'm1' }))
   })
 })
+
+describe('bulk channels', () => {
+  it('adds a channel to the selected dishes', async () => {
+    menuService.listDishes.mockResolvedValue({
+      dishes: [{ ...DISHES[0], category: 'Mains', diet: 'Veg', price: 1, status: 'Active', tags: [], variants: [], addonGroups: [], portals: [], branchCount: 1, channelCount: 1, branchPrices: 0 }],
+      portals: [], channels: [{ Id: 'ch-take', Name: 'Takeaway' }],
+    })
+    menuService.bulkDishes.mockResolvedValue({ updated: 1 })
+    render(<MemoryRouter><Dishes /></MemoryRouter>)
+    fireEvent.click(await screen.findByLabelText('Select Butter Chicken'))
+    fireEvent.change(screen.getByLabelText('Channel'), { target: { value: 'ch-take' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add channel' }))
+    await waitFor(() => expect(menuService.bulkDishes).toHaveBeenCalledWith({ itemIds: ['i1'], action: 'addChannel', channelId: 'ch-take' }))
+  })
+})

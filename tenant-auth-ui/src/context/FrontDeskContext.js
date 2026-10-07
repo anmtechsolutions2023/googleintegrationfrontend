@@ -28,7 +28,7 @@ export const FrontDeskProvider = ({ children }) => {
   }, [])
 
   const refreshMenu = useCallback(async () => {
-    const data = await posService.getItemMeta()
+    const data = await posService.getAllItemMeta()
     setMenu(data)
     return data
   }, [])

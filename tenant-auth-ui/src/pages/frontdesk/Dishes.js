@@ -31,7 +31,7 @@ const Dishes = () => {
   const canClear = useCan(SCOPES.TENANT_ADMIN)
   const [clearing, setClearing] = useState(false)
   const [cleared, setCleared] = useState(null)
-  const [data, setData] = useState({ dishes: [], portals: [] })
+  const [data, setData] = useState({ dishes: [], portals: [], channels: [] })
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('')
@@ -40,6 +40,7 @@ const Dishes = () => {
   const [selected, setSelected] = useState(new Set())
   const [bulkTag, setBulkTag] = useState('')
   const [bulkPortal, setBulkPortal] = useState('')
+  const [bulkChannel, setBulkChannel] = useState('')
   const [busy, setBusy] = useState(false)
   const [noPhoto, setNoPhoto] = useState(false)
   const [addingPhotos, setAddingPhotos] = useState(false)
@@ -219,6 +220,18 @@ const Dishes = () => {
               </select>
               <button type="button" className="mn-btn sm" disabled={busy || !bulkPortal} onClick={() => runBulk('list', { portalId: bulkPortal })}>List</button>
               <button type="button" className="mn-btn sm" disabled={busy || !bulkPortal} onClick={() => runBulk('unlist', { portalId: bulkPortal })}>Unlist</button>
+            </>
+          )}
+          {(data.channels || []).length > 0 && (
+            <>
+              <select className="mn-select" value={bulkChannel} onChange={(e) => setBulkChannel(e.target.value)} aria-label="Channel" style={{ minHeight: 34 }}>
+                <option value="">Channel…</option>
+                {data.channels.map((c) => <option key={c.Id} value={c.Id}>{c.Name}</option>)}
+              </select>
+              <button type="button" className="mn-btn sm" disabled={busy || !bulkChannel} onClick={() => runBulk('addChannel', { channelId: bulkChannel })}
+                title="Sell on this channel at every branch the dish is sold at">Add channel</button>
+              <button type="button" className="mn-btn sm" disabled={busy || !bulkChannel} onClick={() => runBulk('removeChannel', { channelId: bulkChannel })}
+                title="Stop selling on this channel at every branch">Remove channel</button>
             </>
           )}
         </div>

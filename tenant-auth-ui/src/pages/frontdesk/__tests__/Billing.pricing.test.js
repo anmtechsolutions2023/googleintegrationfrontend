@@ -6,7 +6,7 @@ import posService from '../../../services/posService';
 jest.mock('../../../services/posService', () => ({
   __esModule: true,
   default: {
-    getTables: jest.fn(), getFloors: jest.fn(), getItemMeta: jest.fn(),
+    getTables: jest.fn(), getFloors: jest.fn(), getItemMeta: jest.fn(), getAllItemMeta: jest.fn(),
     getOrders: jest.fn(), getItemDetail: jest.fn(), getVariants: jest.fn(),
     getAddonGroups: jest.fn(), getAddons: jest.fn(),
     getPaymentModes: jest.fn(), getBranchPaymentMethods: jest.fn(),
@@ -165,7 +165,7 @@ beforeEach(() => {
   posService.getTables.mockResolvedValue([DEFAULT_TABLE]);
   posService.getFloors.mockResolvedValue([]);
   posService.getOrders.mockResolvedValue([]);
-  posService.getItemMeta.mockResolvedValue(MENU);
+  posService.getAllItemMeta.mockResolvedValue(MENU);
   posService.getVariants.mockResolvedValue(VARIANTS);
   posService.getAddonGroups.mockResolvedValue(ADDON_GROUPS);
   posService.getAddons.mockResolvedValue(ADDONS);
@@ -198,7 +198,7 @@ describe('Billing — menu grid', () => {
   test('leaves an inclusive price unflagged — it is what the guest pays', async () => {
     // Only a price that grows at the till is worth a label on the tile. The
     // tax on an inclusive dish is shown once, in the order totals.
-    posService.getItemMeta.mockResolvedValue([
+    posService.getAllItemMeta.mockResolvedValue([
       menuRow('m9', 'Combo', CI_DOSA, 100, 18, { isTaxIncluded: true }),
     ]);
     posService.getItemDetail.mockResolvedValue({ Id: 'item-m9', Name: 'Combo' });
@@ -282,7 +282,7 @@ describe('Billing — cart totals come from the server', () => {
   });
 
   test('skips lines with no cost link', async () => {
-    posService.getItemMeta.mockResolvedValue([menuRow('m3', 'Freebie', null, 0, 0)]);
+    posService.getAllItemMeta.mockResolvedValue([menuRow('m3', 'Freebie', null, 0, 0)]);
     posService.getItemDetail.mockResolvedValue({ Id: 'item-m3', Name: 'Freebie' });
     await renderBilling();
     await screen.findByText('Freebie');
@@ -419,7 +419,7 @@ describe('Billing — add-on groups on the customise sheet', () => {
   };
 
   const openFor = async (rows, label) => {
-    posService.getItemMeta.mockResolvedValue(rows);
+    posService.getAllItemMeta.mockResolvedValue(rows);
     await renderBilling();
     fireEvent.click(screen.getAllByText(label).find((el) => el.className === 'item-name'));
     return screen.findByRole('dialog', { name: /Customise item/i });

@@ -10,7 +10,7 @@ import posService from '../../../services/posService';
 jest.mock('../../../services/posService', () => ({
   __esModule: true,
   default: {
-    getTables: jest.fn(), getFloors: jest.fn(), getItemMeta: jest.fn(),
+    getTables: jest.fn(), getFloors: jest.fn(), getItemMeta: jest.fn(), getAllItemMeta: jest.fn(),
     getOrders: jest.fn(), getItemDetail: jest.fn(), getVariants: jest.fn(),
     getAddonGroups: jest.fn(), getAddons: jest.fn(),
     getPaymentModes: jest.fn(), getBranchPaymentMethods: jest.fn(), getKots: jest.fn(), quotePricing: jest.fn(),
@@ -62,7 +62,7 @@ beforeEach(() => {
   posService.getTables.mockResolvedValue([{ Id: 't1', Name: 'T1', Status: 'free' }]);
   posService.getFloors.mockResolvedValue([]);
   posService.getOrders.mockResolvedValue([]);
-  posService.getItemMeta.mockResolvedValue(MENU);
+  posService.getAllItemMeta.mockResolvedValue(MENU);
   posService.getVariants.mockResolvedValue([]);
   posService.getAddonGroups.mockResolvedValue([]);
   posService.getAddons.mockResolvedValue([]);
@@ -222,7 +222,7 @@ describe('when nothing matches', () => {
 
 describe('a menu with nothing to filter by', () => {
   test('shows no rail rather than a row containing only All', async () => {
-    posService.getItemMeta.mockResolvedValue([
+    posService.getAllItemMeta.mockResolvedValue([
       { ...dish(1, 'Margherita', null, 'Veg', true) },
       { ...dish(2, 'BBQ Chicken', null, 'Veg', true) },
     ]);
@@ -232,7 +232,7 @@ describe('a menu with nothing to filter by', () => {
   });
 
   test('an uncategorised dish is still sellable', async () => {
-    posService.getItemMeta.mockResolvedValue([
+    posService.getAllItemMeta.mockResolvedValue([
       dish(1, 'Margherita', 'Pizza', 'Veg', true),
       { ...dish(2, 'BBQ Chicken', null, 'Non-Veg', false) },
     ]);
