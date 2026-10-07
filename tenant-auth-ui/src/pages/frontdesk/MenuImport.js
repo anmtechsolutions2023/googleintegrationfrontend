@@ -11,6 +11,7 @@ import './menu.css'
 const CREATED_LABEL = {
   categories: 'Categories', units: 'Units', diets: 'Diets', meatTypes: 'Meat types', tags: 'Tags',
   variants: 'Variants', addonGroups: 'Add-on groups', addons: 'Add-ons', taxGroups: 'Tax groups',
+  channels: 'Sales channels',
 }
 const ACTION = {
   new: { label: 'New dish', cls: 'on' },
@@ -137,7 +138,7 @@ const MenuImport = () => {
         <div>
           <Link to="/menu/dishes" className="mn-link" style={{ textDecoration: 'none' }}>← Dishes</Link>
           <h1>Import a menu</h1>
-          <p className="mn-lead">One row per dish. Anything the file names that doesn't exist yet — categories, tags, variants, tax groups — is created. Nothing is written until you apply.</p>
+          <p className="mn-lead">One row per dish. Anything the file names that doesn't exist yet — categories, tags, variants, tax groups, sales channels — is created. Nothing is written until you apply.</p>
         </div>
       </div>
 
