@@ -138,3 +138,18 @@ describe('the Bluetooth receipt', () => {
     expect(text.split('\n')).toContain('12345678901234567890123456789012')
   })
 })
+
+describe('item count under the column (layout C)', () => {
+  test('header, per-line qty and a count row, with discount and GST still after Subtotal', () => {
+    const data = SALE({ DiscountAmount: 50, NetAmount: 625 })
+    const text = visible(buildReceiptBytes('bill', { format: FORMAT({ itemLayout: 'single_line', discount: ALWAYS }), shop: SHOP, data }))
+    // eslint-disable-next-line no-console
+    if (process.env.SHOW_RECEIPT) console.log(text)
+    expect(text).toMatch(/Item +Qty +Amount/)
+    expect(text).toMatch(/Paneer Tikka +2 +480\.00/)
+    expect(text).toMatch(/2 items +5 +675\.00/)
+    const order = ['2 items', 'Subtotal', 'Discount', 'CGST', 'SGST'].map((s) => text.indexOf(s))
+    expect(order.every((i) => i >= 0)).toBe(true)
+    expect([...order].sort((a, b) => a - b)).toEqual(order)
+  })
+})

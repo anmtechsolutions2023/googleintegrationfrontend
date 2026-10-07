@@ -12,7 +12,7 @@
 
 import { createEncoder, columnsFor } from './escpos'
 import {
-  shows, choice, line, hasValue, present, money, qty, dt, printedShop,
+  shows, choice, line, hasValue, present, money, qty, dt, printedShop, itemTotals, qtyAmount,
 } from './receiptFields'
 import { lineOptions, lineAddons, lineNote, lineBreakdown } from './lineOptions'
 
@@ -78,8 +78,11 @@ const optionLines = (e, format, l, compact) => {
   addons.forEach((a) => e.row(`  + ${addonLabel(a)}`, a.price > 0 ? `+${money(a.price)}` : ''))
 }
 
+// Item | Qty | Amount, with a count row under the column (layout C, 2026-10-07).
 const items = (e, format, lines) => {
   const layout = choice(format, 'itemLayout', 'two_line')
+  e.row('Item', qtyAmount('Qty', 'Amount'), { strong: true })
+  e.rule()
   lines.forEach((l) => {
     const name = l.ItemName || l.Comment || l.name || 'Item'
     const q = Number(l.Quantity ?? l.quantity ?? 0)
@@ -91,7 +94,7 @@ const items = (e, format, lines) => {
     const label = `${name}${shows(format, 'itemCode', code) ? ` (${code})` : ''}`
 
     if (layout === 'single_line') {
-      e.row(label, money(amount), { strong: true })
+      e.row(label, qtyAmount(qty(q), money(amount)), { strong: true })
       optionLines(e, format, l, true)
     } else {
       e.bold(true).line(label).bold(false)
@@ -101,6 +104,9 @@ const items = (e, format, lines) => {
     }
     if (shows(format, 'returnedQty', returned)) e.line(`  ${qty(returned)} returned`)
   })
+  const t = itemTotals(lines)
+  e.rule()
+  e.row(`${t.items} ${t.items === 1 ? 'item' : 'items'}`, qtyAmount(qty(t.qty), money(t.amount)), { strong: true })
 }
 
 const compositionNote = (e, format) => {

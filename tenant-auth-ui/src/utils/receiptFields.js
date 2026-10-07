@@ -102,3 +102,23 @@ const receiptFields = {
 }
 
 export default receiptFields
+
+/**
+ * The count under the item column on a bill: how many lines, how many pieces,
+ * and what the lines add up to. A weighed line (0.5 kg) is one piece, not half
+ * of one — the count is for checking plates against paper.
+ *
+ * @param {Array<Object>} lines
+ * @returns {{items: number, qty: number, amount: number}}
+ */
+export const itemTotals = (lines = []) => lines.reduce((t, l) => {
+  const q = Number(l.Quantity ?? l.quantity ?? 0)
+  return {
+    items: t.items + 1,
+    qty: t.qty + (Number.isInteger(q) ? q : (q > 0 ? 1 : 0)),
+    amount: t.amount + (Number(l.GrossAmount ?? l.amount ?? 0) || 0),
+  }
+}, { items: 0, qty: 0, amount: 0 })
+
+/** "Qty  Amount" as one right-aligned cell, for a monospace printer row. */
+export const qtyAmount = (q, amount) => `${String(q).padStart(3)}  ${String(amount).padStart(9)}`

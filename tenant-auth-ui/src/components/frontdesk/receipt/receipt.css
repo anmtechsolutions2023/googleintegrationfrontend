@@ -180,3 +180,8 @@
 @media print {
   .rc-logo img { max-height: 20mm; }
 }
+
+/* Item | Qty | Amount columns and the count row under them. */
+.rc-cols { display: grid; grid-template-columns: minmax(0, 1fr) 3.5ch 9ch; gap: 6px; }
+.rc-cols > span:nth-child(2), .rc-cols > span:nth-child(3) { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rc-colhead, .rc-colfoot { font-weight: 700; }

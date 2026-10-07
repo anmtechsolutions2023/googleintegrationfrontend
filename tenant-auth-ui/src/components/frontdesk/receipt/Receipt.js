@@ -1,7 +1,7 @@
 import React from 'react'
 import { createPortal } from 'react-dom'
 import {
-  shows, choice, line, hasValue, present, money, qty, dt, printedShop,
+  shows, choice, line, hasValue, present, money, qty, dt, printedShop, itemTotals,
 } from '../../../utils/receiptFields'
 import { lineOptions, lineAddons, lineNote, lineBreakdown } from '../../../utils/lineOptions'
 import './receipt.css'
@@ -156,7 +156,24 @@ const OptionLines = ({ format, l, compact }) => {
   )
 }
 
+// Item | Qty | Amount, with a count row under the column (layout C, 2026-10-07).
+// The thermal printer path (utils/escposReceipt items) prints the same thing.
 const Items = ({ format, lines }) => {
+  const t = itemTotals(lines)
+  return (
+    <>
+      <div className="rc-row rc-cols rc-colhead"><span>Item</span><span className="rc-qcol">Qty</span><span>Amount</span></div>
+      <div className="rc-rule" />
+      <ItemLines format={format} lines={lines} />
+      <div className="rc-rule" />
+      <div className="rc-row rc-cols rc-colfoot">
+        <span>{t.items} {t.items === 1 ? 'item' : 'items'}</span><span className="rc-qcol">{qty(t.qty)}</span><span>{money(t.amount)}</span>
+      </div>
+    </>
+  )
+}
+
+const ItemLines = ({ format, lines }) => {
   const layout = choice(format, 'itemLayout', 'two_line')
   return lines.map((l, i) => {
     const name = l.ItemName || l.Comment || l.name || 'Item'
@@ -172,8 +189,9 @@ const Items = ({ format, lines }) => {
     if (layout === 'single_line') {
       return (
         <div className="rc-item" key={l.Id || i}>
-          <div className="rc-row rc-itemname">
+          <div className="rc-row rc-cols rc-itemname">
             <span>{name}{shows(format, 'itemCode', code) ? ` (${code})` : ''}</span>
+            <span className="rc-qcol">{qty(q)}</span>
             <span>{money(amount)}</span>
           </div>
           <OptionLines format={format} l={l} compact />
