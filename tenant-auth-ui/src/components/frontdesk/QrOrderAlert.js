@@ -1,13 +1,11 @@
 import React, { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import qrService from '../../services/qrService'
+import { subscribe } from '../../services/qrPendingFeed'
 import { useAuth } from '../../context/AuthContext'
 import { hasScope } from '../../utils/permissions'
 import { SCOPES } from '../../constants'
 import { ROUTES } from '../../constants/routes'
 import './qr.css'
-
-const POLL_MS = 15000
 
 /** The scopes the review queue admits — mirrors SCOPE_SETS.POS_QR_ORDER_READ. */
 export const QR_ORDER_READ_SCOPES = [
@@ -27,13 +25,8 @@ const QrOrderAlert = () => {
 
   useEffect(() => {
     if (!allowed) return undefined
-    let alive = true
-    const load = () => qrService.getPendingOrders()
-      .then((list) => { if (alive) setPending(Array.isArray(list) ? list : []) })
-      .catch(() => {})
-    load()
-    const id = setInterval(load, POLL_MS)
-    return () => { alive = false; clearInterval(id) }
+    // The shared feed: one poll however many screens show the queue.
+    return subscribe(setPending)
   }, [allowed])
 
   // Not on the inbox itself — the list below already is the alert.

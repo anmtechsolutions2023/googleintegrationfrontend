@@ -3,6 +3,7 @@ import { toast } from 'react-toastify'
 import posService from '../../services/posService'
 import { APP_CONFIG, SCOPES } from '../../constants'
 import { useCan } from '../../hooks/useCan'
+import usePolling from '../../hooks/usePolling'
 import RoundsTimeline from '../../components/frontdesk/RoundsTimeline'
 import {
   buildTableRounds, buildRoundIndex, itemLabel, itemQty, formatRoundTime,
@@ -19,6 +20,8 @@ const { MAX_LIMIT } = APP_CONFIG.PAGINATION
 // The pass is a live surface — a cook does not think to press Refresh, and a
 // ticket that arrives only when someone does is a ticket that arrives late.
 const POLL_MS = 15000
+// Orders and tables only name the tickets; they change far less often.
+const LABEL_POLL_MS = 60000
 
 const Kitchen = () => {
   // The pass is offered on POS_KITCHEN:READ so an expeditor or a manager can
@@ -55,21 +58,15 @@ const Kitchen = () => {
   // reading; only the first load does.
   const loadedOnce = useRef(false)
 
-  const load = useCallback(async () => {
+  // The tickets are the pass and are polled every POLL_MS. Orders and tables
+  // only LABEL them, and change far less often, so they are refreshed every
+  // LABEL_POLL_MS instead of re-pulling three full lists every 15 seconds.
+  // Both stop while the tab is hidden (usePolling).
+  const loadKots = useCallback(async () => {
     if (!loadedOnce.current) setLoading(true)
     try {
-      // allSettled: the tickets are the pass. Orders and tables only label
-      // them, so losing a label must not empty the board mid-service.
-      const [k, o, t] = (await Promise.allSettled([
-        posService.getKots({ limit: MAX_LIMIT }),
-        posService.getOrders({ limit: MAX_LIMIT }),
-        posService.getTables({ limit: MAX_LIMIT }),
-      ])).map((r) => (r.status === 'fulfilled' ? r.value : null))
-
-      if (k === null && !loadedOnce.current) toast.error('Failed to load KOTs')
+      const k = await posService.getKots({ limit: MAX_LIMIT })
       setKots(k || [])
-      setOrders(o || [])
-      setTables(t || [])
     } catch {
       // A failed poll must not bury the pass in toasts.
       if (!loadedOnce.current) toast.error('Failed to load KOTs')
@@ -79,11 +76,21 @@ const Kitchen = () => {
     }
   }, [])
 
-  useEffect(() => {
-    load()
-    const id = setInterval(load, POLL_MS)
-    return () => clearInterval(id)
-  }, [load])
+  const loadLabels = useCallback(async () => {
+    // allSettled: losing a label must not empty the board mid-service.
+    const [o, t] = (await Promise.allSettled([
+      posService.getOrders({ limit: MAX_LIMIT }),
+      posService.getTables({ limit: MAX_LIMIT }),
+    ])).map((r) => (r.status === 'fulfilled' ? r.value : null))
+    if (o) setOrders(o)
+    if (t) setTables(t)
+  }, [])
+
+  // Anything that changes the board refreshes both.
+  const load = useCallback(() => Promise.all([loadKots(), loadLabels()]), [loadKots, loadLabels])
+
+  usePolling(loadKots, POLL_MS)
+  usePolling(loadLabels, LABEL_POLL_MS)
 
   const tableName = useCallback(
     (id) => {

@@ -109,7 +109,7 @@ const RoleFormModal = ({ role, onClose, onDone }) => {
   )
 }
 
-const RolesPanel = ({ features = [], canWrite = true, onRolesChanged, viewerIsSuper = false, onGoToPeople }) => {
+const RolesPanel = ({ features = [], roles: rolesProp, canWrite = true, onRolesChanged, viewerIsSuper = false, onGoToPeople }) => {
   const [roles, setRoles] = useState([])
   const [grants, setGrants] = useState(() => new Map())
   const [loading, setLoading] = useState(true)
@@ -137,20 +137,25 @@ const RolesPanel = ({ features = [], canWrite = true, onRolesChanged, viewerIsSu
   const load = useCallback(async () => {
     setLoading(true)
     try {
+      // The roles come from the parent when it already holds them (Access &
+      // Staff fetches them for every tab); asking again here sent the same
+      // request twice on opening the Roles tab.
       const [roleList, rows] = await Promise.all([
-        adminService.listRoles(),
+        rolesProp ? null : adminService.listRoles(),
         adminService.listRolePermissionMatrix().catch(() => []),
       ])
-      setRoles(roleList)
+      if (roleList) setRoles(roleList)
       setGrants(grantsByRole(rows))
     } catch (e) {
       toast.error(e?.response?.data?.message || 'Failed to load roles')
     } finally {
       setLoading(false)
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => { load() }, [load])
+  useEffect(() => { if (rolesProp) setRoles(rolesProp) }, [rolesProp])
 
   const shown = useMemo(
     () => roles.filter((r) => viewerIsSuper || roleCode(r) !== 'SUPER_ADMIN'),

@@ -90,6 +90,13 @@ const AccessControl = () => {
 
   useEffect(() => { load() }, [load])
 
+  // After a role is created, renamed or deleted: the role list only, without
+  // the page-wide loading state — that unmounted the Roles tab and made it
+  // load everything again.
+  const refreshRoles = useCallback(async () => {
+    try { setRoles(await adminService.listRoles()) } catch { /* keep the list shown */ }
+  }, [])
+
   return (
     <div className="fd-crud-page">
       <h1>🔐 Access & Staff</h1>
@@ -135,8 +142,9 @@ const AccessControl = () => {
         // no longer exists.
         <RolesPanel
           features={features}
+          roles={roles}
           canWrite={canManage}
-          onRolesChanged={load}
+          onRolesChanged={refreshRoles}
           viewerIsSuper={isSuper}
           onGoToPeople={() => setActiveTab('users')}
         />

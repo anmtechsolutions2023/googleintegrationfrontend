@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { toast } from 'react-toastify'
 import qrService from '../../services/qrService'
+import { subscribe as subscribeQrPending, refresh as refreshQrPending } from '../../services/qrPendingFeed'
 import { useAuth } from '../../context/AuthContext'
 import { hasScope } from '../../utils/permissions'
 import { SCOPES } from '../../constants'
@@ -8,7 +9,6 @@ import { formatForDisplay } from '../../utils/phone'
 import LineOptions from '../../components/frontdesk/LineOptions'
 import '../../components/frontdesk/qr.css'
 
-const POLL_MS = 15000
 
 const money = (n) => `₹${(Number(n) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
@@ -175,10 +175,11 @@ const QrOrders = () => {
   const [loading, setLoading] = useState(true)
   const [openId, setOpenId] = useState(null)
 
+  // After a decision: ask now, through the shared feed, so the banner on
+  // other screens updates too.
   const load = useCallback(async () => {
     try {
-      const list = await qrService.getPendingOrders()
-      setOrders(Array.isArray(list) ? list : [])
+      await refreshQrPending()
     } catch (err) {
       if (err.response?.status !== 401) toast.error(err.response?.data?.message || 'Could not load QR orders.')
     } finally {
@@ -187,10 +188,12 @@ const QrOrders = () => {
   }, [])
 
   useEffect(() => {
-    load()
     qrService.getRejectionReasons().then((r) => setReasons(r || [])).catch(() => setReasons([]))
-    const id = setInterval(load, POLL_MS)
-    return () => clearInterval(id)
+    // The shared 15-second poll — the floor banner reads the same one.
+    const unsubscribe = subscribeQrPending((list) => { setOrders(list); setLoading(false) })
+    // Joins the feed's first request (one call) and reports it if it fails.
+    load()
+    return unsubscribe
   }, [load])
 
   const open = orders.find((o) => o.id === openId)

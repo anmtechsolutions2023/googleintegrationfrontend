@@ -21,6 +21,12 @@ jest.mock('../../../services/posService', () => ({
     getPendingQrOrders: jest.fn(),
   },
 }));
+// The till reads the QR queue through the shared feed (services/qrPendingFeed),
+// which asks qrService; route it to the same stub the tests set.
+jest.mock('../../../services/qrService', () => ({
+  __esModule: true,
+  default: { getPendingOrders: (...a) => require('../../../services/posService').default.getPendingQrOrders(...a) },
+}));
 jest.mock('react-toastify', () => ({
   toast: { success: jest.fn(), error: jest.fn(), warn: jest.fn(), info: jest.fn() },
 }));
@@ -69,7 +75,7 @@ beforeEach(() => {
   posService.getPendingQrOrders.mockResolvedValue([]);
   posService.previewOffers.mockResolvedValue({ lineDiscounts: {}, applied: [] });
 });
-afterEach(() => jest.clearAllMocks());
+afterEach(() => { jest.clearAllMocks(); require('../../../services/qrPendingFeed').reset(); });
 
 const open = async () => {
   render(<Billing />);

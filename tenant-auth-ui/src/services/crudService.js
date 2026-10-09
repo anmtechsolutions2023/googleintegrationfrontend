@@ -2,6 +2,7 @@ import api from '../api/api'
 import { MODULES } from '../config/modules'
 import { POS_MODULES } from '../config/posModules'
 import { APP_CONFIG } from '../constants'
+import { cached } from '../utils/refCache'
 
 // Centralized pagination config
 const { DEFAULT_PAGE, DEFAULT_LIMIT, MAX_LIMIT } = APP_CONFIG.PAGINATION
@@ -98,9 +99,10 @@ export const getReferenceData = async (moduleKey) => {
         ? `&expand=${String(APP_CONFIG.EXPAND_DEFAULT)}`
         : ''
 
-    const response = await api.get(
-      `${module.endpoint}?page=${DEFAULT_PAGE}&limit=${MAX_LIMIT}${expandQuery}`,
-    )
+    // Dropdown lists are shared across forms and screens (utils/refCache):
+    // a form used to fetch each list again every time it opened.
+    const url = `${module.endpoint}?page=${DEFAULT_PAGE}&limit=${MAX_LIMIT}${expandQuery}`
+    const response = await cached(`ref:${url}`, () => api.get(url))
     const apiResponse = response.data
 
     // Actual API response format:

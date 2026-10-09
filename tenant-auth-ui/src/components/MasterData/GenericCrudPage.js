@@ -118,10 +118,12 @@ const applyDisplayLabel = (refKey, items) => {
 // Fetch tax groups and stamp Amount-TaxGroupName DisplayLabel onto each costInfo item.
 // Used by both the initial reference load and the post-quick-create refresh so the
 // dropdown always shows human-readable labels rather than raw IDs.
-const buildCostInfoLabels = async (items) => {
+// `knownTaxGroups`: the tax groups when the caller already has them, so a page
+// that lists both cost infos and tax groups does not fetch tax groups twice.
+const buildCostInfoLabels = async (items, knownTaxGroups = null) => {
   if (!items || !items.length) return items
   try {
-    const taxResp = await crudService.getReferenceData('taxGroups')
+    const taxResp = knownTaxGroups || await crudService.getReferenceData('taxGroups')
     let taxItems = []
     if (Array.isArray(taxResp)) taxItems = taxResp
     else if (Array.isArray(taxResp?.data)) taxItems = taxResp.data
@@ -409,7 +411,7 @@ const GenericCrudPage = ({ moduleKey: moduleKeyProp } = {}) => {
 
       // costInfos needs a secondary taxGroups fetch to build Amount-TaxGroupName labels
       if (refData.costInfos && refData.costInfos.length) {
-        refData.costInfos = await buildCostInfoLabels(refData.costInfos)
+        refData.costInfos = await buildCostInfoLabels(refData.costInfos, refData.taxGroups || null)
       }
 
       // Apply display labels for all other modules via the shared helper
@@ -461,12 +463,14 @@ const GenericCrudPage = ({ moduleKey: moduleKeyProp } = {}) => {
     fetchQcRefs()
   }, [quickCreate.isOpen, quickCreate.moduleKey])
 
+  // The table follows the page; the dropdown lists do not. One effect for both
+  // reloaded every reference list on every page click.
   useEffect(() => {
-    if (module) {
-      fetchData()
-      fetchReferenceData()
-    }
-  }, [module, fetchData, fetchReferenceData])
+    if (module) fetchData()
+  }, [module, fetchData])
+  useEffect(() => {
+    if (module) fetchReferenceData()
+  }, [module, fetchReferenceData])
 
   // Re-fetch a single reference module and merge into referenceData
   const refreshSingleReference = useCallback(async (refModuleKey) => {

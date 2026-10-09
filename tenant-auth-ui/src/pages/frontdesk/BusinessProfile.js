@@ -196,9 +196,13 @@ const BusinessProfile = () => {
   // Data URIs for the previews. The profile carries metadata only, so the bytes are
   // fetched per kind — and only for what exists.
   const [previews, setPreviews] = useState({})
+  // Keyed on the branding metadata itself, not the whole profile: saving the
+  // shop name or address used to download the logo and payment QR again.
+  const brandingKey = JSON.stringify(profile?.branding || null)
   useEffect(() => {
-    if (!branchId || !profile?.branding) return
-    const kinds = Object.entries(profile.branding)
+    const branding = JSON.parse(brandingKey)
+    if (!branchId || !branding) return
+    const kinds = Object.entries(branding)
       .filter(([, v]) => !!v).map(([k]) => k)
     if (kinds.length === 0) { setPreviews({}); return }
     let cancelled = false
@@ -207,7 +211,7 @@ const BusinessProfile = () => {
       .then((pairs) => { if (!cancelled) setPreviews(Object.fromEntries(pairs)) })
     // eslint-disable-next-line consistent-return
     return () => { cancelled = true }
-  }, [branchId, profile])
+  }, [branchId, brandingKey])
 
   const onTheBill = useMemo(() => profile?.onTheBill || [], [profile])
 

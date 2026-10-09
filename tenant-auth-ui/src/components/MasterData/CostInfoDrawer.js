@@ -70,16 +70,18 @@ const CostInfoDrawer = ({ open, onClose, onSaved, mode = 'edit', costInfoId = nu
 
   // Re-read the group's live rate (its component chips come from here) and the
   // mapper rows (needed to remove a chip). Called on group change + after edits.
-  const refreshGroup = useCallback(async (gid) => {
+  // Mappers only after an edit: choosing a group needs its rate alone, and the
+  // drawer already read every mapper when it opened.
+  const refreshGroup = useCallback(async (gid, { withMappers = false } = {}) => {
     if (!gid) { setRate(null); return }
     setRateLoading(true)
     try {
       const [r, m] = await Promise.all([
         costInfoService.getTaxGroupRate(gid),
-        costInfoService.getMappers(),
+        withMappers ? costInfoService.getMappers() : null,
       ])
       setRate(r)
-      setMappers(Array.isArray(m) ? m : [])
+      if (m) setMappers(Array.isArray(m) ? m : [])
     } catch {
       setRate(null)
     } finally {
@@ -156,7 +158,7 @@ const CostInfoDrawer = ({ open, onClose, onSaved, mode = 'edit', costInfoId = nu
         setTaxTypes((prev) => [...prev, rec])
       }
       await costInfoService.createMapper({ taxGroupId, taxTypeId: ttId })
-      await refreshGroup(taxGroupId)
+      await refreshGroup(taxGroupId, { withMappers: true })
       setAddingType(false); setTypeNameInput(''); setTypeRateInput('')
       toast.success('Tax type added')
     } catch (e) {
@@ -172,7 +174,7 @@ const CostInfoDrawer = ({ open, onClose, onSaved, mode = 'edit', costInfoId = nu
     setMapBusy(true)
     try {
       await costInfoService.deleteMapper(mid)
-      await refreshGroup(taxGroupId)
+      await refreshGroup(taxGroupId, { withMappers: true })
     } catch (e) {
       toast.error(e?.response?.data?.message || 'Could not remove tax type')
     } finally {

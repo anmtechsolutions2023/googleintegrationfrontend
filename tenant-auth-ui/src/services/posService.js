@@ -1,6 +1,7 @@
 import api from '../api/api'
 import { APP_CONFIG } from '../constants'
 import qrService from './qrService'
+import { cached } from '../utils/refCache'
 
 const { MAX_LIMIT } = APP_CONFIG.PAGINATION
 
@@ -385,10 +386,11 @@ export const deleteToken = async (id) => api.delete(`/api/pos/tokens/${id}`)
 // ORGANIZATION_READ, which a cashier does not hold, so it 403s and every branch
 // picker on a POS screen silently reads "No branches". This one is admitted on
 // any POS read scope and returns only Id + BranchName.
-export const getPosBranches = async () => {
+// Shared across screens (utils/refCache): 20+ places read the branch list.
+export const getPosBranches = () => cached('pos:branches', async () => {
   const res = await api.get('/api/pos/branches')
   return toArray(res.data)
-}
+})
 
 // ── POS settings (per branch) ────────────────────────────────────────────────
 export const getPosSettings = async (branchId) => {
@@ -607,10 +609,10 @@ export const downloadSalesWithoutGst = async ({ fromDate, toDate, branchId }) =>
 }
 
 // ── Payment modes (tender types) ────────────────────────────────────────────
-export const getPaymentModes = async () => {
+export const getPaymentModes = () => cached('pos:paymentModes', async () => {
   const res = await api.get('/api/paymentmodes', { params: { limit: MAX_LIMIT } })
   return toArray(res.data)
-}
+})
 
 // ── Daily portion counts ────────────────────────────────────────────────────
 // HOW MANY THE KITCHEN MADE TODAY, per dish per outlet. Availability, not

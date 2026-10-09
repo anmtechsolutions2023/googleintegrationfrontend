@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import { formatForDisplay } from '../utils/phone';
-import { getAuditLogs, getAuditCategories } from '../services/dataService'
+import { getAuditLogs, getAuditCategories, getAuditFilters } from '../services/dataService'
 import { toast } from 'react-toastify'
 import { MESSAGES, STRINGS, ERROR_CODES } from '../constants'
 import logger from '../utils/logger'
@@ -102,17 +102,13 @@ const AuditLogs = () => {
       .catch(() => {})
   }, [])
 
-  // Initial options fetch: load a large batch once to populate Email and Action dropdowns
+  // The People and Action dropdowns. Their own small call: this used to pull
+  // 500 full log rows on every visit just to read two columns.
   useEffect(() => {
-    getAuditLogs({ page: 1, limit: 500 })
+    getAuditFilters()
       .then((res) => {
-        const all = res.data.logs || []
-        setEmailOptions(
-          [...new Set(all.map((l) => l.user_phone).filter(Boolean))].sort(),
-        )
-        setActionOptions(
-          [...new Set(all.map((l) => l.action).filter(Boolean))].sort(),
-        )
+        setEmailOptions(res.data.phones || [])
+        setActionOptions(res.data.actions || [])
       })
       .catch(() => {})
   }, [])

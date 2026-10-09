@@ -87,6 +87,7 @@ export const ENDPOINTS = {
   AUDIT: {
     LOGS: process.env.REACT_APP_ENDPOINT_AUDIT || '/api/audit/logs',
     CATEGORIES: '/api/audit/categories',
+    FILTERS: '/api/audit/filters',
     DETAIL: '/api/audit/logs/:id',
   },
 

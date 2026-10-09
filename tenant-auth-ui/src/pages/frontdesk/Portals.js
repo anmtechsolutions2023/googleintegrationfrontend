@@ -83,17 +83,11 @@ const Portals = () => {
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [saving, setSaving] = useState(false)
 
+  // Branches and payment modes are read once; after a portal is saved,
+  // listed or removed only the portals change, so only they are reloaded.
   const load = useCallback(async () => {
-    setLoading(true)
     try {
-      const [rows, branchRows, modes] = await Promise.all([
-        posService.getPortals({ limit: 100, expand: true }),
-        posService.getPosBranches(),
-        posService.getPaymentModes().catch(() => []),
-      ])
-      setPortals(rows)
-      setBranches(branchRows)
-      setPaymentModes(modes)
+      setPortals(await posService.getPortals({ limit: 100, expand: true }))
     } catch {
       toast.error('Failed to load portals')
     } finally {
@@ -101,7 +95,11 @@ const Portals = () => {
     }
   }, [])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    load()
+    posService.getPosBranches().then(setBranches).catch(() => setBranches([]))
+    posService.getPaymentModes().then(setPaymentModes).catch(() => setPaymentModes([]))
+  }, [load])
 
   const loadMappings = useCallback(async (portalId) => {
     try {

@@ -37,8 +37,9 @@ const Tables = () => {
       // tables are occupied, so a refused order list should cost the badges,
       // not the plan.
       const [f, t, o] = (await Promise.allSettled([
-        posService.getFloors(),
-        posService.getTables(),
+        // Without a limit the API returns its default page of 10.
+        posService.getFloors({ limit: MAX_LIMIT }),
+        posService.getTables({ limit: MAX_LIMIT }),
         posService.getOrders({ limit: MAX_LIMIT }),
       ])).map((r) => (r.status === 'fulfilled' ? r.value : null))
 

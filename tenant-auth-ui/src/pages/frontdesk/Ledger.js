@@ -79,6 +79,13 @@ const Ledger = () => {
   const [loading, setLoading] = useState(true)
   const [status, setStatus] = useState('')
   const [search, setSearch] = useState('')
+  // What the list is actually searched by: the box, once typing pauses.
+  // Searching on every keystroke sent a request per letter.
+  const [searchTerm, setSearchTerm] = useState('')
+  useEffect(() => {
+    const t = setTimeout(() => setSearchTerm(search.trim()), 300)
+    return () => clearTimeout(t)
+  }, [search])
   const [docType, setDocType] = useState('')
   const [refundStateFilter, setRefundStateFilter] = useState('')
   const [fromDate, setFromDate] = useState('')
@@ -116,7 +123,7 @@ const Ledger = () => {
     try {
       const params = { limit: 100 }
       if (status) params.status = status
-      if (search) params.search = search
+      if (searchTerm) params.search = searchTerm
       if (docType) params.docType = docType
       if (refundStateFilter) params.refundState = refundStateFilter
       if (fromDate) params.fromDate = fromDate
@@ -128,14 +135,18 @@ const Ledger = () => {
     } finally {
       setLoading(false)
     }
-    // The banner. Its own call so a failure costs the banner, not the books.
-    Promise.resolve()
-      .then(() => posService.getDues())
-      .then((d) => setDuesSummary(d?.summary || null))
-      .catch(() => setDuesSummary(null))
-  }, [status, search, docType, refundStateFilter, fromDate, toDate, duesOnly])
+  }, [status, searchTerm, docType, refundStateFilter, fromDate, toDate, duesOnly])
+
+  // The dues banner does not depend on the filters, so it is read on opening
+  // and after a change to the books — not again for every filter or keystroke.
+  // Its own call so a failure costs the banner, not the books.
+  const loadDues = useCallback(() => Promise.resolve()
+    .then(() => posService.getDues())
+    .then((d) => setDuesSummary(d?.summary || null))
+    .catch(() => setDuesSummary(null)), [])
 
   useEffect(() => { load() }, [load])
+  useEffect(() => { loadDues() }, [loadDues])
 
   // A print that quietly does nothing is indistinguishable from a printer that
   // is switched off, and the cashier reprints instead of investigating. Say it.
@@ -228,6 +239,7 @@ const Ledger = () => {
   const afterCollect = async () => {
     const openId = selected?.Id
     await load()
+    loadDues()
     if (openId) await openDocument(openId)
   }
 
@@ -249,6 +261,7 @@ const Ledger = () => {
       // success makes them go and find it again.
       await openDocument(returnTarget.Id)
       await load()
+      loadDues()
     } catch (e) {
       // The server's message names the invariant that was broken — "sold 3,
       // already returned 2, asked for 2" — which is far more useful than a
@@ -269,6 +282,7 @@ const Ledger = () => {
       setRefundReason('')
       setSelected(null)
       await load()
+      loadDues()
     } catch (e) {
       toast.error(e?.response?.data?.message || 'Failed to refund')
     } finally {

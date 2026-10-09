@@ -4,6 +4,7 @@ import { API_BASE_URL, AUTH } from '../config/config';
 import { HTTP_STATUS, APP_CONFIG } from '../constants';
 import { ROUTES } from '../constants/routes';
 import { saveRedirect } from '../utils/redirectStore';
+import { clearRefCache } from '../utils/refCache';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -35,6 +36,8 @@ const passOnRefreshedToken = (response) => {
 api.interceptors.response.use(
   (res) => {
     passOnRefreshedToken(res);
+    // A change to data: the shared reference lists may now be stale.
+    if (res?.config?.method && res.config.method.toLowerCase() !== 'get') clearRefCache();
     return res;
   },
   (err) => {

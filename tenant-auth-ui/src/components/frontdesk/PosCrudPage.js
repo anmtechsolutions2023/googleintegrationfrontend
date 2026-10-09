@@ -349,7 +349,9 @@ const PosCrudPage = ({
       await genericDelete(`${moduleConfig.endpoint}/${id}`)
       toast.success(`${moduleConfig.name} deleted`)
       setDelTarget(null)
-      fetchData()
+      // The row is gone: drop it locally rather than reloading the whole list.
+      // (A save still reloads — the server adds joined names the form lacks.)
+      setAllItems((prev) => prev.filter((r) => idOf(r) !== id))
     } catch {
       toast.error(`Failed to delete ${moduleConfig.name}`)
     } finally {

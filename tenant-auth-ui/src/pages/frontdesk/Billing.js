@@ -31,6 +31,7 @@ import { hasScope } from '../../utils/permissions'
 import CustomerPicker from '../../components/frontdesk/CustomerPicker'
 import CollectFlow from '../../components/frontdesk/CollectFlow'
 import DishPhoto from '../../components/DishPhoto'
+import { subscribe as subscribeQrPending } from '../../services/qrPendingFeed'
 import {
   buildTableRounds, buildRoundIndex, formatRoundTime, itemLabel,
 } from '../../utils/posRounds'
@@ -39,6 +40,8 @@ import { summarizeSession, estimateAfterDiscount, roundPayable } from '../../uti
 const { MAX_LIMIT } = APP_CONFIG.PAGINATION
 // This device's choice of text or picture tiles (localStorage).
 const TILE_VIEW_KEY = 'billing.tileView'
+// How long the cart must sit still before it is priced.
+const QUOTE_DEBOUNCE_MS = 250
 
 // Normalize item-meta price. Prefer the linked CostInfo amount (new normalized
 // model); fall back to the legacy Prices JSON for older records.
@@ -316,7 +319,8 @@ const Billing = () => {
         posService.getFloors({ limit: MAX_LIMIT }),
         // Every page: a menu can be far longer than one page of 100.
         posService.getAllItemMeta(),
-        posService.getOrders({ limit: MAX_LIMIT }),
+        // Live rounds only: closed ones were fetched and then thrown away here.
+        posService.getOrders({ openOnly: true, limit: MAX_LIMIT }),
         posService.getVariants(),
         posService.getKots({ limit: MAX_LIMIT }),
         posService.getPaymentModes(),
@@ -383,6 +387,23 @@ const Billing = () => {
 
   useEffect(() => { load() }, [load])
 
+  // After a till action (order placed, KOT sent, table moved, bill settled or
+  // collected, round deleted) only the LIVE lists change: tables, orders and
+  // kitchen tickets. Reloading the whole till here refetched the menu (every
+  // page of it), variants, add-ons, payment modes and waiters after every tap —
+  // none of which a till action can change.
+  const refreshLive = useCallback(async () => {
+    const [t, orders, k] = (await Promise.allSettled([
+      posService.getTables({ limit: MAX_LIMIT }),
+      // Live rounds only: closed ones were fetched and then thrown away here.
+        posService.getOrders({ openOnly: true, limit: MAX_LIMIT }),
+      posService.getKots({ limit: MAX_LIMIT }),
+    ])).map((r) => (r.status === 'fulfilled' ? r.value : null))
+    if (t) setTables(t)
+    if (Array.isArray(k)) setKots(k)
+    if (orders) setActiveOrders(orders.filter((o) => (o.Status || '').toLowerCase() !== 'closed'))
+  }, [])
+
   // A print that quietly does nothing is indistinguishable from a printer that
   // is switched off, and the cashier reprints instead of investigating. Say it.
   useEffect(() => {
@@ -424,23 +445,16 @@ const Billing = () => {
 
   useEffect(() => {
     if (!canSeeQr) return undefined
-    let alive = true
-    const read = () => Promise.resolve()
-      .then(() => posService.getPendingQrOrders())
-      .then((list) => {
-        if (!alive) return
-        const ids = (Array.isArray(list) ? list : []).map((o) => o.tableId || o.TableId).filter(Boolean)
-        setQrTableIds((prev) => {
-          // Same tables as before: keep the same Set, so the strip does not redraw.
-          if (prev.size === ids.length && ids.every((id) => prev.has(id))) return prev
-          return new Set(ids)
-        })
+    // The same shared poll the QR banner above the till reads — this page
+    // used to run its own, so /billing asked twice every 15 seconds.
+    return subscribeQrPending((list) => {
+      const ids = (Array.isArray(list) ? list : []).map((o) => o.tableId || o.TableId).filter(Boolean)
+      setQrTableIds((prev) => {
+        // Same tables as before: keep the same Set, so the strip does not redraw.
+        if (prev.size === ids.length && ids.every((id) => prev.has(id))) return prev
+        return new Set(ids)
       })
-      // A missing tag is not worth an error on a till; the QR banner still shows.
-      .catch(() => {})
-    read()
-    const t = setInterval(read, 15000)
-    return () => { alive = false; clearInterval(t) }
+    })
   }, [canSeeQr])
 
   // What every table is doing, for the board and the empty order panel — one
@@ -747,10 +761,16 @@ const Billing = () => {
   // What the cart is priced with: the cashier's own line discounts, plus the
   // campaign ones on every line they did not touch. Mirrors
   // offerEngine.mergeLineDiscounts — manual wins.
+  // The lines last sent for a quote — see the quote effect.
+  const lastQuoteKey = useRef('')
+  // Kept as the SAME object while its contents are the same: a preview that
+  // found no new offer must not look like a change and re-price the cart.
+  const discountsRef = useRef({})
   const effectiveCartDiscounts = useMemo(() => {
     const merged = { ...(cartOffers?.lineDiscounts || {}) }
     Object.entries(lineDiscounts || {}).forEach(([ref, d]) => { merged[ref] = d })
-    return merged
+    if (JSON.stringify(merged) !== JSON.stringify(discountsRef.current)) discountsRef.current = merged
+    return discountsRef.current
   }, [cartOffers, lineDiscounts])
 
   useEffect(() => {
@@ -779,21 +799,31 @@ const Billing = () => {
         discount: effectiveCartDiscounts[c.lineKey] || null,
       }))
 
-    if (lines.length === 0) { setQuote(null); setQuoteFailed(false); return }
+    if (lines.length === 0) { lastQuoteKey.current = ''; setQuote(null); setQuoteFailed(false); return }
+
+    // One request per cart the cashier settles on, not per tap: the offers
+    // preview landing used to rebuild the discounts object and fire a second
+    // quote for an identical cart. Same lines as the last quote → nothing to ask.
+    const key = JSON.stringify(lines)
+    if (key === lastQuoteKey.current) { setQuoting(false); return }
 
     let cancelled = false
     setQuoting(true)
-    posService
-      .quotePricing(lines)
-      .then((res) => { if (!cancelled) { setQuote(res); setQuoteFailed(false) } })
-      // A failed quote must not block order taking — fall back to showing the
-      // untaxed subtotal rather than wedging the till. It IS flagged though:
-      // the order the server saves still carries correct tax, so a silent
-      // fallback showed the cashier one total and charged another.
-      .catch(() => { if (!cancelled) { setQuote(null); setQuoteFailed(true) } })
-      .finally(() => { if (!cancelled) setQuoting(false) })
+    const timer = setTimeout(() => {
+      posService
+        .quotePricing(lines)
+        // Remembered only once its answer is on screen, so a quote cancelled
+        // mid-flight is asked again rather than skipped.
+        .then((res) => { if (!cancelled) { lastQuoteKey.current = key; setQuote(res); setQuoteFailed(false) } })
+        // A failed quote must not block order taking — fall back to showing the
+        // untaxed subtotal rather than wedging the till. It IS flagged though:
+        // the order the server saves still carries correct tax, so a silent
+        // fallback showed the cashier one total and charged another.
+        .catch(() => { if (!cancelled) { setQuote(null); setQuoteFailed(true) } })
+        .finally(() => { if (!cancelled) setQuoting(false) })
+    }, QUOTE_DEBOUNCE_MS)
 
-    return () => { cancelled = true }
+    return () => { cancelled = true; clearTimeout(timer) }
   }, [cartItems, effectiveCartDiscounts])
 
   const taxAmount  = quote ? Number(quote.totals.taxAmount) : 0
@@ -1471,7 +1501,7 @@ const Billing = () => {
       setDeleteTarget(null)
       if (lastRound) setSelectedTable('')
       else if (selectedOrderId === deleteTarget.orderId) setSelectedOrderId(null)
-      await load()
+      await refreshLive()
     } catch (e) {
       toast.error(e?.response?.data?.message || 'Failed to delete round')
     } finally {
@@ -1518,7 +1548,7 @@ const Billing = () => {
       setCustomer(null)
       resetKitchenNotes()
       setSelectedOrderId(orderId)
-      await load()
+      await refreshLive()
       // The round is the record now; the draft has done its job.
       if (isFirst) setServiceDraft({ guests: null, waiterId: null })
     } catch (e) {
@@ -1577,7 +1607,7 @@ const Billing = () => {
       setCustomer(null)
       resetKitchenNotes()
       setCounterOrderId(orderId)
-      await load()
+      await refreshLive()
       setSettleOpen(true)
     } catch (e) {
       toast.error(e?.response?.data?.message || 'Failed to place the counter order')
@@ -1591,7 +1621,7 @@ const Billing = () => {
     try {
       await posService.transferOrder(undo)
       toast.success('Transfer undone')
-      await load()
+      await refreshLive()
     } catch (e) {
       toast.error(e?.response?.data?.message || 'Could not undo the transfer')
     }
@@ -1616,7 +1646,7 @@ const Billing = () => {
       if (payload.scope === 'orders' && payload.orderIds?.length === sessionRounds.length) {
         setSelectedTable('')
       }
-      await load()
+      await refreshLive()
     } catch (e) {
       toast.error(e?.response?.data?.message || 'Failed to transfer')
     } finally {
@@ -1651,7 +1681,7 @@ const Billing = () => {
           }))
         }
       }
-      load()
+      refreshLive()
     } catch (e) {
       toast.error(e?.response?.data?.message || 'Failed to send to the kitchen')
     }
@@ -1918,7 +1948,7 @@ const Billing = () => {
       setSelectedOrderId(null)
       setSelectedTable('')
       setCounterOrderId(null)
-      await load()
+      await refreshLive()
     } catch (e) {
       toast.error(e?.response?.data?.message || 'Failed to settle bill')
     } finally {
@@ -3429,7 +3459,7 @@ const Billing = () => {
       <CollectFlow
         doc={collectNow}
         onClose={() => setCollectNow(null)}
-        onChanged={() => { setSettledInvoice(null); load() }}
+        onChanged={() => { setSettledInvoice(null); refreshLive() }}
       />
 
       {/* Settle Bill modal */}
